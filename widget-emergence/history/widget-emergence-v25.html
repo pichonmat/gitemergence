@@ -1,0 +1,607 @@
+<!-- Widget Emergence — v25 -->
+<div id="zone-liste-complete">
+  <div class="barre-filtres">
+    <button id="btn-creer-demande" type="button" class="btn-creer-demande">+ Nouvelle demande</button>
+
+    <div class="filtre-multi-conteneur">
+      <button type="button" id="btn-filtre-statut" class="btn-filtre-multi">Statut ▾</button>
+      <div class="popup-filtre-multi" id="popup-filtre-statut" style="display:none;"></div>
+    </div>
+
+    <select id="filtre-typologie">
+      <option value="">Toutes les typologies</option>
+    </select>
+    <select id="filtre-organisation">
+      <option value="">Toutes les organisations</option>
+    </select>
+    <input type="text" id="filtre-partie-prenante" list="datalist-filtre-pp" placeholder="Filtrer par partie prenante...">
+    <datalist id="datalist-filtre-pp"></datalist>
+    <button id="btn-reset-filtres" title="Réinitialiser les filtres">✕ Réinitialiser</button>
+    <button id="btn-supprimer-demande" type="button" class="btn-supprimer-demande" title="Supprimer la fiche sélectionnée">🗑 Supprimer la fiche</button>
+  </div>
+
+  <div class="conteneur-liste" id="conteneur-liste" style="height: 260px;">
+    <table id="table-liste">
+      <thead>
+        <tr>
+          <th data-col="Statut">Statut <span class="fleche"></span><span class="poignee"></span></th>
+          <th data-col="Date_de_soumission">Date de s... <span class="fleche"></span><span class="poignee"></span></th>
+          <th data-col="Organisation">Organisation <span class="fleche"></span><span class="poignee"></span></th>
+          <th data-col="Sponsor">Sponsor <span class="fleche"></span><span class="poignee"></span></th>
+          <th data-col="Porteurs">Porteur <span class="fleche"></span><span class="poignee"></span></th>
+          <th data-col="Titre">Titre <span class="fleche"></span><span class="poignee"></span></th>
+          <th data-col="Typologie_de_la_demande">Typologie de la demande <span class="fleche"></span><span class="poignee"></span></th>
+          <th data-col="Parties_prenantes_concernees">Parties prenantes <span class="fleche"></span><span class="poignee"></span></th>
+        </tr>
+      </thead>
+      <tbody id="corps-tableau">
+        <tr><td colspan="8" class="chargement">Chargement...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="barre-redimension" id="barre-redimension">
+  <div class="barre-glisser" data-cote="gauche"></div>
+  <button class="poignee-redimension" id="poignee-toggle" type="button" title="Cliquer pour masquer/afficher la liste">
+    <span id="poignee-icone" class="fleche-plate">▲</span>
+  </button>
+  <div class="barre-glisser" data-cote="droite"></div>
+</div>
+
+<div id="fiche-container"></div>
+
+<!-- Modale : gérer la liste complète des acteurs -->
+<div class="modale-fond" id="modale-acteurs-fond" style="display:none;">
+  <div class="modale-boite modale-boite-large">
+    <div class="modale-titre">Gérer les acteurs</div>
+    <div class="barre-recherche-acteurs">
+      <input type="text" id="recherche-acteur-nom" placeholder="Rechercher un nom, prénom...">
+      <input type="text" id="recherche-acteur-organisation" placeholder="Rechercher une organisation...">
+    </div>
+    <div class="modale-acteurs-tableau-conteneur">
+      <table class="tableau-fiche tableau-rida-editable">
+        <thead>
+          <tr>
+            <th data-col-acteur="Nom_et_Prenom" class="rida-th-triable">Nom et prénom <span class="fleche-rida"></span></th>
+            <th data-col-acteur="Organisation" class="rida-th-triable">Organisation <span class="fleche-rida"></span></th>
+            <th>Organisation Path</th><th>Rôle</th><th>Mail</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody-gestion-acteurs"></tbody>
+      </table>
+    </div>
+    <button type="button" id="btn-ajouter-acteur-gestion" class="btn-ajouter-rida">+ Ajouter un acteur</button>
+    <div class="modale-msg" id="modale-acteurs-msg"></div>
+    <div class="modale-actions">
+      <button type="button" id="modale-acteurs-fermer" class="btn-secondaire">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale : créer un nouvel acteur -->
+<div class="modale-fond" id="modale-acteur-fond" style="display:none;">
+  <div class="modale-boite">
+    <div class="modale-titre">Créer un nouvel acteur</div>
+    <div class="modale-champ">
+      <label>Nom et prénom</label>
+      <input type="text" id="modale-acteur-nom">
+    </div>
+    <div class="modale-champ">
+      <label>Organisation</label>
+      <input type="text" id="modale-acteur-organisation">
+    </div>
+    <div class="modale-champ">
+      <label>Organisation Path</label>
+      <input type="text" id="modale-acteur-organisation-path">
+    </div>
+    <div class="modale-champ">
+      <label>Rôle</label>
+      <input type="text" id="modale-acteur-role">
+    </div>
+    <div class="modale-champ">
+      <label>Mail</label>
+      <input type="text" id="modale-acteur-mail">
+    </div>
+    <div class="modale-msg" id="modale-acteur-msg"></div>
+    <div class="modale-actions">
+      <button type="button" id="modale-acteur-annuler" class="btn-secondaire">Annuler</button>
+      <button type="button" id="modale-acteur-valider" class="btn-principal">Créer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale : confirmer la suppression de la fiche -->
+<div class="modale-fond" id="modale-suppr-fond" style="display:none;">
+  <div class="modale-boite">
+    <div class="modale-titre">Supprimer la demande</div>
+    <div class="modale-champ">
+      <span id="modale-suppr-texte">Voulez-vous vraiment supprimer cette fiche ? Cette action est irréversible.</span>
+    </div>
+    <div class="modale-msg" id="modale-suppr-msg"></div>
+    <div class="modale-actions">
+      <button type="button" id="modale-suppr-annuler" class="btn-secondaire">Annuler</button>
+      <button type="button" id="modale-suppr-valider" class="btn-danger">Supprimer</button>
+    </div>
+  </div>
+</div>
+<div class="modale-fond" id="modale-pj-fond" style="display:none;">
+  <div class="modale-boite">
+    <div class="modale-titre">Ajouter une pièce jointe</div>
+    <div class="modale-champ">
+      <label>Titre</label>
+      <input type="text" id="modale-pj-titre">
+    </div>
+    <div class="modale-champ">
+      <label>Fichier</label>
+      <input type="file" id="modale-pj-fichier">
+    </div>
+    <div class="modale-msg" id="modale-pj-msg"></div>
+    <div class="modale-actions">
+      <button type="button" id="modale-pj-annuler" class="btn-secondaire">Annuler</button>
+      <button type="button" id="modale-pj-valider" class="btn-principal">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  :root {
+    --border: #e0e0e0;
+    --header-bg: #1f2937;
+    --header-text: #ffffff;
+    --row-hover: #f0f4ff;
+    --row-selected: #dbe6ff;
+    --row-selected-border: #3b5bdb;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #ffffff;
+    color: #1f2937;
+    font-size: 13px;
+  }
+
+  .barre-filtres {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 8px; flex-wrap: wrap;
+  }
+  .barre-filtres select,
+  .barre-filtres input[type="text"] {
+    font-size: 12px; padding: 5px 8px; border: 1px solid #ccc; border-radius: 6px;
+    background: #fff; max-width: 200px;
+  }
+  .barre-filtres select { cursor: pointer; }
+  .barre-filtres button {
+    font-size: 12px; padding: 5px 10px; border: 1px solid #ccc; border-radius: 6px;
+    background: #f5f5f5; cursor: pointer;
+  }
+  .barre-filtres button:hover { background: #eee; }
+
+  .btn-creer-demande {
+    font-size: 12px; padding: 5px 12px; border: 1px solid #3b5bdb;
+    background: #3b5bdb; color: #fff; border-radius: 6px; cursor: pointer; font-weight: 600;
+  }
+  .btn-creer-demande:hover { background: #2f49b0; }
+  .btn-creer-demande:disabled { opacity: 0.6; cursor: default; }
+
+  .btn-supprimer-demande {
+    margin-left: auto;
+    font-size: 12px; padding: 5px 10px; border: 1px solid #cc4444;
+    background: #fff0f0; color: #b03030; border-radius: 6px; cursor: pointer;
+  }
+  .btn-supprimer-demande:hover { background: #ffe0e0; }
+  .btn-supprimer-demande:disabled { opacity: 0.6; cursor: default; }
+
+  .filtre-multi-conteneur { position: relative; }
+  .btn-filtre-multi {
+    font-size: 12px; padding: 5px 8px; border: 1px solid #ccc; border-radius: 6px;
+    background: #fff; cursor: pointer;
+  }
+  .btn-filtre-multi:hover { background: #f5f5f5; }
+  .popup-filtre-multi {
+    position: absolute; top: calc(100% + 4px); left: 0; z-index: 20;
+    background: #fff; border: 1px solid #ccc; border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+    padding: 8px 10px; min-width: 170px;
+  }
+  .popup-filtre-multi label {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; padding: 3px 0; cursor: pointer; white-space: nowrap;
+  }
+
+  #zone-liste-complete { margin-bottom: 0; }
+
+  .conteneur-liste {
+    height: 260px;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .barre-redimension {
+    display: flex;
+    align-items: center;
+    height: 18px;
+    margin: 2px 0 10px;
+    user-select: none;
+  }
+  .barre-glisser {
+    flex: 1 1 auto;
+    height: 100%;
+    cursor: row-resize;
+    position: relative;
+  }
+  .barre-glisser::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 50%;
+    height: 1px;
+    background: #ddd;
+    transform: translateY(-50%);
+  }
+  .poignee-redimension {
+    flex: 0 0 auto;
+    position: relative;
+    z-index: 1;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    padding: 2px 14px;
+    cursor: pointer;
+    color: #888;
+    font-family: inherit;
+  }
+  .poignee-redimension:hover { background: #f0f0f0; color: #333; border-color: #bbb; }
+  .fleche-plate {
+    display: inline-block;
+    font-size: 13px;
+    line-height: 1;
+    transform: scaleY(0.45);
+  }
+  table {
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  thead th {
+    position: sticky; top: 0;
+    background: var(--header-bg); color: var(--header-text);
+    text-align: left; padding: 8px 14px 8px 10px; font-size: 12px; font-weight: 600;
+    cursor: pointer; user-select: none; white-space: nowrap; z-index: 1;
+    overflow: hidden; text-overflow: ellipsis;
+    position: relative;
+    box-sizing: border-box;
+  }
+  thead th:hover { background: #374151; }
+  thead th .fleche { font-size: 10px; margin-left: 4px; opacity: 0.7; }
+  .poignee {
+    position: absolute; top: 0; right: 0; width: 10px; height: 100%;
+    cursor: col-resize; z-index: 5; touch-action: none;
+  }
+  .poignee:hover, .poignee.active-resize { background: rgba(255,255,255,0.35); }
+  tbody td {
+    padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    box-sizing: border-box;
+  }
+  tbody tr { cursor: pointer; transition: background 0.1s; }
+  tbody tr:hover { background: var(--row-hover); }
+  tbody tr.selectionnee { background: var(--row-selected); box-shadow: inset 3px 0 0 var(--row-selected-border); }
+  .badge-statut { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .chargement { padding: 20px; text-align: center; color: #888; }
+
+  /* --- Fiche --- */
+  .bandeau {
+    background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 8px;
+    margin-bottom: 10px;
+  }
+  .bandeau-entete {
+    padding: 8px 12px; border-bottom: 1px solid #e0e0e0;
+  }
+  .bandeau-titre { font-size: 24px; font-weight: bold; color: #1a3a6b; }
+  .bandeau-corps { display: grid; grid-template-columns: 3fr 1fr; }
+  .zone { display: grid; gap: 10px; padding: 6px 12px; border-bottom: 1px solid #e0e0e0; }
+  .zone:last-child { border-bottom: none; }
+  .champ-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
+  .champ-valeur { font-size: 13px; color: #222; line-height: 1.3; }
+  .col-droite { padding: 6px 12px; border-left: 1px solid #e0e0e0; display: flex; flex-direction: column; }
+  .col-droite-entete { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .btn-icone-gestion {
+    border: none; background: transparent; cursor: pointer; font-size: 14px;
+    padding: 0 2px; line-height: 1;
+  }
+  .btn-icone-gestion:hover { opacity: 0.65; }
+  .boite-grise {
+    border: 1px solid #ccc; background: #f0f0f0; border-radius: 4px;
+    padding: 6px 10px; max-height: 200px; overflow-y: auto; font-size: 13px;
+  }
+  .boite-grise.cliquable { cursor: pointer; }
+  .boite-grise.cliquable:hover { background: #e8e8e8; border-color: #bbb; }
+
+  /* --- Champs éditables compacts (une ligne) dans le bandeau --- */
+  .champ-editable-inline input[type="text"],
+  .champ-editable-inline select {
+    width: 100%;
+    font-family: inherit;
+    font-size: 13px;
+    color: #222;
+    padding: 3px 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    background: #fff;
+  }
+  .champ-editable-inline input[type="text"]:focus,
+  .champ-editable-inline select:focus {
+    border-color: #3b5bdb;
+    outline: none;
+  }
+  .champ-editable-inline .msg-sauvegarde {
+    display: block;
+    margin-left: 0;
+    margin-top: 2px;
+  }
+  .champ-titre-editable input[type="text"] {
+    width: 100%;
+    font-size: 22px;
+    font-weight: bold;
+    color: #1a3a6b;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-family: inherit;
+    background: transparent;
+  }
+  .champ-titre-editable input[type="text"]:hover { border-color: #ddd; background: #fff; }
+  .champ-titre-editable input[type="text"]:focus { border-color: #3b5bdb; background: #fff; outline: none; }
+  .champ-avec-effacer {
+    display: flex; gap: 4px; align-items: center;
+  }
+  .champ-avec-effacer input[type="text"] {
+    flex: 1 1 auto; min-width: 0;
+  }
+  .champ-avec-effacer button {
+    flex: 0 0 auto;
+    font-size: 12px; padding: 3px 8px; border: 1px solid #ccc;
+    background: #f5f5f5; color: #555; border-radius: 4px; cursor: pointer;
+  }
+  .champ-avec-effacer button:hover { background: #eee; color: #b03030; }
+
+  /* --- Champ éditable multi-ligne (Objet, Détail, Main courante) --- */
+  .champ-editable textarea {
+    width: 100%;
+    font-family: inherit;
+    font-size: 13px;
+    color: #222;
+    line-height: 1.3;
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    resize: vertical;
+    min-height: 50px;
+    box-sizing: border-box;
+    background: #fff;
+  }
+  .champ-editable textarea.textarea-longue { min-height: 130px; }
+  .champ-editable textarea.textarea-pleine-hauteur { height: calc(100vh - 380px); min-height: 200px; }
+  .boite-grise.boite-pleine-hauteur { height: calc(100vh - 380px); max-height: none; }
+  .champ-editable textarea:focus {
+    border-color: #3b5bdb;
+    outline: none;
+  }
+  .btn-sauver-objet {
+    display: none;
+    margin-top: 4px;
+    font-size: 11px;
+    padding: 3px 10px;
+    border: 1px solid #3b5bdb;
+    background: #3b5bdb;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .btn-sauver-objet.visible { display: inline-block; }
+  .btn-sauver-objet:disabled { opacity: 0.6; cursor: default; }
+  .msg-sauvegarde {
+    font-size: 10px;
+    margin-left: 6px;
+    color: #2a7a2a;
+  }
+  .msg-sauvegarde.erreur { color: #b03030; }
+
+  /* --- Champ markdown : vue rendue + bascule édition --- */
+  .markdown-vue { margin-bottom: 2px; }
+  .markdown-edition { margin-top: 2px; }
+  .btn-modifier {
+    margin-top: 4px;
+    font-size: 11px;
+    padding: 2px 9px;
+    border: 1px solid #ccc;
+    background: #f5f5f5;
+    color: #555;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn-modifier:hover { background: #eee; color: #333; }
+  .btn-annuler-mini {
+    font-size: 11px;
+    padding: 3px 10px;
+    border: 1px solid #ccc;
+    background: #f5f5f5;
+    color: #555;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 4px;
+    font-family: inherit;
+  }
+  .btn-annuler-mini:hover { background: #eee; }
+
+  /* --- Parties prenantes (puces éditables) --- */
+  .chips-conteneur {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start; /* empêche les lignes de s'étirer sur toute la hauteur */
+    align-items: flex-start;   /* empêche chaque puce de s'étirer sur toute la hauteur */
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #e8edfb; color: #2b3f8c; border: 1px solid #c6d0f5;
+    border-radius: 12px; padding: 2px 6px 2px 10px; font-size: 12px;
+    line-height: 1.6;
+    max-width: 100%;
+    flex: 0 0 auto;
+  }
+  .chip-texte {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 220px;
+  }
+  .chip-retirer {
+    cursor: pointer; border: none; background: transparent; color: #6674a8;
+    font-size: 13px; line-height: 1; padding: 0 2px; border-radius: 50%;
+    flex: 0 0 auto;
+  }
+  .chip-retirer:hover { color: #b03030; background: #fff; }
+  .ajout-pp-conteneur {
+    display: flex; gap: 4px; margin-bottom: 4px;
+  }
+  .ajout-pp-conteneur input[type="text"] {
+    flex: 1 1 auto; font-size: 12px; padding: 4px 6px; border: 1px solid #ccc;
+    border-radius: 6px; background: #fff; min-width: 0;
+  }
+  .ajout-pp-conteneur input[type="text"]:focus { border-color: #3b5bdb; outline: none; }
+  .ajout-pp-conteneur button {
+    font-size: 12px; padding: 4px 10px; border: 1px solid #3b5bdb;
+    background: #3b5bdb; color: white; border-radius: 6px; cursor: pointer;
+  }
+  .ajout-pp-conteneur button:hover { background: #2f49b0; }
+  .pp-vide { color: #bbb; font-size: 12px; margin-bottom: 8px; }
+
+  .tabbar { display: flex; gap: 2px; border-bottom: 1px solid #ccc; }
+  .tab-btn {
+    cursor: pointer; padding: 6px 14px; font-size: 12px; color: #555;
+    background: #f0f0f0; border: none; border-bottom: 2px solid transparent;
+  }
+  .tab-btn.active { background: #fff; border-bottom: 2px solid #333; font-weight: bold; }
+  .tab-panel { display: none; padding: 10px 4px; }
+  .tab-panel.active { display: block; }
+
+  table.tableau-fiche { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
+  table.tableau-fiche th { text-align: left; padding: 4px 8px; border-bottom: 2px solid #ccc; white-space: normal; }
+  table.tableau-fiche th.rida-th-triable { cursor: pointer; user-select: none; }
+  table.tableau-fiche th.rida-th-triable:hover { background: #f0f0f0; }
+  .fleche-rida { font-size: 9px; margin-left: 3px; opacity: 0.7; }
+  table.tableau-fiche td { padding: 4px 8px; border-bottom: 1px solid #eee; white-space: normal; vertical-align: top; }
+  ul.liste-champs { margin: 4px 0; padding-left: 18px; }
+
+  /* --- RIDA éditable --- */
+  .tableau-rida-editable input[type="text"],
+  .tableau-rida-editable input[type="date"],
+  .tableau-rida-editable select,
+  .tableau-rida-editable textarea {
+    width: 100%;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 3px 5px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    box-sizing: border-box;
+    background: #fff;
+  }
+  .tableau-rida-editable textarea.rida-description {
+    resize: vertical;
+    min-height: 22px;
+    height: 22px;
+    line-height: 1.3;
+    overflow-y: hidden;
+    display: block;
+  }
+  .tableau-rida-editable input:focus,
+  .tableau-rida-editable select:focus,
+  .tableau-rida-editable textarea:focus {
+    border-color: #3b5bdb;
+    outline: none;
+  }
+  .rida-actions { white-space: nowrap; text-align: center; }
+  .btn-rida-save {
+    font-size: 11px; padding: 3px 8px; border: 1px solid #3b5bdb;
+    background: #3b5bdb; color: white; border-radius: 4px; cursor: pointer;
+    margin-right: 4px;
+  }
+  .btn-rida-save:disabled { opacity: 0.6; cursor: default; }
+  .btn-rida-delete {
+    font-size: 12px; padding: 3px 7px; border: 1px solid #cc4444;
+    background: #fff0f0; color: #b03030; border-radius: 4px; cursor: pointer;
+  }
+  .btn-rida-delete:hover { background: #ffe0e0; }
+  .btn-ajouter-rida {
+    margin-top: 8px;
+    font-size: 12px;
+    padding: 6px 12px;
+    border: 1px solid #3b5bdb;
+    background: #fff;
+    color: #3b5bdb;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .btn-ajouter-rida:hover { background: #eef1ff; }
+  .btn-ajouter-rida:disabled { opacity: 0.6; cursor: default; }
+
+  /* --- Boutons "+" pour créer un nouvel acteur --- */
+  .champ-avec-effacer button,
+  .ajout-pp-conteneur button {
+    flex: 0 0 auto;
+  }
+
+  /* --- Modales --- */
+  .modale-fond {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+    display: flex; align-items: center; justify-content: center; z-index: 1000;
+  }
+  .modale-boite {
+    background: #fff; border-radius: 8px; padding: 18px 20px; width: 320px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+  }
+  .modale-boite-large {
+    width: 95vw; height: 90vh; max-width: none; max-height: none;
+    display: flex; flex-direction: column;
+  }
+  .modale-acteurs-tableau-conteneur {
+    flex: 1 1 auto; overflow-y: auto; margin-bottom: 10px;
+  }
+  .barre-recherche-acteurs { display: flex; gap: 8px; margin-bottom: 8px; }
+  .barre-recherche-acteurs input[type="text"] {
+    flex: 1 1 auto; font-size: 12px; padding: 5px 7px; border: 1px solid #ccc;
+    border-radius: 4px; font-family: inherit;
+  }
+  .barre-recherche-acteurs input[type="text"]:focus { border-color: #3b5bdb; outline: none; }
+  .modale-titre { font-size: 15px; font-weight: 600; margin-bottom: 14px; color: #1a3a6b; }
+  .modale-champ { margin-bottom: 10px; display: flex; flex-direction: column; gap: 3px; }
+  .modale-champ label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.3px; }
+  .modale-champ input[type="text"],
+  .modale-champ input[type="file"] {
+    font-size: 13px; padding: 5px 7px; border: 1px solid #ccc; border-radius: 4px;
+    font-family: inherit;
+  }
+  .modale-msg { font-size: 11px; color: #b03030; min-height: 14px; margin-bottom: 6px; }
+  .modale-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .btn-secondaire {
+    font-size: 12px; padding: 6px 12px; border: 1px solid #ccc;
+    background: #f5f5f5; border-radius: 6px; cursor: pointer;
+  }
+  .btn-secondaire:hover { background: #eee; }
+  .btn-principal {
+    font-size: 12px; padding: 6px 14px; border: 1px solid #3b5bdb;
+    background: #3b5bdb; color: #fff; border-radius: 6px; cursor: pointer;
+  }
+  .btn-principal:hover { background: #2f49b0; }
+  .btn-principal:disabled { opacity: 0.6; cursor: default; }
+  .btn-danger {
+    font-size: 12px; padding: 6px 14px; border: 1px solid #cc4444;
+    background: #cc4444; color: #fff; border-radius: 6px; cursor: pointer;
+  }
+  .btn-danger:hover { background: #b03030; }
+  .btn-danger:disabled { opacity: 0.6; cursor: default; }
+</style>

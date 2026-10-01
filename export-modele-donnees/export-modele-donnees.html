@@ -1,0 +1,112 @@
+<div class="conteneur">
+  <p class="intro">
+    Cet outil lit le schéma du document Grist (tables, colonnes, types, formules,
+    choix, références) et génère un fichier Markdown téléchargeable, pour les tables
+    que tu sélectionnes ci-dessous.
+  </p>
+
+  <div id="statut-chargement" class="statut">Chargement de la liste des tables...</div>
+
+  <div id="zone-tables" style="display:none;">
+    <div class="barre-actions-tables">
+      <button id="btn-tout-selectionner" class="btn-lien" type="button">Tout sélectionner</button>
+      <span class="separateur">·</span>
+      <button id="btn-tout-deselectionner" class="btn-lien" type="button">Tout désélectionner</button>
+    </div>
+    <div id="liste-tables" class="liste-tables"></div>
+  </div>
+
+  <button id="btn-generer" class="btn-principal" style="display:none;" disabled>
+    📄 Générer le modèle de données (.md)
+  </button>
+  <div id="statut" class="statut"></div>
+
+  <div class="apercu-conteneur" id="apercu-conteneur" style="display:none;">
+    <div class="apercu-label">Aperçu (copiable si le téléchargement ne se déclenche pas) :</div>
+    <textarea id="apercu-md" readonly></textarea>
+  </div>
+</div>
+
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    font-size: 13px;
+    color: #1f2937;
+    padding: 16px;
+  }
+  .conteneur { max-width: 700px; }
+  .intro { color: #555; margin-bottom: 14px; line-height: 1.5; }
+
+  .barre-actions-tables {
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+  .btn-lien {
+    background: none; border: none; padding: 0; color: #3b5bdb;
+    cursor: pointer; font-size: 12px; text-decoration: underline;
+  }
+  .btn-lien:hover { color: #2f49b0; }
+  .separateur { color: #ccc; margin: 0 6px; }
+
+  .liste-tables {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 14px;
+    background: #fafafa;
+  }
+  .ligne-table-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    padding: 3px 0;
+  }
+  .ligne-table-checkbox input[type="checkbox"] {
+    cursor: pointer;
+  }
+  .ligne-table-checkbox label {
+    cursor: pointer;
+  }
+  .nb-colonnes {
+    color: #999;
+    font-size: 11px;
+  }
+
+  .btn-principal {
+    font-size: 13px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 6px;
+    background: #3b5bdb;
+    color: white;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .btn-principal:hover { background: #2f49b0; }
+  .btn-principal:disabled { opacity: 0.6; cursor: default; }
+
+  .statut { margin-top: 10px; font-size: 12px; color: #2a7a2a; }
+  .statut.erreur { color: #b03030; }
+  .statut.neutre { color: #888; }
+
+  .apercu-conteneur { margin-top: 16px; }
+  .apercu-label { font-size: 11px; color: #888; margin-bottom: 4px; text-transform: uppercase; }
+  #apercu-md {
+    width: 100%;
+    height: 320px;
+    font-family: "Courier New", monospace;
+    font-size: 11px;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #f9f9f9;
+    resize: vertical;
+  }
+</style>

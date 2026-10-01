@@ -1,0 +1,528 @@
+// --- Configuration ---
+const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
+const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
+const TABLE_PRINCIPALE = "Emergence";
+const TABLE_ACTEURS = "Emergence_Acteurs";
+const TABLE_PJ = "Emergence_PJ";
+const TABLE_RIDA = "Emergence_Rida";
+
+const COULEURS_STATUT = {
+  "0-Nouveau":      { fond: "#fff8dc", texte: "#8a6d00" },
+  "1- En cours":    { fond: "#dbeafe", texte: "#1e40af" },
+  "2- En attente":  { fond: "#fde8d6", texte: "#9a4a00" },
+  "3- Clôturé":     { fond: "#e5e7eb", texte: "#374151" },
+  "4- Transféré":   { fond: "#f3e8ff", texte: "#6b21a8" },
+  "5- A qualifier": { fond: "#fee2e2", texte: "#991b1b" }
+};
+
+let largeursColonnes = {
+  "Statut": 110,
+  "Date_de_soumission": 100,
+  "Organisation": 130,
+  "Titre": 300,
+  "Typologie_de_la_demande": 160
+};
+
+const ORDRE_COLONNES = ["Statut", "Date_de_soumission", "Organisation", "Titre", "Typologie_de_la_demande"];
+
+let lignesEmergence = [];
+let acteursParId = {};
+let pjToutes = [];
+let ridaToutes = [];
+let colonneTri = "Date_de_soumission";
+let sensTri = "desc";
+let ligneSelectionneeId = null;
+let filtreStatut = "";
+let filtreTypologie = "";
+let ongletActif = "rida";
+
+grist.ready({ requiredAccess: 'full' });
+
+grist.onRecords(function (records) {
+  lignesEmergence = records;
+  remplirOptionsFiltres();
+  afficherListe();
+  if (ligneSelectionneeId) {
+    const ligne = lignesEmergence.find(l => l.id === ligneSelectionneeId);
+    if (ligne) afficherFiche(ligne);
+  }
+});
+
+grist.onRecord(record => {});
+
+// --- Chargement des tables annexes ---
+async function chargerTablesAnnexes() {
+  try {
+    const acteurs = await grist.docApi.fetchTable(TABLE_ACTEURS);
+    acteursParId = {};
+    const ids = acteurs.id || [];
+    for (let i = 0; i < ids.length; i++) {
+      acteursParId[ids[i]] = {
+        Nom_et_Prenom: acteurs.Nom_et_Prenom ? acteurs.Nom_et_Prenom[i] : "",
+        Organisation_Path: acteurs.Organisation_Path ? acteurs.Organisation_Path[i] : ""
+      };
+    }
+  } catch (e) { console.error("Erreur chargement acteurs :", e); }
+
+  try {
+    const pj = await grist.docApi.fetchTable(TABLE_PJ);
+    pjToutes = tableVersLignes(pj);
+  } catch (e) { console.error("Erreur chargement PJ :", e); }
+
+  try {
+    const rida = await grist.docApi.fetchTable(TABLE_RIDA);
+    ridaToutes = tableVersLignes(rida);
+  } catch (e) { console.error("Erreur chargement RIDA :", e); }
+}
+
+function tableVersLignes(table) {
+  const lignes = [];
+  const ids = table.id || [];
+  for (let i = 0; i < ids.length; i++) {
+    const ligne = { id: ids[i] };
+    for (const cle in table) {
+      if (cle === "id") continue;
+      ligne[cle] = table[cle][i];
+    }
+    lignes.push(ligne);
+  }
+  return lignes;
+}
+
+// --- Utilitaires ---
+function idDepuisRef(valeur) {
+  if (Array.isArray(valeur)) {
+    return valeur.length > 1 ? valeur[1] : null;
+  }
+  return valeur;
+}
+
+function refListVersIds(valeur) {
+  if (!valeur) return [];
+  if (Array.isArray(valeur)) {
+    return valeur[0] === "L" ? valeur.slice(1) : valeur;
+  }
+  return [valeur];
+}
+
+function nomActeurParId(id) {
+  const a = acteursParId[id];
+  if (!a) return "";
+  return a.Nom_et_Prenom || "";
+}
+
+function ligneActeur(id) {
+  const a = acteursParId[id];
+  if (!a) return "—";
+  const nom = a.Nom_et_Prenom || "—";
+  return a.Organisation_Path ? nom + " (" + a.Organisation_Path + ")" : nom;
+}
+
+function lignesActeurs(valeur) {
+  const ids = refListVersIds(valeur);
+  if (ids.length === 0) return "";
+  return ids.map(ligneActeur).join("<br>");
+}
+
+function nomActeur(valeur) {
+  const ids = refListVersIds(valeur);
+  if (ids.length === 0) return "";
+  return ids.map(nomActeurParId).filter(Boolean).join(", ");
+}
+
+function markdownToHtml(texte) {
+  if (!texte) return "";
+  let txt = String(texte)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  txt = txt.replace(/^###\s+(.+)$/gm, "<u><b>$1</b></u>");
+  txt = txt.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+  txt = txt.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<i>$1</i>");
+  txt = txt.replace(/\[(.+?)\]\((.+?)\)/g, "<a href='$2' target='_blank'>$1</a>");
+
+  const lignes = txt.split("\n");
+  let html = "";
+  let dansListe = false;
+  for (const ligne of lignes) {
+    if (/^\s*[-*]\s+/.test(ligne)) {
+      if (!dansListe) { html += "<ul>"; dansListe = true; }
+      html += "<li>" + ligne.replace(/^\s*[-*]\s+/, "") + "</li>";
+    } else {
+      if (dansListe) { html += "</ul>"; dansListe = false; }
+      if (ligne.trim()) html += ligne + "<br>";
+    }
+  }
+  if (dansListe) html += "</ul>";
+  return html;
+}
+
+function formaterDate(valeur) {
+  if (!valeur) return "";
+  if (typeof valeur === "number") {
+    const d = new Date(valeur * 1000);
+    return String(d.getDate()).padStart(2, "0") + "-" +
+           String(d.getMonth() + 1).padStart(2, "0") + "-" + d.getFullYear();
+  }
+  return String(valeur);
+}
+
+function badgeStatut(statut) {
+  const c = COULEURS_STATUT[statut] || { fond: "#f3f4f6", texte: "#374151" };
+  return "<span class='badge-statut' style='background:" + c.fond + "; color:" + c.texte + ";'>" + (statut || "—") + "</span>";
+}
+
+function valeurOuTiret(v) {
+  return v ? String(v) : "<span style='color:#bbb;'>—</span>";
+}
+
+// --- Filtres ---
+function remplirOptionsFiltres() {
+  const statuts = [...new Set(lignesEmergence.map(l => l.Statut).filter(Boolean))].sort();
+  const typologies = [...new Set(lignesEmergence.map(l => l.Typologie_de_la_demande).filter(Boolean))].sort();
+
+  const selStatut = document.getElementById("filtre-statut");
+  const selTypologie = document.getElementById("filtre-typologie");
+
+  const valeurActuelleStatut = selStatut.value;
+  const valeurActuelleTypologie = selTypologie.value;
+
+  selStatut.innerHTML = "<option value=''>Tous les statuts</option>" +
+    statuts.map(s => "<option value=\"" + s + "\">" + s + "</option>").join("");
+  selTypologie.innerHTML = "<option value=''>Toutes les typologies</option>" +
+    typologies.map(t => "<option value=\"" + t + "\">" + t + "</option>").join("");
+
+  if (statuts.includes(valeurActuelleStatut)) selStatut.value = valeurActuelleStatut;
+  if (typologies.includes(valeurActuelleTypologie)) selTypologie.value = valeurActuelleTypologie;
+}
+
+document.getElementById("filtre-statut").addEventListener("change", (e) => {
+  filtreStatut = e.target.value;
+  afficherListe();
+});
+
+document.getElementById("filtre-typologie").addEventListener("change", (e) => {
+  filtreTypologie = e.target.value;
+  afficherListe();
+});
+
+document.getElementById("btn-reset-filtres").addEventListener("click", () => {
+  filtreStatut = "";
+  filtreTypologie = "";
+  document.getElementById("filtre-statut").value = "";
+  document.getElementById("filtre-typologie").value = "";
+  afficherListe();
+});
+
+function appliquerFiltres(lignes) {
+  return lignes.filter(l => {
+    if (filtreStatut && l.Statut !== filtreStatut) return false;
+    if (filtreTypologie && l.Typologie_de_la_demande !== filtreTypologie) return false;
+    return true;
+  });
+}
+
+// --- Liste ---
+function trierLignes(lignes) {
+  const copie = [...lignes];
+  copie.sort((a, b) => {
+    let vA = a[colonneTri], vB = b[colonneTri];
+    if (vA == null) vA = "";
+    if (vB == null) vB = "";
+    if (typeof vA === "number" && typeof vB === "number") return sensTri === "asc" ? vA - vB : vB - vA;
+    vA = String(vA).toLowerCase(); vB = String(vB).toLowerCase();
+    if (vA < vB) return sensTri === "asc" ? -1 : 1;
+    if (vA > vB) return sensTri === "asc" ? 1 : -1;
+    return 0;
+  });
+  return copie;
+}
+
+function appliquerLargeursColonnes() {
+  const table = document.getElementById("table-liste");
+  const ths = table.querySelectorAll("thead th");
+  ths.forEach((th) => {
+    const nomCol = th.getAttribute("data-col");
+    const largeur = largeursColonnes[nomCol];
+    if (largeur) {
+      th.style.width = largeur + "px";
+      th.style.minWidth = largeur + "px";
+      th.style.maxWidth = largeur + "px";
+    }
+  });
+  const lignesTr = table.querySelectorAll("tbody tr");
+  lignesTr.forEach(tr => {
+    const tds = tr.querySelectorAll("td");
+    tds.forEach((td, index) => {
+      const nomCol = ORDRE_COLONNES[index];
+      const largeur = largeursColonnes[nomCol];
+      if (largeur) {
+        td.style.width = largeur + "px";
+        td.style.minWidth = largeur + "px";
+        td.style.maxWidth = largeur + "px";
+      }
+    });
+  });
+}
+
+function afficherListe() {
+  const corps = document.getElementById("corps-tableau");
+  const lignesFiltrees = appliquerFiltres(lignesEmergence);
+  const lignesTriees = trierLignes(lignesFiltrees);
+
+  if (lignesTriees.length === 0) {
+    corps.innerHTML = "<tr><td colspan='5' class='chargement'>Aucune ligne trouvée.</td></tr>";
+    return;
+  }
+  let html = "";
+  for (const ligne of lignesTriees) {
+    const sel = ligne.id === ligneSelectionneeId ? "selectionnee" : "";
+    html += "<tr class='" + sel + "' data-id='" + ligne.id + "'>" +
+      "<td>" + badgeStatut(ligne.Statut) + "</td>" +
+      "<td title='" + (formaterDate(ligne.Date_de_soumission) || "") + "'>" + formaterDate(ligne.Date_de_soumission) + "</td>" +
+      "<td title='" + (ligne.Organisation || "") + "'>" + (ligne.Organisation || "—") + "</td>" +
+      "<td title='" + (ligne.Titre || "") + "'>" + (ligne.Titre || "—") + "</td>" +
+      "<td title='" + (ligne.Typologie_de_la_demande || "") + "'>" + (ligne.Typologie_de_la_demande || "—") + "</td>" +
+      "</tr>";
+  }
+  corps.innerHTML = html;
+  corps.querySelectorAll("tr[data-id]").forEach(tr => {
+    tr.addEventListener("click", () => selectionnerLigne(parseInt(tr.getAttribute("data-id"), 10)));
+  });
+  mettreAJourFleches();
+  appliquerLargeursColonnes();
+}
+
+function selectionnerLigne(id) {
+  ligneSelectionneeId = id;
+  const ligne = lignesEmergence.find(l => l.id === id);
+  grist.setCursorPos({ rowId: id }).catch(() => {});
+  afficherListe();
+  if (ligne) afficherFiche(ligne);
+}
+
+function mettreAJourFleches() {
+  document.querySelectorAll("thead th").forEach(th => {
+    const f = th.querySelector(".fleche");
+    if (!f) return;
+    f.textContent = th.getAttribute("data-col") === colonneTri ? (sensTri === "asc" ? "▲" : "▼") : "";
+  });
+}
+
+document.querySelectorAll("thead th").forEach(th => {
+  th.addEventListener("click", (e) => {
+    if (e.target.classList.contains("poignee") || th.dataset.enTrainDeRedimensionner === "1") return;
+    const col = th.getAttribute("data-col");
+    if (colonneTri === col) sensTri = sensTri === "asc" ? "desc" : "asc";
+    else { colonneTri = col; sensTri = "asc"; }
+    afficherListe();
+  });
+});
+
+// --- Redimensionnement des colonnes ---
+(function initRedimensionnement() {
+  document.querySelectorAll("#table-liste thead .poignee").forEach(poignee => {
+    poignee.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      poignee.setPointerCapture(e.pointerId);
+
+      const th = poignee.closest("th");
+      const colName = th.getAttribute("data-col");
+      const rectTh = th.getBoundingClientRect();
+
+      th.dataset.enTrainDeRedimensionner = "1";
+      poignee.classList.add("active-resize");
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "col-resize";
+
+      function onPointerMove(ev) {
+        const nouvelleLargeur = Math.max(50, Math.round(ev.clientX - rectTh.left));
+        largeursColonnes[colName] = nouvelleLargeur;
+        appliquerLargeursColonnes();
+      }
+
+      function onPointerUp(ev) {
+        poignee.releasePointerCapture(ev.pointerId);
+        poignee.removeEventListener("pointermove", onPointerMove);
+        poignee.removeEventListener("pointerup", onPointerUp);
+        poignee.classList.remove("active-resize");
+        document.body.style.userSelect = "";
+        document.body.style.cursor = "";
+        setTimeout(() => { th.dataset.enTrainDeRedimensionner = "0"; }, 50);
+      }
+
+      poignee.addEventListener("pointermove", onPointerMove);
+      poignee.addEventListener("pointerup", onPointerUp);
+    });
+  });
+})();
+
+// --- Fiche détaillée ---
+function afficherFiche(ligne) {
+  const conteneur = document.getElementById("fiche-container");
+
+  const detailHtml = markdownToHtml(ligne.Detail_de_la_demande) || "<span style='color:#bbb;'>—</span>";
+  const mainCouranteHtml = markdownToHtml(ligne.Main_courante) || "<span style='color:#bbb;'>—</span>";
+  const partiesPrenantesHtml = lignesActeurs(ligne.Parties_prenantes_concernees) || "<span style='color:#bbb;'>—</span>";
+  const sponsorNom = nomActeur(ligne.Sponsor);
+  const porteursNom = nomActeur(ligne.Porteurs);
+
+  const champsRestants = [
+    ["Orientation", ligne.Orientation],
+    ["Lien vers fiche DS", ligne.Lien_vers_fiche_DS],
+    ["Porteurs2", ligne.Porteurs2],
+    ["Vecteur de remontée terrain", ligne.Vecteur_de_remontee_terrain],
+    ["Nom Prénom demandeurs", ligne.Nom_Prenom_demandeurs],
+    ["Territoire", ligne.Territoire],
+    ["Problématique transverse", ligne.Problematique_transverse],
+    ["ID Note", ligne.ID_Note],
+    ["Piste de communs", ligne.Piste_de_communs],
+    ["Périmètre d'impact", ligne.Perimetre_d_impact2],
+    ["Causes racines de l'irritant", ligne.Causes_racines_de_l_irritant],
+    ["Synthèse reformulation", ligne.Synthese_reformulation_de_l_irritant_et_etat_de_son_traitement],
+    ["ID", ligne.ID2],
+    ["Synthèse de la demande", ligne.Synthese_de_la_demande],
+    ["Politique Publique concernée", ligne.Politique_Publique_concernee],
+    ["Contributeurs SDID", ligne.Contributeurs_SDID],
+    ["Organisation Id", ligne.Organisation_Id]
+  ];
+  const listeChamps = champsRestants.map(([label, val]) =>
+    "<li><b>" + label + " :</b> " + valeurOuTiret(val) + "</li>"
+  ).join("");
+
+  const pjLiees = pjToutes.filter(pj => {
+    const refId = idDepuisRef(pj.ID2);
+    return refId === ligne.id || (ligne.ID_Note && refId === ligne.ID_Note);
+  });
+  let pjLignesHtml = "";
+  pjLiees.forEach(pj => {
+    const titre = pj.Titre || "Sans titre";
+    const fichiers = refListVersIds(pj.Lien);
+    if (fichiers.length === 0) {
+      pjLignesHtml += "<tr><td>" + titre + "</td><td>—</td><td>—</td></tr>";
+    } else {
+      fichiers.forEach(attId => {
+        const url = GRIST_BASE_URL + "/api/docs/" + DOC_ID + "/attachments/" + attId + "/download";
+        pjLignesHtml += "<tr><td>" + titre + "</td><td>Fichier " + attId + "</td>" +
+          "<td><a href='" + url + "' target='_blank'>Télécharger</a></td></tr>";
+      });
+    }
+  });
+  const pjContenu = pjLignesHtml
+    ? "<table class='tableau-fiche'><thead><tr><th>Titre</th><th>Fichier</th><th>Lien</th></tr></thead><tbody>" + pjLignesHtml + "</tbody></table>"
+    : "<span style='color:#bbb;'>Aucune pièce jointe trouvée</span>";
+
+  const ridaLies = ridaToutes.filter(r => idDepuisRef(r.ID2) === ligne.id);
+  let ridaLignesHtml = "";
+  ridaLies.forEach(r => {
+    ridaLignesHtml += "<tr>" +
+      "<td>" + valeurOuTiret(r.RIDA) + "</td>" +
+      "<td>" + valeurOuTiret(r.Porteur) + "</td>" +
+      "<td>" + valeurOuTiret(r.Pour_le) + "</td>" +
+      "<td>" + valeurOuTiret(r.Fait_le) + "</td>" +
+      "<td>" + valeurOuTiret(r.Description) + "</td>" +
+      "</tr>";
+  });
+  const ridaContenu = ridaLignesHtml
+    ? "<table class='tableau-fiche'><thead><tr><th>RIDA</th><th>Porteur</th><th>Pour le</th><th>Fait le</th><th>Description</th></tr></thead><tbody>" + ridaLignesHtml + "</tbody></table>"
+    : "<span style='color:#bbb;'>Aucun enregistrement RIDA trouvé</span>";
+
+  conteneur.innerHTML = `
+    <div class="bandeau">
+      <div class="bandeau-entete">
+        <div class="bandeau-titre">${ligne.Titre || ""}</div>
+      </div>
+      <div class="bandeau-corps">
+        <div>
+          <div class="zone" style="grid-template-columns: 1fr;">
+            <div class="champ-editable">
+              <div class="champ-label">Objet de la demande</div>
+              <textarea id="objet-textarea">${ligne.Objet_de_la_demande || ""}</textarea>
+              <button class="btn-sauver-objet" id="btn-sauver-objet">Enregistrer</button>
+              <span class="msg-sauvegarde" id="msg-sauver-objet"></span>
+            </div>
+          </div>
+          <div class="zone" style="grid-template-columns: repeat(3, 1fr);">
+            <div><div class="champ-label">Organisation qui émet la demande</div><div class="champ-valeur">${valeurOuTiret(ligne.Organisation)}</div></div>
+            <div><div class="champ-label">Sponsor</div><div class="champ-valeur">${valeurOuTiret(sponsorNom)}</div></div>
+            <div><div class="champ-label">Porteurs</div><div class="champ-valeur">${valeurOuTiret(porteursNom)}</div></div>
+          </div>
+          <div class="zone" style="grid-template-columns: repeat(4, 1fr); border-bottom:none;">
+            <div><div class="champ-label">Priorité</div><div class="champ-valeur">${valeurOuTiret(ligne.Priorite)}</div></div>
+            <div><div class="champ-label">Statut</div><div class="champ-valeur">${badgeStatut(ligne.Statut)}</div></div>
+            <div><div class="champ-label">Date de soumission</div><div class="champ-valeur">${formaterDate(ligne.Date_de_soumission) || "—"}</div></div>
+            <div><div class="champ-label">Date de cloture</div><div class="champ-valeur">${formaterDate(ligne.Date_de_cloture) || "—"}</div></div>
+          </div>
+        </div>
+        <div class="col-droite">
+          <div class="champ-label">Parties prenantes concernées</div>
+          <div class="champ-valeur">${partiesPrenantesHtml}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabbar">
+      <button class="tab-btn ${ongletActif === 'rida' ? 'active' : ''}" data-tab="rida">RIDA</button>
+      <button class="tab-btn ${ongletActif === 'general' ? 'active' : ''}" data-tab="general">Général</button>
+      <button class="tab-btn ${ongletActif === 'main-courante' ? 'active' : ''}" data-tab="main-courante">Main courante</button>
+      <button class="tab-btn ${ongletActif === 'autres' ? 'active' : ''}" data-tab="autres">Autres champs</button>
+      <button class="tab-btn ${ongletActif === 'pj' ? 'active' : ''}" data-tab="pj">Pièces jointes</button>
+    </div>
+    <div class="tab-panel ${ongletActif === 'rida' ? 'active' : ''}" data-panel="rida">${ridaContenu}</div>
+    <div class="tab-panel ${ongletActif === 'general' ? 'active' : ''}" data-panel="general">
+      <div class="champ-label">Détail de la demande</div>
+      <div class="boite-grise">${detailHtml}</div>
+    </div>
+    <div class="tab-panel ${ongletActif === 'main-courante' ? 'active' : ''}" data-panel="main-courante">
+      <div class="boite-grise">${mainCouranteHtml}</div>
+    </div>
+    <div class="tab-panel ${ongletActif === 'autres' ? 'active' : ''}" data-panel="autres">
+      <ul class="liste-champs">${listeChamps}</ul>
+    </div>
+    <div class="tab-panel ${ongletActif === 'pj' ? 'active' : ''}" data-panel="pj">${pjContenu}</div>
+  `;
+
+  conteneur.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      ongletActif = btn.getAttribute("data-tab");
+      conteneur.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      conteneur.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      conteneur.querySelector(".tab-panel[data-panel='" + ongletActif + "']").classList.add("active");
+    });
+  });
+
+  // --- Édition de l'Objet de la demande ---
+  const objetTextarea = conteneur.querySelector("#objet-textarea");
+  const btnSauverObjet = conteneur.querySelector("#btn-sauver-objet");
+  const msgSauverObjet = conteneur.querySelector("#msg-sauver-objet");
+  const valeurInitialeObjet = ligne.Objet_de_la_demande || "";
+
+  objetTextarea.addEventListener("input", () => {
+    const modifie = objetTextarea.value !== valeurInitialeObjet;
+    btnSauverObjet.classList.toggle("visible", modifie);
+    msgSauverObjet.textContent = "";
+  });
+
+  btnSauverObjet.addEventListener("click", async () => {
+    btnSauverObjet.disabled = true;
+    msgSauverObjet.textContent = "";
+    msgSauverObjet.className = "msg-sauvegarde";
+    try {
+      await grist.docApi.applyUserActions([
+        ["UpdateRecord", TABLE_PRINCIPALE, ligne.id, { Objet_de_la_demande: objetTextarea.value }]
+      ]);
+      msgSauverObjet.textContent = "Enregistré ✓";
+      btnSauverObjet.classList.remove("visible");
+    } catch (err) {
+      msgSauverObjet.textContent = "Erreur : " + err.message;
+      msgSauverObjet.className = "msg-sauvegarde erreur";
+    } finally {
+      btnSauverObjet.disabled = false;
+    }
+  });
+}
+
+// Initialisation
+(async function init() {
+  await chargerTablesAnnexes();
+})();

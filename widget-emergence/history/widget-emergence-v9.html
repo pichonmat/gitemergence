@@ -1,0 +1,314 @@
+<div class="barre-filtres">
+  <select id="filtre-statut">
+    <option value="">Tous les statuts</option>
+  </select>
+  <select id="filtre-typologie">
+    <option value="">Toutes les typologies</option>
+  </select>
+  <select id="filtre-organisation">
+    <option value="">Toutes les organisations</option>
+  </select>
+  <input type="text" id="filtre-partie-prenante" list="datalist-filtre-pp" placeholder="Filtrer par partie prenante...">
+  <datalist id="datalist-filtre-pp"></datalist>
+  <button id="btn-reset-filtres" title="Réinitialiser les filtres">✕ Réinitialiser</button>
+</div>
+
+<div class="conteneur-liste">
+  <table id="table-liste">
+    <thead>
+      <tr>
+        <th data-col="Statut">Statut <span class="fleche"></span><span class="poignee"></span></th>
+        <th data-col="Date_de_soumission">Date de s... <span class="fleche"></span><span class="poignee"></span></th>
+        <th data-col="Organisation">Organisation <span class="fleche"></span><span class="poignee"></span></th>
+        <th data-col="Sponsor">Sponsor <span class="fleche"></span><span class="poignee"></span></th>
+        <th data-col="Porteurs">Porteur <span class="fleche"></span><span class="poignee"></span></th>
+        <th data-col="Titre">Titre <span class="fleche"></span><span class="poignee"></span></th>
+        <th data-col="Typologie_de_la_demande">Typologie de la demande <span class="fleche"></span><span class="poignee"></span></th>
+        <th data-col="Parties_prenantes_concernees">Parties prenantes <span class="fleche"></span><span class="poignee"></span></th>
+      </tr>
+    </thead>
+    <tbody id="corps-tableau">
+      <tr><td colspan="8" class="chargement">Chargement...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div id="fiche-container"></div>
+
+<style>
+  :root {
+    --border: #e0e0e0;
+    --header-bg: #1f2937;
+    --header-text: #ffffff;
+    --row-hover: #f0f4ff;
+    --row-selected: #dbe6ff;
+    --row-selected-border: #3b5bdb;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #ffffff;
+    color: #1f2937;
+    font-size: 13px;
+  }
+
+  .barre-filtres {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 8px; flex-wrap: wrap;
+  }
+  .barre-filtres select,
+  .barre-filtres input[type="text"] {
+    font-size: 12px; padding: 5px 8px; border: 1px solid #ccc; border-radius: 6px;
+    background: #fff; max-width: 200px;
+  }
+  .barre-filtres select { cursor: pointer; }
+  .barre-filtres button {
+    font-size: 12px; padding: 5px 10px; border: 1px solid #ccc; border-radius: 6px;
+    background: #f5f5f5; cursor: pointer;
+  }
+  .barre-filtres button:hover { background: #eee; }
+
+  .conteneur-liste {
+    max-height: 45vh;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 14px;
+  }
+  table {
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  thead th {
+    position: sticky; top: 0;
+    background: var(--header-bg); color: var(--header-text);
+    text-align: left; padding: 8px 14px 8px 10px; font-size: 12px; font-weight: 600;
+    cursor: pointer; user-select: none; white-space: nowrap; z-index: 1;
+    overflow: hidden; text-overflow: ellipsis;
+    position: relative;
+    box-sizing: border-box;
+  }
+  thead th:hover { background: #374151; }
+  thead th .fleche { font-size: 10px; margin-left: 4px; opacity: 0.7; }
+  .poignee {
+    position: absolute; top: 0; right: 0; width: 10px; height: 100%;
+    cursor: col-resize; z-index: 5; touch-action: none;
+  }
+  .poignee:hover, .poignee.active-resize { background: rgba(255,255,255,0.35); }
+  tbody td {
+    padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    box-sizing: border-box;
+  }
+  tbody tr { cursor: pointer; transition: background 0.1s; }
+  tbody tr:hover { background: var(--row-hover); }
+  tbody tr.selectionnee { background: var(--row-selected); box-shadow: inset 3px 0 0 var(--row-selected-border); }
+  .badge-statut { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .chargement { padding: 20px; text-align: center; color: #888; }
+
+  /* --- Fiche --- */
+  .bandeau {
+    background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 8px;
+    margin-bottom: 10px;
+  }
+  .bandeau-entete {
+    padding: 8px 12px; border-bottom: 1px solid #e0e0e0;
+  }
+  .bandeau-titre { font-size: 24px; font-weight: bold; color: #1a3a6b; }
+  .bandeau-corps { display: grid; grid-template-columns: 3fr 1fr; }
+  .zone { display: grid; gap: 10px; padding: 6px 12px; border-bottom: 1px solid #e0e0e0; }
+  .zone:last-child { border-bottom: none; }
+  .champ-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
+  .champ-valeur { font-size: 13px; color: #222; line-height: 1.3; }
+  .col-droite { padding: 6px 12px; border-left: 1px solid #e0e0e0; display: flex; flex-direction: column; }
+  .boite-grise {
+    border: 1px solid #ccc; background: #f0f0f0; border-radius: 4px;
+    padding: 6px 10px; max-height: 200px; overflow-y: auto; font-size: 13px;
+  }
+
+  /* --- Champs éditables compacts (une ligne) dans le bandeau --- */
+  .champ-editable-inline input[type="text"],
+  .champ-editable-inline select {
+    width: 100%;
+    font-family: inherit;
+    font-size: 13px;
+    color: #222;
+    padding: 3px 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    background: #fff;
+  }
+  .champ-editable-inline input[type="text"]:focus,
+  .champ-editable-inline select:focus {
+    border-color: #3b5bdb;
+    outline: none;
+  }
+  .champ-editable-inline .msg-sauvegarde {
+    display: block;
+    margin-left: 0;
+    margin-top: 2px;
+  }
+  .champ-avec-effacer {
+    display: flex; gap: 4px; align-items: center;
+  }
+  .champ-avec-effacer input[type="text"] {
+    flex: 1 1 auto; min-width: 0;
+  }
+  .champ-avec-effacer button {
+    flex: 0 0 auto;
+    font-size: 12px; padding: 3px 8px; border: 1px solid #ccc;
+    background: #f5f5f5; color: #555; border-radius: 4px; cursor: pointer;
+  }
+  .champ-avec-effacer button:hover { background: #eee; color: #b03030; }
+
+  /* --- Champ éditable multi-ligne (Objet, Détail, Main courante) --- */
+  .champ-editable textarea {
+    width: 100%;
+    font-family: inherit;
+    font-size: 13px;
+    color: #222;
+    line-height: 1.3;
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    resize: vertical;
+    min-height: 50px;
+    box-sizing: border-box;
+    background: #fff;
+  }
+  .champ-editable textarea.textarea-longue { min-height: 130px; }
+  .champ-editable textarea:focus {
+    border-color: #3b5bdb;
+    outline: none;
+  }
+  .btn-sauver-objet {
+    display: none;
+    margin-top: 4px;
+    font-size: 11px;
+    padding: 3px 10px;
+    border: 1px solid #3b5bdb;
+    background: #3b5bdb;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .btn-sauver-objet.visible { display: inline-block; }
+  .btn-sauver-objet:disabled { opacity: 0.6; cursor: default; }
+  .msg-sauvegarde {
+    font-size: 10px;
+    margin-left: 6px;
+    color: #2a7a2a;
+  }
+  .msg-sauvegarde.erreur { color: #b03030; }
+
+  /* --- Parties prenantes (puces éditables) --- */
+  .chips-conteneur {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start; /* empêche les lignes de s'étirer sur toute la hauteur */
+    align-items: flex-start;   /* empêche chaque puce de s'étirer sur toute la hauteur */
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #e8edfb; color: #2b3f8c; border: 1px solid #c6d0f5;
+    border-radius: 12px; padding: 2px 6px 2px 10px; font-size: 12px;
+    line-height: 1.6;
+    max-width: 100%;
+    flex: 0 0 auto;
+  }
+  .chip-texte {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 220px;
+  }
+  .chip-retirer {
+    cursor: pointer; border: none; background: transparent; color: #6674a8;
+    font-size: 13px; line-height: 1; padding: 0 2px; border-radius: 50%;
+    flex: 0 0 auto;
+  }
+  .chip-retirer:hover { color: #b03030; background: #fff; }
+  .ajout-pp-conteneur {
+    display: flex; gap: 4px; margin-bottom: 4px;
+  }
+  .ajout-pp-conteneur input[type="text"] {
+    flex: 1 1 auto; font-size: 12px; padding: 4px 6px; border: 1px solid #ccc;
+    border-radius: 6px; background: #fff; min-width: 0;
+  }
+  .ajout-pp-conteneur input[type="text"]:focus { border-color: #3b5bdb; outline: none; }
+  .ajout-pp-conteneur button {
+    font-size: 12px; padding: 4px 10px; border: 1px solid #3b5bdb;
+    background: #3b5bdb; color: white; border-radius: 6px; cursor: pointer;
+  }
+  .ajout-pp-conteneur button:hover { background: #2f49b0; }
+  .pp-vide { color: #bbb; font-size: 12px; margin-bottom: 8px; }
+
+  .tabbar { display: flex; gap: 2px; border-bottom: 1px solid #ccc; }
+  .tab-btn {
+    cursor: pointer; padding: 6px 14px; font-size: 12px; color: #555;
+    background: #f0f0f0; border: none; border-bottom: 2px solid transparent;
+  }
+  .tab-btn.active { background: #fff; border-bottom: 2px solid #333; font-weight: bold; }
+  .tab-panel { display: none; padding: 10px 4px; }
+  .tab-panel.active { display: block; }
+
+  table.tableau-fiche { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
+  table.tableau-fiche th { text-align: left; padding: 4px 8px; border-bottom: 2px solid #ccc; white-space: normal; }
+  table.tableau-fiche td { padding: 4px 8px; border-bottom: 1px solid #eee; white-space: normal; vertical-align: top; }
+  ul.liste-champs { margin: 4px 0; padding-left: 18px; }
+
+  /* --- RIDA éditable --- */
+  .tableau-rida-editable input[type="text"],
+  .tableau-rida-editable input[type="date"],
+  .tableau-rida-editable select,
+  .tableau-rida-editable textarea {
+    width: 100%;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 3px 5px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    box-sizing: border-box;
+    background: #fff;
+  }
+  .tableau-rida-editable textarea.rida-description {
+    resize: vertical;
+    min-height: 22px;
+    height: 22px;
+    line-height: 1.3;
+    overflow-y: hidden;
+    display: block;
+  }
+  .tableau-rida-editable input:focus,
+  .tableau-rida-editable select:focus,
+  .tableau-rida-editable textarea:focus {
+    border-color: #3b5bdb;
+    outline: none;
+  }
+  .rida-actions { white-space: nowrap; text-align: center; }
+  .btn-rida-save {
+    font-size: 11px; padding: 3px 8px; border: 1px solid #3b5bdb;
+    background: #3b5bdb; color: white; border-radius: 4px; cursor: pointer;
+    margin-right: 4px;
+  }
+  .btn-rida-save:disabled { opacity: 0.6; cursor: default; }
+  .btn-rida-delete {
+    font-size: 12px; padding: 3px 7px; border: 1px solid #cc4444;
+    background: #fff0f0; color: #b03030; border-radius: 4px; cursor: pointer;
+  }
+  .btn-rida-delete:hover { background: #ffe0e0; }
+  .btn-ajouter-rida {
+    margin-top: 8px;
+    font-size: 12px;
+    padding: 6px 12px;
+    border: 1px solid #3b5bdb;
+    background: #fff;
+    color: #3b5bdb;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .btn-ajouter-rida:hover { background: #eef1ff; }
+  .btn-ajouter-rida:disabled { opacity: 0.6; cursor: default; }
+</style>
