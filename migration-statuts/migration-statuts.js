@@ -1,4 +1,4 @@
-// Migration des statuts — v2
+// Migration des statuts — v3
 // Outil à usage unique : lit Emergence.Statut, affiche ce qui serait modifié, puis (après
 // confirmation et sauvegarde CSV) remplace les anciennes valeurs par les nouvelles en UNE seule
 // action Grist (BulkUpdateRecord : tout réussit ou tout échoue).
@@ -13,7 +13,8 @@ const MAPPING_PAR_DEFAUT = [
   ["2- En attente", "6 - En attente"],
   ["3- Clôturé", "7 - Clôturer"],
   ["4- Transféré", "5 - Transférer"],
-  ["5- A qualifier", "2 - Qualifier"]
+  ["5- A qualifier", "2 - Qualifier"],
+  ["9 - A qualifier", "2 - Qualifier"] // libellé réellement présent dans la base
 ];
 // "0-Nouveau" est inchangé. Nouveaux statuts sans ancien équivalent (à ajouter dans la liste Grist) :
 const NOUVEAUX_SANS_ANCIEN = ["1 - Collecter", "3 - Approfondir"];
