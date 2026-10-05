@@ -1,0 +1,43 @@
+<!-- Migration des statuts — outil à usage unique (à ajouter temporairement dans Grist, puis à retirer) -->
+<div class="conteneur">
+  <h1>Migration des statuts</h1>
+  <p class="intro">
+    Remplace les anciens statuts de la table <b>Emergence</b> par les nouveaux. Rien n'est écrit
+    tant que tu n'as pas cliqué sur « Migrer » puis confirmé. Fais une copie du document avant.
+  </p>
+  <div id="statut-chargement" class="statut">Lecture de la table Emergence...</div>
+  <div id="zone" style="display:none;">
+    <table class="tableau" id="tableau-mapping">
+      <thead><tr><th>Ancien statut</th><th>Nouveau statut (modifiable)</th><th>Lignes</th><th>Liste Grist</th></tr></thead>
+      <tbody id="corps-mapping"></tbody>
+    </table>
+    <div id="bloc-inconnus" class="alerte" style="display:none;"></div>
+    <div id="bloc-liste" class="alerte" style="display:none;"></div>
+    <div class="actions">
+      <button id="btn-actualiser" type="button" class="btn-secondaire">↻ Actualiser</button>
+      <button id="btn-sauvegarde" type="button" class="btn-secondaire">💾 Télécharger la sauvegarde (CSV)</button>
+      <button id="btn-migrer" type="button" class="btn-principal">Migrer les statuts</button>
+    </div>
+  </div>
+  <div id="resultat" class="statut"></div>
+</div>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; color: #222; margin: 0; }
+  .conteneur { padding: 12px 16px; max-width: 900px; }
+  h1 { font-size: 17px; margin: 0 0 8px; }
+  .intro { color: #555; margin: 0 0 12px; }
+  .statut { margin: 8px 0; color: #444; }
+  .statut.erreur { color: #b91c1c; font-weight: bold; }
+  .statut.ok { color: #166534; font-weight: bold; }
+  .tableau { border-collapse: collapse; width: 100%; margin-bottom: 10px; }
+  .tableau th, .tableau td { border: 1px solid #ddd; padding: 5px 8px; text-align: left; }
+  .tableau th { background: #f3f4f6; }
+  .tableau input { width: 100%; box-sizing: border-box; padding: 3px 5px; font-size: 13px; }
+  .alerte { background: #fff7ed; border: 1px solid #fdba74; border-radius: 4px; padding: 8px 10px; margin: 8px 0; }
+  .ok-cell { color: #166534; }
+  .ko-cell { color: #b91c1c; font-weight: bold; }
+  .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  button { cursor: pointer; padding: 7px 12px; border-radius: 4px; border: 1px solid #bbb; background: #fff; font-size: 13px; }
+  .btn-principal { background: #1e3a8a; color: #fff; border-color: #1e3a8a; font-weight: bold; }
+  button:disabled { opacity: 0.5; cursor: default; }
+</style>

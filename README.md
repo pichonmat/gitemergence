@@ -8,6 +8,7 @@ Dépôt de sauvegarde pour le widget Grist custom qui remplace la fiche "Émerge
 - `widget-emergence/history/` — tout l'historique des versions livrées (`widget-emergence-vN.html/.js`), conservé pour pouvoir revenir en arrière si besoin.
 - `export-modele-donnees/export-modele-donnees.html` + `.js` — petit widget utilitaire séparé qui exporte le schéma du document Grist (tables/colonnes sélectionnées) en Markdown, pour documenter le modèle de données et nourrir les prompts IA.
 - `export-modele-donnees/history/` — historique de ce widget utilitaire.
+- `migration-statuts/migration-statuts.html` + `.js` — outil à usage unique (migration des anciens statuts vers les nouveaux, avec simulation, sauvegarde CSV et écriture atomique) ; à ajouter temporairement dans Grist puis à retirer.
 - `docs/grist-custom-widget-guide.md` — guide de référence sur l'API Custom Widget de Grist (pièges rencontrés, conventions retenues) : à utiliser avec un assistant IA pour reprendre le développement du widget.
 - `docs/modele-donnees-grist.md` — export du modèle de données (tables `Emergence`, `Emergence_Acteurs`, `Emergence_PJ`, `Emergence_Rida`) généré avec `export-modele-donnees`.
 
