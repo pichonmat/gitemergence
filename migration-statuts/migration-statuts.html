@@ -16,10 +16,16 @@
     <div class="actions">
       <button id="btn-actualiser" type="button" class="btn-secondaire">↻ Actualiser</button>
       <button id="btn-sauvegarde" type="button" class="btn-secondaire">💾 Télécharger la sauvegarde (CSV)</button>
+      <button id="btn-afficher-copie" type="button" class="btn-secondaire">📋 Afficher la liste pour la copier</button>
       <button id="btn-migrer" type="button" class="btn-principal">Migrer les statuts</button>
     </div>
   </div>
   <div id="resultat" class="statut"></div>
+  <div id="bloc-copie" style="display:none;">
+    <div class="statut">Résultat (id ; ancien statut ; nouveau statut) — copiable :</div>
+    <textarea id="zone-copie" readonly></textarea>
+    <div class="actions"><button id="btn-copier" type="button" class="btn-secondaire">📋 Copier</button><span id="msg-copie" class="statut"></span></div>
+  </div>
 </div>
 <style>
   body { font-family: Arial, sans-serif; font-size: 13px; color: #222; margin: 0; }
@@ -39,5 +45,6 @@
   .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
   button { cursor: pointer; padding: 7px 12px; border-radius: 4px; border: 1px solid #bbb; background: #fff; font-size: 13px; }
   .btn-principal { background: #1e3a8a; color: #fff; border-color: #1e3a8a; font-weight: bold; }
+  #zone-copie { width: 100%; height: 160px; box-sizing: border-box; font-family: monospace; font-size: 12px; }
   button:disabled { opacity: 0.5; cursor: default; }
 </style>

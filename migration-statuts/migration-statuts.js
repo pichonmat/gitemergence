@@ -1,4 +1,4 @@
-// Migration des statuts — v1
+// Migration des statuts — v2
 // Outil à usage unique : lit Emergence.Statut, affiche ce qui serait modifié, puis (après
 // confirmation et sauvegarde CSV) remplace les anciennes valeurs par les nouvelles en UNE seule
 // action Grist (BulkUpdateRecord : tout réussit ou tout échoue).
@@ -121,6 +121,27 @@ function csvSauvegarde(liste) {
     liste.map(r => [r.id, q(r.ancien), q(r.nouveau)].join(";"))).join("\n");
 }
 
+// Affiche la liste dans une zone de texte (copiable même si le téléchargement est bloqué).
+function afficherPourCopie(liste) {
+  el("zone-copie").value = csvSauvegarde(liste).replace(/^\uFEFF/, "");
+  el("bloc-copie").style.display = "block";
+  el("msg-copie").textContent = "";
+}
+
+async function copierTexte() {
+  const zone = el("zone-copie");
+  const msg = el("msg-copie");
+  try {
+    await navigator.clipboard.writeText(zone.value);
+    msg.textContent = "Copié.";
+  } catch (e) {
+    zone.focus(); zone.select();
+    let copie = false;
+    try { copie = document.execCommand("copy"); } catch (e2) { /* ignoré */ }
+    msg.textContent = copie ? "Copié." : "Sélectionné : fais Ctrl+C.";
+  }
+}
+
 function telecharger(liste) {
   try {
     const blob = new Blob([csvSauvegarde(liste)], { type: "text/csv;charset=utf-8;" });
@@ -145,6 +166,8 @@ async function charger() {
 
 el("btn-actualiser").addEventListener("click", () => charger().catch(e => { el("resultat").className = "statut erreur"; el("resultat").textContent = "Erreur : " + e.message; }));
 el("btn-sauvegarde").addEventListener("click", () => telecharger(aMigrer()));
+el("btn-afficher-copie").addEventListener("click", () => afficherPourCopie(aMigrer()));
+el("btn-copier").addEventListener("click", copierTexte);
 
 el("btn-migrer").addEventListener("click", async () => {
   const liste = aMigrer();
@@ -156,6 +179,7 @@ el("btn-migrer").addEventListener("click", async () => {
   el("btn-migrer").disabled = true;
   try {
     telecharger(liste); // sauvegarde avant écriture
+    afficherPourCopie(liste); // et liste copiable à l'écran (le téléchargement peut être bloqué)
     await grist.docApi.applyUserActions([
       ["BulkUpdateRecord", TABLE, liste.map(r => r.id), { [COLONNE]: liste.map(r => r.nouveau) }]
     ]);
