@@ -1,4 +1,4 @@
-// Migration des statuts — v3
+// Migration des statuts — v4
 // Outil à usage unique : lit Emergence.Statut, affiche ce qui serait modifié, puis (après
 // confirmation et sauvegarde CSV) remplace les anciennes valeurs par les nouvelles en UNE seule
 // action Grist (BulkUpdateRecord : tout réussit ou tout échoue).
@@ -22,6 +22,7 @@ const INCHANGES = ["0-Nouveau"];
 
 let lignes = [];           // [{id, Statut}]
 let choixGrist = null;     // liste des choix de la colonne Statut dans Grist (null = illisible)
+let idColonneStatut = null; // id de la colonne dans _grist_Tables_column (pour mettre à jour ses choix)
 
 const el = (id) => document.getElementById(id);
 const esc = (v) => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -41,6 +42,7 @@ async function lireChoixGrist() {
     const idTable = tables.id[tables.tableId.indexOf(TABLE)];
     for (let i = 0; i < cols.id.length; i++) {
       if (cols.parentId[i] === idTable && cols.colId[i] === COLONNE) {
+        idColonneStatut = cols.id[i];
         const opts = JSON.parse(cols.widgetOptions[i] || "{}");
         return Array.isArray(opts.choices) ? opts.choices : [];
       }
@@ -108,6 +110,7 @@ function verifier() {
     bloc.innerHTML = "<b>À ajouter dans la liste des choix de la colonne Statut (Grist) avant de migrer :</b> " +
       manquants.map(esc).join(" · ");
   } else bloc.style.display = "none";
+  el("btn-ajouter-choix").style.display = (choixGrist !== null && manquants.length && idColonneStatut) ? "inline-block" : "none";
   el("btn-migrer").disabled = !(choixGrist !== null && manquants.length === 0) || mappingActuel().some(([, c]) => !c);
 }
 
@@ -164,6 +167,40 @@ async function charger() {
   el("zone").style.display = "block";
   rendre();
 }
+
+// Ajoute les libellés manquants à la liste des choix de la colonne Statut (sans rien retirer :
+// les anciens choix restent en place jusqu'à la fin de la migration).
+el("btn-ajouter-choix").addEventListener("click", async () => {
+  const res = el("resultat");
+  res.className = "statut";
+  const attendus = mappingActuel().map(([, c]) => c).concat(NOUVEAUX_SANS_ANCIEN).filter(Boolean);
+  try {
+    // Relecture fraîche des options pour ne pas écraser une modification faite entre-temps.
+    const cols = await grist.docApi.fetchTable("_grist_Tables_column");
+    const idx = cols.id.indexOf(idColonneStatut);
+    if (idx === -1) throw new Error("colonne Statut introuvable");
+    const opts = JSON.parse(cols.widgetOptions[idx] || "{}");
+    const actuels = Array.isArray(opts.choices) ? opts.choices.slice() : [];
+    const aAjouter = [...new Set(attendus)].filter(c => !actuels.includes(c));
+    if (!aAjouter.length) { await charger(); return; }
+    if (!confirm("Ajouter ces choix à la colonne Statut ?\n\n" + aAjouter.join("\n") +
+      "\n\nLes choix existants ne sont pas modifiés.")) return;
+    opts.choices = actuels.concat(aAjouter);
+    if (!opts.widget) opts.widget = "TextBox";
+    await grist.docApi.applyUserActions([
+      ["UpdateRecord", "_grist_Tables_column", idColonneStatut, { widgetOptions: JSON.stringify(opts) }]
+    ]);
+    await charger();
+    const reste = attendus.filter(c => !(choixGrist || []).includes(c));
+    res.className = reste.length ? "statut erreur" : "statut ok";
+    res.textContent = reste.length
+      ? "Les choix n'apparaissent pas encore dans Grist (" + reste.join(", ") + ") : ajoute-les à la main dans le panneau de la colonne."
+      : aAjouter.length + " choix ajouté(s) à la colonne Statut.";
+  } catch (e) {
+    res.className = "statut erreur";
+    res.textContent = "Impossible d'ajouter les choix automatiquement (" + e.message + ") : ajoute-les à la main dans Grist.";
+  }
+});
 
 el("btn-actualiser").addEventListener("click", () => charger().catch(e => { el("resultat").className = "statut erreur"; el("resultat").textContent = "Erreur : " + e.message; }));
 el("btn-sauvegarde").addEventListener("click", () => telecharger(aMigrer()));
