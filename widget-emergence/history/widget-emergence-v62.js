@@ -2657,8 +2657,6 @@ document.getElementById("btn-creer-demande").addEventListener("click", async () 
       const tr = document.querySelector('#corps-tableau tr[data-id="' + nouvelId + '"]');
       if (tr && typeof tr.scrollIntoView === "function") tr.scrollIntoView({ block: "nearest" });
       if (conteneurFiche && typeof conteneurFiche.scrollIntoView === "function") conteneurFiche.scrollIntoView({ block: "start" });
-      const titre = document.getElementById("titre-input");
-      if (titre && typeof titre.focus === "function") titre.focus(); // prêt à saisir le titre
     }
   } catch (err) {
     alert("Erreur lors de la création de la demande : " + err.message);
