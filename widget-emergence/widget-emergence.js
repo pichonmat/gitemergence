@@ -1,4 +1,4 @@
-// Widget Emergence — v81
+// Widget Emergence — v82
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -571,6 +571,7 @@ let filtreSponsorTexte = "";          // recherche libre dans le Sponsor
 let filtrePorteurTexte = "";          // recherche libre dans le(s) Porteur(s)
 let filtrePartiePrenanteTexte = "";   // recherche libre dans les Parties prenantes
 let filtreTitreTexte = "";
+let filtreRefBrmRenseigne = false;            // true = masque les demandes sans Ref BRM
 // Filtre Statut à sélection multiple : initialisé sur les statuts 0 à 4
 let filtreStatutSelection = new Set(STATUTS_ACTIFS_PAR_DEFAUT);
 let ongletActif = "rida";
@@ -1190,6 +1191,7 @@ function appliquerFiltres(lignes) {
     if (filtrePartiePrenanteTexte) {
       if (normaliserTexteRecherche(nomActeur(l.Parties_prenantes_concernees)).indexOf(normaliserTexteRecherche(filtrePartiePrenanteTexte)) === -1) return false;
     }
+    if (filtreRefBrmRenseigne && !String(refBrm(l) || "").trim()) return false;
     if (filtreTitreTexte) {
       if (normaliserTexteRecherche(l.Titre || "").indexOf(normaliserTexteRecherche(filtreTitreTexte)) === -1) return false;
     }
@@ -1271,6 +1273,7 @@ function filtreListeColonneEstActif(champ) {
   if (champ === "porteur") return !!filtrePorteurTexte;
   if (champ === "partie-prenante") return !!filtrePartiePrenanteTexte;
   if (champ === "titre") return !!filtreTitreTexte;
+  if (champ === "ref-brm") return filtreRefBrmRenseigne;
   return false;
 }
 
@@ -1291,6 +1294,7 @@ function effacerFiltreListeColonne(champ) {
   else if (champ === "porteur") filtrePorteurTexte = "";
   else if (champ === "partie-prenante") filtrePartiePrenanteTexte = "";
   else if (champ === "titre") filtreTitreTexte = "";
+  else if (champ === "ref-brm") filtreRefBrmRenseigne = false;
 }
 
 // Petite croix en tête de popup (visible seulement quand le filtre est actif) : supprime le
@@ -1318,6 +1322,10 @@ function construireContenuPopupFiltreListeColonne(champ) {
   if (champ === "titre") {
     return "<input type='text' class='champ-filtre-liste-texte' data-champ=\"titre\" value=\"" +
       escapeHtml(filtreTitreTexte) + "\" placeholder='Filtrer par titre...'>";
+  }
+  if (champ === "ref-brm") {
+    return "<label><input type='checkbox' class='case-filtre-liste-refbrm'" + (filtreRefBrmRenseigne ? " checked" : "") +
+      ">Masquer les demandes sans Ref BRM</label>";
   }
   if (champ === "sponsor" || champ === "porteur" || champ === "partie-prenante") {
     const valeur = champ === "sponsor" ? filtreSponsorTexte : champ === "porteur" ? filtrePorteurTexte : filtrePartiePrenanteTexte;
@@ -1401,6 +1409,13 @@ function ouvrirPopupFiltreListeColonne(th, icone) {
     });
     champTexte.focus();
   }
+  popup.querySelectorAll(".case-filtre-liste-refbrm").forEach(cb => {
+    cb.addEventListener("change", () => {
+      filtreRefBrmRenseigne = cb.checked;
+      afficherListe();
+      mettreAJourIconesFiltreListe();
+    });
+  });
   popup.querySelectorAll(".case-filtre-liste-statut").forEach(cb => {
     cb.addEventListener("change", () => {
       if (cb.checked) filtreStatutSelection.add(cb.value);
@@ -1477,6 +1492,7 @@ document.getElementById("btn-reset-filtres").addEventListener("click", () => {
   filtrePorteurTexte = "";
   filtrePartiePrenanteTexte = "";
   filtreTitreTexte = "";
+  filtreRefBrmRenseigne = false;
   rechercheGlobaleTexte = "";
   const champRechercheGlobale = document.getElementById("champ-recherche-globale");
   if (champRechercheGlobale) champRechercheGlobale.value = "";
