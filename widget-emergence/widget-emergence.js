@@ -1,4 +1,4 @@
-// Widget Emergence — v79
+// Widget Emergence — v80
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -142,7 +142,8 @@ const LIBELLES_CHAMPS_JOURNAL = {
   Perimetre_d_impact2: "Périmètre d'impact", Causes_racines_de_l_irritant: "Causes racines de l'irritant",
   Synthese_reformulation_de_l_irritant_et_etat_de_son_traitement: "Synthèse reformulation", ID2: "ID",
   Synthese_de_la_demande: "Synthèse de la demande", Politique_Publique_concernee: "Politique publique concernée",
-  Contributeurs_SDID: "Contributeurs SDID", Organisation_Id: "Organisation Id"
+  Contributeurs_SDID: "Contributeurs SDID", Organisation_Id: "Organisation Id",
+  Ref_BRM: "Ref BRM", RefBRM: "Ref BRM", ref_brm: "Ref BRM"
 };
 let journalModificationsActif = true;
 
@@ -449,6 +450,12 @@ function refBrm(ligne) {
   const cle = Object.keys(ligne).find(k => k.replace(/_/g, "").toLowerCase() === "refbrm");
   const v = cle ? ligne[cle] : null;
   return v == null ? "" : String(v).trim();
+}
+
+// Identifiant Grist réel de la colonne « Ref BRM » dans la table Emergence (null si la colonne n'existe pas).
+function cleRefBrm(ligne) {
+  if (!ligne) return null;
+  return Object.keys(ligne).find(k => k.replace(/_/g, "").toLowerCase() === "refbrm") || null;
 }
 
 const LIBELLES_COLONNES = {
@@ -1684,7 +1691,7 @@ function afficherListe() {
       "<td title='" + sponsorNom + "'>" + (sponsorNom || "—") + "</td>" +
       "<td title='" + porteurTexte + "'>" + (porteurTexte || "—") + "</td>" +
       "<td title='" + (ligne.Titre || "") + "'>" + (ligne.Titre || "—") + "</td>" +
-      "<td title=\"" + escapeHtml(refBrm(ligne)) + "\">" + (escapeHtml(refBrm(ligne)) || "—") + "</td>" +
+      "<td class='cellule-ref-brm-editable' title=\"" + escapeHtml(refBrm(ligne)) + (cleRefBrm(ligne) ? " (cliquer pour modifier)" : "") + "\">" + (escapeHtml(refBrm(ligne)) || "—") + "</td>" +
       "<td title='" + (ligne.Typologie_de_la_demande || "") + "'>" + (ligne.Typologie_de_la_demande || "—") + "</td>" +
       "<td title='" + partiesPrenantesTexte + "'>" + (partiesPrenantesTexte || "—") + "</td>" +
       "<td>" + celluleRida + "</td>" +
@@ -1704,6 +1711,42 @@ function afficherListe() {
         dernierClicId = id;
         dernierClicTemps = maintenant;
       }
+    });
+  });
+  // Clic sur la Ref BRM : champ de saisie dans la cellule (Entrée / perte de focus = enregistre, Échap = annule).
+  corps.querySelectorAll("tr[data-id] td.cellule-ref-brm-editable").forEach(td => {
+    td.addEventListener("click", (e) => {
+      e.stopPropagation(); // ne change pas la fiche sélectionnée
+      if (td.querySelector("input")) return;
+      const ligneId = parseInt(td.closest("tr").getAttribute("data-id"), 10);
+      const ligne = lignesEmergence.find(l => l.id === ligneId);
+      const cle = cleRefBrm(ligne);
+      if (!cle) return; // colonne absente de la table Emergence
+      const valeurInitiale = refBrm(ligne);
+      td.innerHTML = "<input type='text' class='input-ref-brm-liste' value=\"" + escapeHtml(valeurInitiale) + "\" placeholder='Ref BRM'>";
+      const input = td.querySelector("input");
+      input.focus();
+      input.select();
+      let termine = false;
+      const terminer = async (enregistrer) => {
+        if (termine) return;
+        termine = true;
+        const valeur = input.value.trim();
+        if (!enregistrer || valeur === valeurInitiale) { afficherListe(); return; }
+        try {
+          await appliquerActions([["UpdateRecord", TABLE_PRINCIPALE, ligneId, { [cle]: valeur }]]);
+          await rechargerEmergenceEtRafraichir(ligneId === ligneSelectionneeId ? ligneId : null);
+        } catch (err) {
+          alert("Erreur lors de l'enregistrement de la Ref BRM : " + err.message);
+          afficherListe();
+        }
+      };
+      input.addEventListener("click", (ev) => ev.stopPropagation());
+      input.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter") terminer(true);
+        else if (ev.key === "Escape") terminer(false);
+      });
+      input.addEventListener("blur", () => terminer(true));
     });
   });
   // Clic sur le statut : liste déroulante pour le modifier directement depuis la liste.
@@ -2251,7 +2294,7 @@ function afficherFiche(ligne) {
             <div class="champ-editable-inline champ-titre-editable">
               <div class="titre-et-ref-brm">
                 <input type="text" id="titre-input" value="${escapeHtml(ligne.Titre || "")}" placeholder="Titre de la demande">
-                ${refBrm(ligne) ? `<span class="ref-brm-bandeau" title="Référence BRM">${escapeHtml(refBrm(ligne))}</span>` : ""}
+                ${cleRefBrm(ligne) ? `<input type="text" id="ref-brm-input" class="ref-brm-bandeau" title="Référence BRM" placeholder="Ref BRM" value="${escapeHtml(refBrm(ligne))}">` : ""}
               </div>
               <span class="msg-sauvegarde" id="msg-titre"></span>
             </div>
@@ -2383,6 +2426,21 @@ function afficherFiche(ligne) {
   titreInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") titreInput.blur();
   });
+
+  // --- Édition de la Ref BRM (bandeau : petit champ à côté du titre, sauvegarde à la perte de focus) ---
+  const refBrmInput = conteneur.querySelector("#ref-brm-input");
+  if (refBrmInput) {
+    const valeurInitialeRefBrm = refBrm(ligne);
+    refBrmInput.addEventListener("blur", () => {
+      if (refBrmInput.value.trim() !== valeurInitialeRefBrm) {
+        sauverChampEmergence(cleRefBrm(ligne), refBrmInput.value.trim(), msgTitre);
+      }
+    });
+    refBrmInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") refBrmInput.blur();
+      else if (e.key === "Escape") { refBrmInput.value = valeurInitialeRefBrm; refBrmInput.blur(); }
+    });
+  }
 
   // --- Édition de l'Organisation (texte court, sauvegarde à la perte de focus) ---
   const organisationInput = conteneur.querySelector("#organisation-input");

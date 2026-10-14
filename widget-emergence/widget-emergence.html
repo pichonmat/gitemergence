@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v79 -->
+<!-- Widget Emergence — v80 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -620,7 +620,10 @@
   }
   .titre-et-ref-brm { display: flex; align-items: baseline; gap: 8px; }
   .titre-et-ref-brm input[type="text"] { flex: 1; min-width: 0; }
-  .ref-brm-bandeau { flex: none; font-size: calc(12px * var(--echelle-texte)); color: #666; white-space: nowrap; }
+  .titre-et-ref-brm input.ref-brm-bandeau[type="text"] { flex: none; width: 110px; font-size: calc(12px * var(--echelle-texte)); color: #666; padding: 2px 6px; border: 1px solid transparent; background: transparent; border-radius: 4px; }
+  .titre-et-ref-brm input.ref-brm-bandeau[type="text"]:hover, .titre-et-ref-brm input.ref-brm-bandeau[type="text"]:focus { border-color: #ccc; background: #fff; }
+  .cellule-ref-brm-editable { cursor: text; }
+  .input-ref-brm-liste { width: 100%; box-sizing: border-box; font-size: inherit; padding: 1px 4px; }
   .champ-titre-editable input[type="text"]:hover { border-color: #ddd; background: #fff; }
   .champ-titre-editable input[type="text"]:focus { border-color: #3b5bdb; background: #fff; outline: none; }
   .champ-avec-effacer {
