@@ -1,4 +1,4 @@
-// Widget Emergence — v82
+// Widget Emergence — v83
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -1988,6 +1988,10 @@ document.querySelectorAll("thead th").forEach(th => {
 })();
 
 // --- Parties prenantes éditables (puces) ---
+// Au-delà de SEUIL_REPLI_PP puces, on n'en montre que PP_VISIBLES_REPLIEES + une puce « +N autres ».
+const SEUIL_REPLI_PP = 6;
+const PP_VISIBLES_REPLIEES = 5;
+let ppDeplieesBandeau = false;
 function genererPartiesPrenantesHtml(ligne) {
   const idsActuels = nettoyerIdsActeurs(refListVersIds(ligne.Parties_prenantes_concernees).map(Number));
 
@@ -1995,14 +1999,19 @@ function genererPartiesPrenantesHtml(ligne) {
   if (idsActuels.length === 0) {
     chipsHtml = "<div class='pp-vide'>Aucune partie prenante</div>";
   } else {
-    chipsHtml = "<div class='chips-conteneur' id='pp-chips'>";
-    idsActuels.forEach(id => {
-      chipsHtml += "<span class='chip' data-acteur-id='" + id + "'>" +
+    const replier = idsActuels.length > SEUIL_REPLI_PP;
+    chipsHtml = "<div class='chips-conteneur" + (replier && !ppDeplieesBandeau ? " pp-replie" : "") + "' id='pp-chips'>";
+    idsActuels.forEach((id, i) => {
+      chipsHtml += "<span class='chip" + (replier && i >= PP_VISIBLES_REPLIEES ? " chip-replie" : "") + "' data-acteur-id='" + id + "'>" +
         "<button class='chip-modifier' type='button' data-acteur-id='" + id + "' title='Modifier la fiche de cette personne'>👤</button>" +
         "<span class='chip-texte'>" + escapeHtml(ligneActeur(id)) + "</span>" +
         "<button class='chip-retirer' type='button' data-acteur-id='" + id + "' title='Retirer'>×</button>" +
         "</span>";
     });
+    if (replier) {
+      chipsHtml += "<button type='button' class='chip-plus-autres' id='pp-plus-autres' data-nb='" + (idsActuels.length - PP_VISIBLES_REPLIEES) + "'>" +
+        (ppDeplieesBandeau ? "réduire" : "+" + (idsActuels.length - PP_VISIBLES_REPLIEES) + " autres") + "</button>";
+    }
     chipsHtml += "</div>";
   }
 
@@ -2206,6 +2215,7 @@ function afficherFiche(ligne) {
 
   const sponsorId = ligne.Sponsor || null;
   const partiesPrenantesEditableHtml = genererPartiesPrenantesHtml(ligne);
+  const nbPartiesPrenantes = nettoyerIdsActeurs(refListVersIds(ligne.Parties_prenantes_concernees).map(Number)).length;
 
   const champsRestants = [
     ["Orientation", ligne.Orientation],
@@ -2303,63 +2313,56 @@ function afficherFiche(ligne) {
     "<span class='msg-sauvegarde' id='msg-typologie'></span>";
 
   conteneur.innerHTML = `
-    <div class="bandeau">
-      <div class="bandeau-corps">
-        <div>
-          <div class="zone" style="grid-template-columns: 1fr; border-bottom:none; padding-bottom:0;">
-            <div class="champ-editable-inline champ-titre-editable">
-              <div class="titre-et-ref-brm">
-                <input type="text" id="titre-input" value="${escapeHtml(ligne.Titre || "")}" placeholder="Titre de la demande">
-                ${cleRefBrm(ligne) ? `<input type="text" id="ref-brm-input" class="ref-brm-bandeau" title="Référence BRM" placeholder="Ref BRM" value="${escapeHtml(refBrm(ligne))}">` : ""}
-              </div>
-              <span class="msg-sauvegarde" id="msg-titre"></span>
-            </div>
+    <div class="bandeau bandeau-compact">
+      <div class="bandeau-ligne bandeau-ligne-titre">
+        <div class="champ-editable-inline champ-titre-editable">
+          <div class="titre-et-ref-brm">
+            <input type="text" id="titre-input" value="${escapeHtml(ligne.Titre || "")}" placeholder="Titre de la demande">
+            ${cleRefBrm(ligne) ? `<input type="text" id="ref-brm-input" class="ref-brm-bandeau" title="Référence BRM" placeholder="Ref BRM" value="${escapeHtml(refBrm(ligne))}">` : ""}
           </div>
-          <div class="zone" style="grid-template-columns: 1fr;">
-            <div class="champ-editable">
-              <div class="champ-label">Objet de la demande</div>
-              ${champMarkdownHtml("objet", ligne.Objet_de_la_demande, null, null)}
-            </div>
-          </div>
-          <div class="zone" style="grid-template-columns: repeat(3, 1fr);">
-            <div class="champ-editable-inline">
-              <div class="champ-label">Organisation qui émet la demande</div>
-              <input type="text" id="organisation-input" value="${escapeHtml(ligne.Organisation)}">
-              <span class="msg-sauvegarde" id="msg-organisation"></span>
-            </div>
-            <div class="champ-editable-inline">
-              <div class="champ-label">Sponsor</div>
-              ${sponsorChampHtml}
-            </div>
-            <div class="champ-editable-inline">
-              <div class="champ-label">Porteurs</div>
-              ${porteursChampHtml}
-            </div>
-          </div>
-          <div class="zone" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); border-bottom:none;">
-            <div class="champ-editable-inline"><div class="champ-label">Priorité</div>${prioriteSelectHtml}</div>
-            <div class="champ-editable-inline">
-              <div class="champ-label">Statut</div>
-              ${statutSelectHtml}
-            </div>
-            <div class="champ-editable-inline">
-              <div class="champ-label">Date de soumission</div>
-              <input type="date" id="date-soumission-input" value="${dateEpochVersInput(ligne.Date_de_soumission)}">
-              <span class="msg-sauvegarde" id="msg-date-soumission"></span>
-            </div>
-            <div class="champ-editable-inline">
-              <div class="champ-label">Date de cloture</div>
-              <input type="date" id="date-cloture-input" value="${dateEpochVersInput(ligne.Date_de_cloture)}">
-              <span class="msg-sauvegarde" id="msg-date-cloture"></span>
-            </div>
-          </div>
+          <span class="msg-sauvegarde" id="msg-titre"></span>
         </div>
-        <div class="col-droite">
-          <div class="col-droite-entete">
-            <div class="champ-label">Parties prenantes concernées</div>
-            <button type="button" id="btn-ouvrir-gestion-acteurs" class="btn-icone-gestion" title="Gérer la liste des acteurs">👥</button>
-          </div>
+      </div>
+      <div class="bandeau-ligne bandeau-ligne-meta">
+        <div class="champ-editable-inline champ-meta" title="Statut"><span class="champ-label">Statut</span>${statutSelectHtml}</div>
+        <div class="champ-editable-inline champ-meta" title="Priorité"><span class="champ-label">Priorité</span>${prioriteSelectHtml}</div>
+        <div class="champ-editable-inline champ-meta" title="Organisation qui émet la demande">
+          <span class="champ-label">Organisation</span>
+          <input type="text" id="organisation-input" class="input-organisation" placeholder="—" value="${escapeHtml(ligne.Organisation)}">
+          <span class="msg-sauvegarde" id="msg-organisation"></span>
+        </div>
+        <div class="champ-editable-inline champ-meta" title="Date de soumission">
+          <span class="champ-label">Soumise le</span>
+          <input type="date" id="date-soumission-input" value="${dateEpochVersInput(ligne.Date_de_soumission)}">
+          <span class="msg-sauvegarde" id="msg-date-soumission"></span>
+        </div>
+        <div class="champ-editable-inline champ-meta" title="Date de clôture">
+          <span class="champ-label">Clôture</span>
+          <input type="date" id="date-cloture-input" value="${dateEpochVersInput(ligne.Date_de_cloture)}">
+          <span class="msg-sauvegarde" id="msg-date-cloture"></span>
+        </div>
+      </div>
+      <div class="bandeau-ligne bandeau-ligne-personnes">
+        <div class="champ-editable-inline champ-personnes" data-libelle-ajout="+ Sponsor">
+          <span class="champ-label">Sponsor</span>
+          ${sponsorChampHtml}
+        </div>
+        <div class="champ-editable-inline champ-personnes" data-libelle-ajout="+ Porteur">
+          <span class="champ-label">Porteurs</span>
+          ${porteursChampHtml}
+        </div>
+      </div>
+      <div class="bandeau-ligne bandeau-ligne-pp">
+        <div class="champ-editable-inline champ-personnes champ-pp" data-libelle-ajout="+ Partie prenante">
+          <span class="champ-label">Parties prenantes${nbPartiesPrenantes ? " (" + nbPartiesPrenantes + ")" : ""}</span>
           ${partiesPrenantesEditableHtml}
+          <button type="button" id="btn-ouvrir-gestion-acteurs" class="btn-icone-gestion" title="Gérer la liste des acteurs">👥</button>
+        </div>
+      </div>
+      <div class="bandeau-ligne bandeau-ligne-objet">
+        <div class="champ-editable">
+          <div class="champ-label">Objet de la demande</div>
+          ${champMarkdownHtml("objet", ligne.Objet_de_la_demande, null, null)}
         </div>
       </div>
     </div>
@@ -2402,6 +2405,38 @@ function afficherFiche(ligne) {
       conteneur.querySelector(".tab-panel[data-panel='" + ongletActif + "']").classList.add("active");
     });
   });
+
+  // --- Bandeau compact : champs d'ajout repliés derrière un bouton « + », repli des parties prenantes ---
+  conteneur.querySelectorAll(".bandeau-compact .champ-personnes").forEach(bloc => {
+    const ajout = bloc.querySelector(".ajout-pp-conteneur");
+    if (!ajout) return;
+    const vide = !!bloc.querySelector(".pp-vide");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn-ajout-replie" + (vide ? " champ-vide" : "");
+    btn.textContent = vide ? (bloc.getAttribute("data-libelle-ajout") || "+") : "+";
+    btn.title = vide ? "Ajouter" : "Ajouter / remplacer";
+    ajout.classList.add("ajout-replie");
+    ajout.parentNode.insertBefore(btn, ajout);
+    const input = ajout.querySelector("input[type='text']");
+    btn.addEventListener("click", () => {
+      ajout.classList.remove("ajout-replie");
+      btn.style.display = "none";
+      if (input) input.focus();
+    });
+    if (input) input.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { input.value = ""; ajout.classList.add("ajout-replie"); btn.style.display = ""; }
+    });
+  });
+  const btnPlusAutresPp = conteneur.querySelector("#pp-plus-autres");
+  if (btnPlusAutresPp) {
+    btnPlusAutresPp.addEventListener("click", () => {
+      ppDeplieesBandeau = !ppDeplieesBandeau;
+      const zone = conteneur.querySelector("#pp-chips");
+      zone.classList.toggle("pp-replie", !ppDeplieesBandeau);
+      btnPlusAutresPp.textContent = ppDeplieesBandeau ? "réduire" : "+" + btnPlusAutresPp.getAttribute("data-nb") + " autres";
+    });
+  }
 
   // --- Sauvegarde générique d'un champ simple de la table Emergence ---
   async function sauverChampEmergence(champ, valeur, msgEl) {

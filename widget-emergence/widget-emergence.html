@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v82 -->
+<!-- Widget Emergence — v83 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -622,6 +622,32 @@
   .titre-et-ref-brm input[type="text"] { flex: 1; min-width: 0; }
   .titre-et-ref-brm input.ref-brm-bandeau[type="text"] { flex: none; width: 17ch; min-width: 17ch; font-size: calc(12px * var(--echelle-texte)); color: #666; padding: 2px 6px; border: 1px solid transparent; background: transparent; border-radius: 4px; }
   .titre-et-ref-brm input.ref-brm-bandeau[type="text"]:hover, .titre-et-ref-brm input.ref-brm-bandeau[type="text"]:focus { border-color: #ccc; background: #fff; }
+
+  /* --- Bandeau compact de la fiche (v83) --- */
+  .bandeau-compact { background: #fff; }
+  .bandeau-ligne { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; padding: 6px 12px; }
+  .bandeau-ligne-titre { padding-top: 8px; }
+  .bandeau-ligne-titre .champ-titre-editable { flex: 1 1 100%; }
+  .bandeau-ligne-objet { border-top: 1px solid #e8e8e8; display: block; }
+  .bandeau-compact .champ-meta, .bandeau-compact .champ-personnes { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .bandeau-compact .champ-label { margin: 0; white-space: nowrap; }
+  .bandeau-compact .champ-meta select { width: auto; max-width: 150px; }
+  .bandeau-compact .champ-meta .input-organisation { width: 150px; }
+  .bandeau-compact .champ-meta input[type="date"] { font-family: inherit; font-size: calc(13px * var(--echelle-texte)); padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; }
+  .bandeau-compact .champ-meta .msg-sauvegarde, .bandeau-compact .champ-personnes .msg-sauvegarde { display: inline; margin: 0; }
+  .bandeau-compact .champ-personnes .chips-conteneur { margin: 0; flex-wrap: wrap; }
+  .bandeau-compact .champ-personnes .pp-vide { display: none; }
+  .bandeau-compact .champ-pp { width: 100%; align-items: flex-start; }
+  .bandeau-compact .champ-pp .chips-conteneur { flex: 1 1 auto; }
+  .bandeau-compact .ajout-pp-conteneur { margin: 0; flex: 1 1 260px; }
+  .bandeau-compact .ajout-pp-conteneur.ajout-replie { display: none; }
+  .btn-ajout-replie { border: 1px dashed #99a; background: transparent; color: #667; border-radius: 12px; padding: 1px 9px; font-size: calc(12px * var(--echelle-texte)); cursor: pointer; }
+  .btn-ajout-replie:hover { background: #eef0f8; border-color: #3b5bdb; color: #3b5bdb; }
+  .chip-plus-autres { border: 1px solid #c6d0f5; background: #fff; color: #2b3f8c; border-radius: 12px; padding: 2px 10px; font-size: calc(12px * var(--echelle-texte)); cursor: pointer; line-height: 1.6; }
+  .chip-plus-autres:hover { background: #e8edfb; }
+  .chips-conteneur.pp-replie .chip-replie { display: none; }
+  .bandeau-compact .markdown-vue { display: flex; gap: 8px; align-items: flex-start; }
+  .bandeau-compact .markdown-vue .boite-grise { flex: 1 1 auto; min-height: 0; padding: 3px 10px; }
   .cellule-ref-brm-editable { cursor: text; white-space: nowrap; min-width: 17ch; }
   .input-ref-brm-liste { width: 100%; box-sizing: border-box; font-size: inherit; padding: 1px 4px; }
   .champ-titre-editable input[type="text"]:hover { border-color: #ddd; background: #fff; }
