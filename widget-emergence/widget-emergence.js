@@ -1,4 +1,4 @@
-// Widget Emergence — v80
+// Widget Emergence — v81
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
