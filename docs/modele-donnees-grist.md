@@ -44,6 +44,7 @@ Généré automatiquement le 22/09/2026 09:29:33
 | `Sponsor` | Sponsor | `Ref:Emergence_Acteurs` | Non | → Référence vers `Emergence_Acteurs` (colonne affichée : `Complet`) |
 | `Titre` | Titre | `Text` | Non |  |
 | `Porteurs2` | Porteurs2 | `ChoiceList` | Non |  |
+| `Ref_BRM` | Ref BRM | `Text` | Non | Facultative. Affichée à côté du titre dans le bandeau de la fiche et dans la colonne « Ref BRM » de la liste des demandes (masquable). Lue quel que soit son identifiant exact (`Ref_BRM`, `RefBRM`…). |
 | `html_fiche` | html-fiche | `Text` | Oui | Ancienne fiche en formule Grist (texte Python), remplacée par le widget custom `widget-emergence`. Conservée ici pour mémoire/archive uniquement — voir `widget-emergence/`. |
 
 ## Table `Emergence_Acteurs`

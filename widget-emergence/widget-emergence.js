@@ -1,4 +1,4 @@
-// Widget Emergence — v78
+// Widget Emergence — v79
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -430,6 +430,7 @@ let largeursColonnes = {
   "Sponsor": 130,
   "Porteurs": 130,
   "Titre": 230,
+  "Ref_BRM": 110,
   "Typologie_de_la_demande": 150,
   "Parties_prenantes_concernees": 200,
   "Action_ouverte": 110
@@ -437,8 +438,18 @@ let largeursColonnes = {
 
 const ORDRE_COLONNES = [
   "Priorite", "Statut", "Date_de_derniere_modification", "Date_de_soumission", "Organisation", "Sponsor", "Porteurs",
-  "Titre", "Typologie_de_la_demande", "Parties_prenantes_concernees", "Action_ouverte"
+  "Titre", "Ref_BRM", "Typologie_de_la_demande", "Parties_prenantes_concernees", "Action_ouverte"
 ];
+
+// Référence BRM (colonne texte facultative de la table Emergence, libellé « Ref BRM ») : lue sous
+// son identifiant Grist quel qu'il soit (Ref_BRM, RefBRM, ref_brm...) ; chaîne vide si la colonne
+// n'existe pas ou n'est pas renseignée.
+function refBrm(ligne) {
+  if (!ligne) return "";
+  const cle = Object.keys(ligne).find(k => k.replace(/_/g, "").toLowerCase() === "refbrm");
+  const v = cle ? ligne[cle] : null;
+  return v == null ? "" : String(v).trim();
+}
 
 const LIBELLES_COLONNES = {
   "Priorite": "Priorité",
@@ -449,6 +460,7 @@ const LIBELLES_COLONNES = {
   "Sponsor": "Sponsor",
   "Porteurs": "Porteur",
   "Titre": "Titre",
+  "Ref_BRM": "Ref BRM",
   "Typologie_de_la_demande": "Typologie de la demande",
   "Parties_prenantes_concernees": "Parties prenantes",
   "Action_ouverte": "RIDA"
@@ -1537,6 +1549,10 @@ function trierLignes(lignes) {
       vA = epochDerniereModifDemande(a.id);
       vB = epochDerniereModifDemande(b.id);
     }
+    if (colonneTri === "Ref_BRM") {
+      vA = refBrm(a);
+      vB = refBrm(b);
+    }
     // RIDA : colonne calculée, pas une propriété directe de la ligne
     if (colonneTri === "Action_ouverte") {
       vA = epochRidaAAfficherDansListe(a.id);
@@ -1619,7 +1635,7 @@ function afficherListe() {
   mettreAJourCompteurRechercheGlobale(lignesTriees.length);
 
   if (lignesTriees.length === 0) {
-    corps.innerHTML = "<tr><td colspan='11' class='chargement'>Aucune ligne trouvée.</td></tr>";
+    corps.innerHTML = "<tr><td colspan='12' class='chargement'>Aucune ligne trouvée.</td></tr>";
     return;
   }
   let html = "";
@@ -1668,6 +1684,7 @@ function afficherListe() {
       "<td title='" + sponsorNom + "'>" + (sponsorNom || "—") + "</td>" +
       "<td title='" + porteurTexte + "'>" + (porteurTexte || "—") + "</td>" +
       "<td title='" + (ligne.Titre || "") + "'>" + (ligne.Titre || "—") + "</td>" +
+      "<td title=\"" + escapeHtml(refBrm(ligne)) + "\">" + (escapeHtml(refBrm(ligne)) || "—") + "</td>" +
       "<td title='" + (ligne.Typologie_de_la_demande || "") + "'>" + (ligne.Typologie_de_la_demande || "—") + "</td>" +
       "<td title='" + partiesPrenantesTexte + "'>" + (partiesPrenantesTexte || "—") + "</td>" +
       "<td>" + celluleRida + "</td>" +
@@ -2232,7 +2249,10 @@ function afficherFiche(ligne) {
         <div>
           <div class="zone" style="grid-template-columns: 1fr; border-bottom:none; padding-bottom:0;">
             <div class="champ-editable-inline champ-titre-editable">
-              <input type="text" id="titre-input" value="${escapeHtml(ligne.Titre || "")}" placeholder="Titre de la demande">
+              <div class="titre-et-ref-brm">
+                <input type="text" id="titre-input" value="${escapeHtml(ligne.Titre || "")}" placeholder="Titre de la demande">
+                ${refBrm(ligne) ? `<span class="ref-brm-bandeau" title="Référence BRM">${escapeHtml(refBrm(ligne))}</span>` : ""}
+              </div>
               <span class="msg-sauvegarde" id="msg-titre"></span>
             </div>
           </div>

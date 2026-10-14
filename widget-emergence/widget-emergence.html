@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v78 -->
+<!-- Widget Emergence — v79 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -38,13 +38,14 @@
             <th data-col="Sponsor" data-filtre-champ="sponsor"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Sponsor <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Porteurs" data-filtre-champ="porteur"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Porteur <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Titre" data-filtre-champ="titre"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Titre <span class="fleche"></span><span class="poignee"></span></th>
+            <th data-col="Ref_BRM" title="Référence BRM"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span> Ref BRM <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Typologie_de_la_demande" data-filtre-champ="typologie"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Typologie de la demande <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Parties_prenantes_concernees" data-filtre-champ="partie-prenante"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Parties prenantes <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Action_ouverte"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span> RIDA <span class="fleche"></span><span class="poignee"></span></th>
           </tr>
         </thead>
         <tbody id="corps-tableau">
-          <tr><td colspan="10" class="chargement">Chargement...</td></tr>
+          <tr><td colspan="12" class="chargement">Chargement...</td></tr>
         </tbody>
       </table>
     </div>
@@ -617,6 +618,9 @@
     font-family: inherit;
     background: transparent;
   }
+  .titre-et-ref-brm { display: flex; align-items: baseline; gap: 8px; }
+  .titre-et-ref-brm input[type="text"] { flex: 1; min-width: 0; }
+  .ref-brm-bandeau { flex: none; font-size: calc(12px * var(--echelle-texte)); color: #666; white-space: nowrap; }
   .champ-titre-editable input[type="text"]:hover { border-color: #ddd; background: #fff; }
   .champ-titre-editable input[type="text"]:focus { border-color: #3b5bdb; background: #fff; outline: none; }
   .champ-avec-effacer {
