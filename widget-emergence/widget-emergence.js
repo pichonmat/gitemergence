@@ -1,4 +1,4 @@
-// Widget Emergence — v85
+// Widget Emergence — v86
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -3560,7 +3560,7 @@ function appliquerLargeursColonnesActions() {
       th.style.maxWidth = largeur + "px";
     }
   });
-  table.querySelectorAll("tbody tr").forEach(tr => {
+  table.querySelectorAll("tbody tr[data-demande-id]").forEach(tr => {
     const tds = tr.querySelectorAll("td");
     tds.forEach((td, index) => {
       const nomCol = ORDRE_COLONNES_ACTIONS[index];
@@ -3787,6 +3787,9 @@ document.getElementById("btn-reset-filtres-actions").addEventListener("click", (
   filtreActionPorteur = "";
   filtreActionTitre = "";
   filtreActionDescription = "";
+  rechercheActionsTexte = "";
+  const champRechercheActions = document.getElementById("champ-recherche-actions");
+  if (champRechercheActions) champRechercheActions.value = "";
   triActionColonne = "Pour_le";
   triActionSens = "desc";
   fermerPopupFiltreActionColonne();
@@ -3855,6 +3858,61 @@ function initRedimensionnementColonnes(selecteurPoignees, attributCol, largeursO
 }
 initRedimensionnementColonnes("#table-actions thead .poignee", "data-col-action", largeursColonnesActions, appliquerLargeursColonnesActions);
 
+// --- Onglet Rida : recherche globale et regroupement par demande (v86) ---
+// La recherche porte sur tous les champs de la ligne RIDA (type, porteur, dates, description) ET de
+// la demande liée (titre, objet, sponsor, parties prenantes, ...). Plusieurs mots = ET.
+let rechercheActionsTexte = "";
+let grouperActionsParDemande = false;
+try { grouperActionsParDemande = window.localStorage.getItem("emergence_actions_grouper") === "1"; } catch (e) { /* stockage indisponible */ }
+const groupesActionsReplies = new Set(); // ids de demandes dont le groupe est replié (session)
+let cacheTexteDemandesActions = { lignes: null, acteurs: null, map: new Map() };
+
+function rechercheActionsEstActive() {
+  return rechercheActionsTexte.trim().length >= RECHERCHE_GLOBALE_MIN_CAR;
+}
+
+function texteRechercheDemandeSeule(demandeId) {
+  const c = cacheTexteDemandesActions;
+  if (c.lignes !== lignesEmergence || c.acteurs !== acteursParId) {
+    cacheTexteDemandesActions = { lignes: lignesEmergence, acteurs: acteursParId, map: new Map() };
+  }
+  const map = cacheTexteDemandesActions.map;
+  if (!map.has(demandeId)) {
+    const l = lignesEmergence.find(x => x.id === demandeId);
+    map.set(demandeId, l ? texteRechercheLigne(l, []) : "");
+  }
+  return map.get(demandeId);
+}
+
+function texteRechercheActionRida(r) {
+  const morceaux = [LIBELLES_TYPE_RIDA[r.RIDA] || ""];
+  for (const cle in r) {
+    if (cleIgnoreeRecherche(cle) || cle === "ID2") continue;
+    const t = valeurVersTexteRecherche(cle, r[cle]);
+    if (t) morceaux.push(t);
+  }
+  return normaliserTexteRecherche(morceaux.join(" | ")) + " | " + texteRechercheDemandeSeule(idDepuisRef(r.ID2));
+}
+
+function mettreAJourCompteursRechercheActions(totalTrouvees, nbAffichees) {
+  const compteur = document.getElementById("compteur-recherche-actions");
+  const badge = document.getElementById("compteur-masques-recherche-actions");
+  const btnEffacer = document.getElementById("btn-effacer-recherche-actions");
+  if (!compteur) return;
+  const saisie = rechercheActionsTexte.trim();
+  if (btnEffacer) btnEffacer.style.display = saisie ? "" : "none";
+  if (badge) { badge.style.display = "none"; badge.textContent = ""; }
+  if (!saisie) { compteur.textContent = ""; return; }
+  if (!rechercheActionsEstActive()) { compteur.textContent = RECHERCHE_GLOBALE_MIN_CAR + " caractères minimum"; return; }
+  compteur.textContent = nbAffichees + " résultat" + (nbAffichees > 1 ? "s" : "");
+  const masquees = totalTrouvees - nbAffichees;
+  if (badge && masquees > 0) {
+    badge.textContent = "+" + masquees + " masqué" + (masquees > 1 ? "s" : "") + " par les filtres";
+    badge.title = masquees + " ligne" + (masquees > 1 ? "s" : "") + " de la recherche " + (masquees > 1 ? "sont écartées" : "est écartée") + " par les autres filtres actifs (type, statut, etc.) : ajuste-les pour les voir.";
+    badge.style.display = "";
+  }
+}
+
 function afficherTableauActions() {
   const corps = document.getElementById("corps-tableau-actions");
   let lignes = ridaToutes.map(r => {
@@ -3873,6 +3931,15 @@ function afficherTableauActions() {
     });
   });
 
+  let totalTrouveesRecherche = lignes.length;
+  if (rechercheActionsEstActive()) {
+    const mots = normaliserTexteRecherche(rechercheActionsTexte).split(/\s+/).filter(Boolean);
+    lignes = lignes.filter(r => {
+      const texte = texteRechercheActionRida(r);
+      return mots.every(m => texte.indexOf(m) !== -1);
+    });
+    totalTrouveesRecherche = lignes.length;
+  }
   if (filtreActionType.size > 0 && filtreActionType.size < 3) {
     lignes = lignes.filter(r => filtreActionType.has(r.RIDA));
   }
@@ -3922,11 +3989,12 @@ function afficherTableauActions() {
   });
 
   lignesActionsAffichees = lignes; // mémorisé pour l'export CSV (reflète filtres + tri actuels)
+  mettreAJourCompteursRechercheActions(totalTrouveesRecherche, lignes.length);
 
   if (lignes.length === 0) {
     corps.innerHTML = "<tr><td colspan='11' class='chargement'>Aucune action trouvée.</td></tr>";
   } else {
-    corps.innerHTML = lignes.map(r => {
+    const htmlLigne = (r) => {
       const classeUrgence = classeUrgenceAction(r);
       const estInformation = r.RIDA === "I";
       return "<tr data-demande-id='" + (r.__demandeId || "") + "'" + (classeUrgence ? " class='" + classeUrgence + "'" : "") + ">" +
@@ -3943,7 +4011,45 @@ function afficherTableauActions() {
         "<td title=\"Date de dernière modification de la ligne (automatique)\">" + formaterDateModifRida(r) + "</td>" +
         "<td class='editable-action-cell desc-action-editable' data-rida-id=\"" + r.id + "\" title=\"" + escapeHtml(r.Description || "") + " (cliquer pour modifier)\">" + escapeHtml(r.Description || "") + "</td>" +
         "</tr>";
-    }).join("");
+    };
+    if (grouperActionsParDemande) {
+      // Un en-tête par demande (dans l'ordre d'apparition du tri courant), lignes dessous.
+      const ordre = [];
+      const parDemande = new Map();
+      lignes.forEach(r => {
+        const k = r.__demandeId || 0;
+        if (!parDemande.has(k)) { parDemande.set(k, []); ordre.push(k); }
+        parDemande.get(k).push(r);
+      });
+      const nbCol = Math.max(1, colonnesVisiblesActions.size);
+      corps.innerHTML = ordre.map(k => {
+        const rows = parDemande.get(k);
+        const replie = groupesActionsReplies.has(k);
+        const premiere = rows[0];
+        return "<tr class='rida-groupe' data-groupe-id='" + k + "'><td colspan='" + nbCol + "'>" +
+          "<span class='rida-groupe-fleche'>" + (replie ? "▸" : "▾") + "</span> " +
+          "<b>" + escapeHtml(premiere.__titre) + "</b> " +
+          (premiere.__statut ? badgeStatut(premiere.__statut) + " " : "") +
+          "<span class='rida-groupe-nb'>" + rows.length + " ligne" + (rows.length > 1 ? "s" : "") + "</span>" +
+          (k ? " <a class='rida-groupe-ouvrir' data-demande-id='" + k + "' title='Ouvrir la fiche de la demande'>↗ ouvrir</a>" : "") +
+          "</td></tr>" + (replie ? "" : rows.map(htmlLigne).join(""));
+      }).join("");
+      corps.querySelectorAll("tr.rida-groupe").forEach(tr => {
+        tr.addEventListener("click", (e) => {
+          const lien = e.target.closest(".rida-groupe-ouvrir");
+          if (lien) {
+            basculerVue("demandes");
+            selectionnerLigne(parseInt(lien.getAttribute("data-demande-id"), 10));
+            return;
+          }
+          const k = parseInt(tr.getAttribute("data-groupe-id"), 10);
+          if (groupesActionsReplies.has(k)) groupesActionsReplies.delete(k); else groupesActionsReplies.add(k);
+          afficherTableauActions();
+        });
+      });
+    } else {
+      corps.innerHTML = lignes.map(htmlLigne).join("");
+    }
 
     corps.querySelectorAll("tr[data-demande-id]").forEach(tr => {
       tr.addEventListener("click", (e) => {
@@ -4189,6 +4295,46 @@ function exporterCsvActions() {
     console.error("Erreur export CSV :", e);
   }
 }
+
+// Champ de recherche globale + option « Grouper par demande » de l'onglet Rida.
+(function initRechercheEtGroupeActions() {
+  const champ = document.getElementById("champ-recherche-actions");
+  const btn = document.getElementById("btn-effacer-recherche-actions");
+  if (champ) {
+    let minuteur = null;
+    const appliquer = () => {
+      rechercheActionsTexte = champ.value;
+      afficherTableauActions();
+    };
+    champ.addEventListener("input", () => { clearTimeout(minuteur); minuteur = setTimeout(appliquer, 150); });
+    champ.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && champ.value) { champ.value = ""; clearTimeout(minuteur); appliquer(); e.stopPropagation(); }
+    });
+    if (btn) btn.addEventListener("click", () => { champ.value = ""; clearTimeout(minuteur); appliquer(); champ.focus(); });
+  }
+  const chk = document.getElementById("chk-grouper-actions");
+  const btnReplier = document.getElementById("btn-replier-groupes-actions");
+  const majBoutonReplier = () => { if (btnReplier) btnReplier.style.display = grouperActionsParDemande ? "" : "none"; };
+  if (chk) {
+    chk.checked = grouperActionsParDemande;
+    chk.addEventListener("change", () => {
+      grouperActionsParDemande = chk.checked;
+      try { window.localStorage.setItem("emergence_actions_grouper", grouperActionsParDemande ? "1" : "0"); } catch (e) { /* ignoré */ }
+      majBoutonReplier();
+      afficherTableauActions();
+    });
+  }
+  if (btnReplier) {
+    btnReplier.addEventListener("click", () => {
+      const ids = [...new Set(lignesActionsAffichees.map(r => r.__demandeId || 0))];
+      const toutReplie = ids.length > 0 && ids.every(k => groupesActionsReplies.has(k));
+      if (toutReplie) groupesActionsReplies.clear(); else ids.forEach(k => groupesActionsReplies.add(k));
+      btnReplier.textContent = toutReplie ? "⇕ Tout replier" : "⇕ Tout déplier";
+      afficherTableauActions();
+    });
+  }
+  majBoutonReplier();
+})();
 
 const btnExportCsvActions = document.getElementById("btn-export-csv-actions");
 if (btnExportCsvActions) {

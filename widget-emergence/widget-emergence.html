@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v85 -->
+<!-- Widget Emergence — v86 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -69,6 +69,14 @@
       <button type="button" id="btn-config-colonnes-actions" class="btn-filtre-multi btn-config-colonnes" title="Afficher/masquer des colonnes">⚙</button>
       <div class="popup-filtre-multi" id="popup-config-colonnes-actions" style="display:none;"></div>
     </div>
+    <div class="recherche-globale">
+      <input type="text" id="champ-recherche-actions" placeholder="🔍 Rechercher partout (3 car. min.)" autocomplete="off" title="Cherche dans tous les champs de la ligne RIDA et de sa demande">
+      <button type="button" id="btn-effacer-recherche-actions" title="Effacer la recherche" style="display:none;">✕</button>
+      <span id="compteur-recherche-actions" class="compteur-recherche-globale"></span>
+      <span id="compteur-masques-recherche-actions" class="compteur-masques-recherche-globale" style="display:none;"></span>
+    </div>
+    <label class="option-grouper-actions" title="Regroupe les lignes RIDA sous un en-tête par demande (clic sur l'en-tête pour replier)"><input type="checkbox" id="chk-grouper-actions"> Grouper par demande</label>
+    <button id="btn-replier-groupes-actions" type="button" style="display:none;">⇕ Tout replier</button>
     <button id="btn-reset-filtres-actions" type="button">✕ Réinitialiser les filtres</button>
     <button id="btn-export-csv-actions" type="button" title="Exporter au format CSV ce qui est affiché (filtres, tri et colonnes visibles actuels)">⬇ Exporter CSV</button>
   </div>
@@ -259,7 +267,14 @@
   }
   .barre-filtres button:hover { background: #eee; }
   .recherche-globale { display: inline-flex; align-items: center; gap: 4px; }
-  .barre-filtres .recherche-globale input[type="text"] { width: 230px; max-width: 230px; }
+  .barre-filtres .recherche-globale input[type="text"], .barre-filtres-actions .recherche-globale input[type="text"] { width: 230px; max-width: 230px; }
+  .barre-filtres-actions .recherche-globale button { padding: 3px 7px; }
+  .option-grouper-actions { font-size: calc(12px * var(--echelle-texte)); display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
+  #table-actions tbody tr.rida-groupe td { background: #eef2ff; border-bottom: 1px solid #c7d2fe; font-size: calc(12px * var(--echelle-texte)); padding: 4px 8px; cursor: pointer; white-space: nowrap; overflow: visible; }
+  #table-actions tbody tr.rida-groupe:hover td { background: #e0e7ff; }
+  .rida-groupe-fleche { color: #4f46e5; display: inline-block; width: 12px; }
+  .rida-groupe-nb { color: #6b7280; font-weight: 400; margin-left: 6px; }
+  .rida-groupe-ouvrir { color: #3b5bdb; margin-left: 10px; text-decoration: underline; font-weight: 400; }
   .barre-filtres .recherche-globale button { padding: 3px 7px; }
   .compteur-masques-recherche-globale { font-size: calc(11px * var(--echelle-texte)); color: #9a4b00; background: #fff1de; border: 1px solid #f0c48a; border-radius: 10px; padding: 1px 8px; white-space: nowrap; cursor: help; }
   .compteur-recherche-globale { font-size: calc(11px * var(--echelle-texte)); color: #666; white-space: nowrap; }
