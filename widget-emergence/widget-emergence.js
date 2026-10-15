@@ -1,4 +1,4 @@
-// Widget Emergence — v86
+// Widget Emergence — v87
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -407,6 +407,8 @@ const STATUTS = [
     description: "On cherche la cause racine du problème à l'origine de la demande." },
   { nom: "Accompagnement", fond: "#dbeafe", texte: "#1e40af", actif: true,
     description: "On met à disposition les outils sur étagère et on aide à la résolution. Quand la demande est en attente, on agit seulement si on est contacté." },
+  { nom: "Support", fond: "#dcfce7", texte: "#166534", actif: true,
+    description: "Pour les clients ayant souscrit une offre MIRAI ou RPA." },
   { nom: "En cours de transfert", fond: "#f3e8ff", texte: "#6b21a8", actif: false,
     description: "On accompagne le transfert de la demande vers un autre service du MI." },
   { nom: "Clôturer", fond: "#e5e7eb", texte: "#374151", actif: false,

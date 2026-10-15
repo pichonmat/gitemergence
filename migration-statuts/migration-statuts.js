@@ -1,4 +1,4 @@
-// Migration des statuts — v5
+// Migration des statuts — v5.1
 // Outil à usage unique : lit Emergence.Statut, affiche ce qui serait modifié, puis (après
 // confirmation et sauvegarde CSV) remplace les anciennes valeurs par les nouvelles en UNE seule
 // action Grist (BulkUpdateRecord : tout réussit ou tout échoue).
@@ -27,7 +27,7 @@ const MAPPING_PAR_DEFAUT = [
   ["9 - A qualifier", "Qualifier"]
 ];
 // Nouveaux statuts sans ancien équivalent (à ajouter dans la liste Grist) :
-const NOUVEAUX_SANS_ANCIEN = ["Roadmap produit", "Initialisation projet"];
+const NOUVEAUX_SANS_ANCIEN = ["Roadmap produit", "Initialisation projet", "Support"];
 const INCHANGES = [];
 
 // Liste finale des choix, dans l'ordre du flux, avec les couleurs utilisées par le widget.
@@ -39,6 +39,7 @@ const STATUTS_FINAUX = [
   { nom: "Initialisation projet", fond: "#FCE7F3", texte: "#9D174D" },
   { nom: "Recherche cause racine", fond: "#EDE9FE", texte: "#5B21B6" },
   { nom: "Accompagnement", fond: "#DBEAFE", texte: "#1E40AF" },
+  { nom: "Support", fond: "#DCFCE7", texte: "#166534" },
   { nom: "En cours de transfert", fond: "#F3E8FF", texte: "#6B21A8" },
   { nom: "Clôturer", fond: "#E5E7EB", texte: "#374151" }
 ];
