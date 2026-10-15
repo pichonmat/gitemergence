@@ -1,4 +1,4 @@
-// Widget Emergence — v89
+// Widget Emergence — v90
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -1712,6 +1712,12 @@ function iconePriorite(priorite) {
   return "<span class='icone-priorite' title=\"" + escapeHtml(priorite) + "\">" + pastille + "</span>";
 }
 
+// Infobulle (survol) de la liste des demandes : l'objet de la demande, sinon le titre.
+function infobulleObjetDemande(ligne) {
+  const objet = String(ligne.Objet_de_la_demande || "").trim();
+  return objet ? "Objet de la demande :\n" + objet : (ligne.Titre || "");
+}
+
 function afficherListe() {
   const corps = document.getElementById("corps-tableau");
   const lignesFiltrees = appliquerFiltres(lignesEmergence);
@@ -1767,7 +1773,7 @@ function afficherListe() {
       "<td title='" + (ligne.Organisation || "") + "'>" + (ligne.Organisation || "—") + "</td>" +
       "<td title='" + sponsorNom + "'>" + (sponsorNom || "—") + "</td>" +
       "<td title='" + porteurTexte + "'>" + (porteurTexte || "—") + "</td>" +
-      "<td title='" + (ligne.Titre || "") + "'>" + (ligne.Titre || "—") + "</td>" +
+      "<td class='cellule-titre-objet' title=\"" + escapeHtml(infobulleObjetDemande(ligne)) + "\">" + escapeHtml(ligne.Titre || "—") + "</td>" +
       "<td class='cellule-ref-brm-editable' title=\"" + escapeHtml(refBrm(ligne)) + (cleRefBrm(ligne) ? " (cliquer pour modifier)" : "") + "\">" + (escapeHtml(refBrm(ligne)) || "—") + "</td>" +
       "<td title='" + (ligne.Typologie_de_la_demande || "") + "'>" + (ligne.Typologie_de_la_demande || "—") + "</td>" +
       "<td title='" + partiesPrenantesTexte + "'>" + (partiesPrenantesTexte || "—") + "</td>" +
