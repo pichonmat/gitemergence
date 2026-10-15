@@ -1,4 +1,4 @@
-// Migration des statuts — v4
+// Migration des statuts — v5
 // Outil à usage unique : lit Emergence.Statut, affiche ce qui serait modifié, puis (après
 // confirmation et sauvegarde CSV) remplace les anciennes valeurs par les nouvelles en UNE seule
 // action Grist (BulkUpdateRecord : tout réussit ou tout échoue).
@@ -7,18 +7,45 @@ grist.ready({ requiredAccess: 'full' });
 const TABLE = "Emergence";
 const COLONNE = "Statut";
 
-// ancien statut -> nouveau statut (les libellés cibles sont modifiables dans la page)
+// ancien statut -> nouveau statut (les libellés cibles sont modifiables dans la page).
+// « 4 - En cours » et « 6 - En attente » fusionnent dans « Accompagnement ».
 const MAPPING_PAR_DEFAUT = [
-  ["1- En cours", "4 - En cours"],
-  ["2- En attente", "6 - En attente"],
-  ["3- Clôturé", "7 - Clôturer"],
-  ["4- Transféré", "5 - Transférer"],
-  ["5- A qualifier", "2 - Qualifier"],
-  ["9 - A qualifier", "2 - Qualifier"] // libellé réellement présent dans la base
+  ["0-Nouveau", "Nouveau"],
+  ["1 - Collecter", "Contacter"],
+  ["2 - Qualifier", "Qualifier"],
+  ["3 - Approfondir", "Recherche cause racine"],
+  ["4 - En cours", "Accompagnement"],
+  ["5 - Transférer", "En cours de transfert"],
+  ["6 - En attente", "Accompagnement"],
+  ["7 - Clôturer", "Clôturer"],
+  // anciens libellés qui pourraient encore traîner dans la base :
+  ["1- En cours", "Accompagnement"],
+  ["2- En attente", "Accompagnement"],
+  ["3- Clôturé", "Clôturer"],
+  ["4- Transféré", "En cours de transfert"],
+  ["5- A qualifier", "Qualifier"],
+  ["9 - A qualifier", "Qualifier"]
 ];
-// "0-Nouveau" est inchangé. Nouveaux statuts sans ancien équivalent (à ajouter dans la liste Grist) :
-const NOUVEAUX_SANS_ANCIEN = ["1 - Collecter", "3 - Approfondir"];
-const INCHANGES = ["0-Nouveau"];
+// Nouveaux statuts sans ancien équivalent (à ajouter dans la liste Grist) :
+const NOUVEAUX_SANS_ANCIEN = ["Roadmap produit", "Initialisation projet"];
+const INCHANGES = [];
+
+// Liste finale des choix, dans l'ordre du flux, avec les couleurs utilisées par le widget.
+const STATUTS_FINAUX = [
+  { nom: "Nouveau", fond: "#FFF8DC", texte: "#8A6D00" },
+  { nom: "Contacter", fond: "#E0F2FE", texte: "#075985" },
+  { nom: "Qualifier", fond: "#FEE2E2", texte: "#991B1B" },
+  { nom: "Roadmap produit", fond: "#CCFBF1", texte: "#115E59" },
+  { nom: "Initialisation projet", fond: "#FCE7F3", texte: "#9D174D" },
+  { nom: "Recherche cause racine", fond: "#EDE9FE", texte: "#5B21B6" },
+  { nom: "Accompagnement", fond: "#DBEAFE", texte: "#1E40AF" },
+  { nom: "En cours de transfert", fond: "#F3E8FF", texte: "#6B21A8" },
+  { nom: "Clôturer", fond: "#E5E7EB", texte: "#374151" }
+];
+function optionsCouleur(nom) {
+  const st = STATUTS_FINAUX.find(x => x.nom === nom);
+  return st ? { fillColor: st.fond, textColor: st.texte } : null;
+}
 
 let lignes = [];           // [{id, Statut}]
 let choixGrist = null;     // liste des choix de la colonne Statut dans Grist (null = illisible)
@@ -111,7 +138,17 @@ function verifier() {
       manquants.map(esc).join(" · ");
   } else bloc.style.display = "none";
   el("btn-ajouter-choix").style.display = (choixGrist !== null && manquants.length && idColonneStatut) ? "inline-block" : "none";
+  const aRetirer = anciensChoixRetirables();
+  el("btn-nettoyer-choix").style.display = (choixGrist !== null && idColonneStatut && aRetirer.length) ? "inline-block" : "none";
   el("btn-migrer").disabled = !(choixGrist !== null && manquants.length === 0) || mappingActuel().some(([, c]) => !c);
+}
+
+// Anciens choix de la liste Grist que plus aucune ligne n'utilise (retirables sans risque).
+function anciensChoixRetirables() {
+  if (choixGrist === null) return [];
+  const cibles = new Set(mappingActuel().map(([, c]) => c).concat(NOUVEAUX_SANS_ANCIEN).concat(STATUTS_FINAUX.map(x => x.nom)));
+  const utilises = new Set(lignes.map(l => l.Statut));
+  return MAPPING_PAR_DEFAUT.map(([a]) => a).filter(a => choixGrist.includes(a) && !cibles.has(a) && !utilises.has(a));
 }
 
 function aMigrer() {
@@ -186,7 +223,9 @@ el("btn-ajouter-choix").addEventListener("click", async () => {
     if (!confirm("Ajouter ces choix à la colonne Statut ?\n\n" + aAjouter.join("\n") +
       "\n\nLes choix existants ne sont pas modifiés.")) return;
     opts.choices = actuels.concat(aAjouter);
-    if (!opts.widget) opts.widget = "TextBox";
+    opts.choiceOptions = Object.assign({}, opts.choiceOptions || {});
+    aAjouter.forEach(c => { const o = optionsCouleur(c); if (o && !opts.choiceOptions[c]) opts.choiceOptions[c] = o; });
+    if (!opts.widget) opts.widget = "Choice";
     await grist.docApi.applyUserActions([
       ["UpdateRecord", "_grist_Tables_column", idColonneStatut, { widgetOptions: JSON.stringify(opts) }]
     ]);
@@ -199,6 +238,38 @@ el("btn-ajouter-choix").addEventListener("click", async () => {
   } catch (e) {
     res.className = "statut erreur";
     res.textContent = "Impossible d'ajouter les choix automatiquement (" + e.message + ") : ajoute-les à la main dans Grist.";
+  }
+});
+
+// Étape 3 : une fois la migration faite, retire les anciens choix et remet la liste dans l'ordre du flux.
+el("btn-nettoyer-choix").addEventListener("click", async () => {
+  const res = el("resultat");
+  res.className = "statut";
+  try {
+    const cols = await grist.docApi.fetchTable("_grist_Tables_column");
+    const idx = cols.id.indexOf(idColonneStatut);
+    if (idx === -1) throw new Error("colonne Statut introuvable");
+    const opts = JSON.parse(cols.widgetOptions[idx] || "{}");
+    const actuels = Array.isArray(opts.choices) ? opts.choices : [];
+    const retirables = anciensChoixRetirables().filter(c => actuels.includes(c));
+    if (!retirables.length) { await charger(); return; }
+    if (!confirm("Retirer ces anciens choix de la colonne Statut ?\n\n" + retirables.join("\n") +
+      "\n\nLa liste sera aussi remise dans l'ordre du flux.")) return;
+    const ordre = STATUTS_FINAUX.map(x => x.nom);
+    const autres = actuels.filter(c => !retirables.includes(c) && !ordre.includes(c));
+    opts.choices = ordre.concat(autres);
+    opts.choiceOptions = Object.assign({}, opts.choiceOptions || {});
+    retirables.forEach(c => { delete opts.choiceOptions[c]; });
+    ordre.forEach(c => { const o = optionsCouleur(c); if (o) opts.choiceOptions[c] = o; });
+    await grist.docApi.applyUserActions([
+      ["UpdateRecord", "_grist_Tables_column", idColonneStatut, { widgetOptions: JSON.stringify(opts) }]
+    ]);
+    await charger();
+    res.className = "statut ok";
+    res.textContent = retirables.length + " ancien(s) choix retiré(s). Migration terminée : tu peux retirer ce widget.";
+  } catch (e) {
+    res.className = "statut erreur";
+    res.textContent = "Impossible de nettoyer la liste automatiquement (" + e.message + ") : fais-le à la main dans Grist.";
   }
 });
 
@@ -225,7 +296,7 @@ el("btn-migrer").addEventListener("click", async () => {
     const restantes = aMigrer().length;
     res.className = restantes === 0 ? "statut ok" : "statut erreur";
     res.textContent = restantes === 0
-      ? "Migration terminée : " + liste.length + " ligne(s) mises à jour. Tu peux retirer ce widget."
+      ? "Migration terminée : " + liste.length + " ligne(s) mises à jour. Reste l'étape 3 : retirer les anciens choix (bouton ci-dessus)."
       : "Attention : " + restantes + " ligne(s) portent encore un ancien statut. Relance « Actualiser ».";
   } catch (e) {
     res.className = "statut erreur";

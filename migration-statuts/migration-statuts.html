@@ -3,7 +3,9 @@
   <h1>Migration des statuts</h1>
   <p class="intro">
     Remplace les anciens statuts de la table <b>Emergence</b> par les nouveaux. Rien n'est écrit
-    tant que tu n'as pas cliqué sur « Migrer » puis confirmé. Fais une copie du document avant.
+    tant que tu n'as pas cliqué puis confirmé. Fais une copie du document avant.<br>
+    <b>3 étapes :</b> 1) ajouter les nouveaux choix à la colonne Statut · 2) migrer les lignes ·
+    3) retirer les anciens choix. Mets d'abord à jour le widget Émergence (v85 ou plus) : il lit les deux libellés.
   </p>
   <div id="statut-chargement" class="statut">Lecture de la table Emergence...</div>
   <div id="zone" style="display:none;">
@@ -15,6 +17,7 @@
     <div id="bloc-liste" class="alerte" style="display:none;"></div>
     <div class="actions">
       <button id="btn-ajouter-choix" type="button" class="btn-secondaire" style="display:none;">➕ Ajouter les choix manquants à Grist</button>
+      <button id="btn-nettoyer-choix" type="button" class="btn-secondaire" style="display:none;">🧹 Retirer les anciens choix de Grist</button>
       <button id="btn-actualiser" type="button" class="btn-secondaire">↻ Actualiser</button>
       <button id="btn-sauvegarde" type="button" class="btn-secondaire">💾 Télécharger la sauvegarde (CSV)</button>
       <button id="btn-afficher-copie" type="button" class="btn-secondaire">📋 Afficher la liste pour la copier</button>

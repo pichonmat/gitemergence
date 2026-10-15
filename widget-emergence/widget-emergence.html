@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v84 -->
+<!-- Widget Emergence — v85 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -135,7 +135,7 @@
       <div class="carte-activite carte-activite-indicateur">
         <div class="carte-activite-titre">Demandes nouvelles ou en cours, sans aucune action</div>
         <div id="indicateur-activite-sans-action" class="indicateur-nombre">—</div>
-        <div class="indicateur-sous-texte">Statut 0-Nouveau ou 4 - En cours, sans aucune ligne RIDA de type Action</div>
+        <div class="indicateur-sous-texte">Statut Nouveau ou Accompagnement, sans aucune ligne RIDA de type Action</div>
       </div>
     </div>
     <div class="carte-activite carte-activite-large">
@@ -344,6 +344,7 @@
   .bloc-export-excel button { cursor: pointer; width: 100%; padding: 5px 8px; border-radius: 4px; border: 1px solid #1a3a6b; background: #fff; color: #1a3a6b; font-size: calc(12px * var(--echelle-texte)); }
   .bloc-export-excel button:disabled { opacity: 0.6; cursor: default; }
   .msg-export-excel { font-size: calc(11px * var(--echelle-texte)); margin-top: 4px; color: #555; }
+  .info-statut { cursor: help; color: #667; font-size: calc(13px * var(--echelle-texte)); }
   .kanban-carte { cursor: pointer; }
   .kanban-carte:hover { box-shadow: 0 0 0 2px rgba(30,64,175,0.35); }
 

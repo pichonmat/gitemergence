@@ -1,4 +1,4 @@
-// Widget Emergence — v84
+// Widget Emergence — v85
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -390,20 +390,56 @@ async function appliquerActionsBrut(actions) {
   }
 }
 
-const COULEURS_STATUT = {
-  "0-Nouveau":      { fond: "#fff8dc", texte: "#8a6d00" },
-  "1 - Collecter":  { fond: "#e0f2fe", texte: "#075985" },
-  "2 - Qualifier":  { fond: "#fee2e2", texte: "#991b1b" },
-  "3 - Approfondir": { fond: "#ede9fe", texte: "#5b21b6" },
-  "4 - En cours":   { fond: "#dbeafe", texte: "#1e40af" },
-  "5 - Transférer": { fond: "#f3e8ff", texte: "#6b21a8" },
-  "6 - En attente": { fond: "#fde8d6", texte: "#9a4a00" },
-  "7 - Clôturer":   { fond: "#e5e7eb", texte: "#374151" }
+// Statuts des demandes, dans l'ordre du flux (v85). `actif` : coché par défaut dans les filtres.
+// `description` : infobulle affichée partout où le statut apparaît.
+const STATUTS = [
+  { nom: "Nouveau", fond: "#fff8dc", texte: "#8a6d00", actif: true,
+    description: "La fiche est créée (c'est tout)." },
+  { nom: "Contacter", fond: "#e0f2fe", texte: "#075985", actif: true,
+    description: "On entre en contact pour avoir un minimum d'info et valider qu'il y a bien une demande." },
+  { nom: "Qualifier", fond: "#fee2e2", texte: "#991b1b", actif: true,
+    description: "On prend le temps de comprendre la demande et de mettre en place un plan d'action court terme." },
+  { nom: "Roadmap produit", fond: "#ccfbf1", texte: "#115e59", actif: true,
+    description: "Nécessite l'évolution d'un produit existant." },
+  { nom: "Initialisation projet", fond: "#fce7f3", texte: "#9d174d", actif: true,
+    description: "Une nouvelle ligne est ajoutée au backlog des sujets SDID. On passe la demande à Clôturer dès que c'est fait." },
+  { nom: "Recherche cause racine", fond: "#ede9fe", texte: "#5b21b6", actif: true,
+    description: "On cherche la cause racine du problème à l'origine de la demande." },
+  { nom: "Accompagnement", fond: "#dbeafe", texte: "#1e40af", actif: true,
+    description: "On met à disposition les outils sur étagère et on aide à la résolution. Quand la demande est en attente, on agit seulement si on est contacté." },
+  { nom: "En cours de transfert", fond: "#f3e8ff", texte: "#6b21a8", actif: false,
+    description: "On accompagne le transfert de la demande vers un autre service du MI." },
+  { nom: "Clôturer", fond: "#e5e7eb", texte: "#374151", actif: false,
+    description: "La demande est clôturée." }
+];
+const COULEURS_STATUT = {};
+STATUTS.forEach(st => { COULEURS_STATUT[st.nom] = { fond: st.fond, texte: st.texte }; });
+const DESCRIPTIONS_STATUT = {};
+STATUTS.forEach(st => { DESCRIPTIONS_STATUT[st.nom] = st.description; });
+const STATUT_NOUVEAU = "Nouveau";
+// Statuts "actifs" : seuls cochés par défaut dans les filtres Statut, et après « Réinitialiser ».
+const STATUTS_ACTIFS_PAR_DEFAUT = STATUTS.filter(st => st.actif).map(st => st.nom);
+const STATUT_EN_COURS = "Accompagnement";
+
+// Anciens libellés (avant la migration de v85) : lus comme les nouveaux, pour que le widget
+// fonctionne avant, pendant et après la migration de la table.
+const ANCIENS_LIBELLES_STATUT = {
+  "0-Nouveau": "Nouveau", "1 - Collecter": "Contacter", "2 - Qualifier": "Qualifier",
+  "3 - Approfondir": "Recherche cause racine", "4 - En cours": "Accompagnement",
+  "5 - Transférer": "En cours de transfert", "6 - En attente": "Accompagnement", "7 - Clôturer": "Clôturer",
+  "1- En cours": "Accompagnement", "2- En attente": "Accompagnement", "3- Clôturé": "Clôturer",
+  "4- Transféré": "En cours de transfert", "5- A qualifier": "Qualifier", "9 - A qualifier": "Qualifier"
 };
-const STATUT_NOUVEAU = "0-Nouveau";
-// Statuts "actifs" (0 à 4) : seuls cochés par défaut dans les filtres Statut, et après « Réinitialiser ».
-const STATUTS_ACTIFS_PAR_DEFAUT = ["0-Nouveau", "1 - Collecter", "2 - Qualifier", "3 - Approfondir", "4 - En cours"];
-const STATUT_EN_COURS = "4 - En cours";
+function normaliserStatut(statut) {
+  return Object.prototype.hasOwnProperty.call(ANCIENS_LIBELLES_STATUT, statut) ? ANCIENS_LIBELLES_STATUT[statut] : statut;
+}
+function rangStatut(statut) {
+  const i = STATUTS.findIndex(st => st.nom === normaliserStatut(statut));
+  return i === -1 ? STATUTS.length : i;
+}
+function descriptionStatut(statut) {
+  return DESCRIPTIONS_STATUT[normaliserStatut(statut)] || "";
+}
 
 // Choix possibles pour Priorité (colonne Choice)
 const CHOIX_PRIORITE = ["P1 - HAUTE", "P2- MOYENNE", "P3- BASSE"];
@@ -613,6 +649,7 @@ async function chargerTablePrincipale() {
   try {
     const table = await grist.docApi.fetchTable(TABLE_PRINCIPALE);
     lignesEmergence = tableVersLignes(table);
+    lignesEmergence.forEach(l => { l.Statut = normaliserStatut(l.Statut); });
   } catch (e) { console.error("Erreur chargement Emergence :", e); }
 }
 
@@ -1002,7 +1039,9 @@ function aujourdHuiEpoch() {
 
 function badgeStatut(statut) {
   const c = COULEURS_STATUT[statut] || { fond: "#f3f4f6", texte: "#374151" };
-  return "<span class='badge-statut' style='background:" + c.fond + "; color:" + c.texte + ";'>" + (statut || "—") + "</span>";
+  const desc = descriptionStatut(statut);
+  return "<span class='badge-statut' style='background:" + c.fond + "; color:" + c.texte + ";'" +
+    (desc ? " title=\"" + escapeHtml(desc) + "\"" : "") + ">" + (statut || "—") + "</span>";
 }
 
 function valeurOuTiret(v) {
@@ -1351,7 +1390,7 @@ function construireContenuPopupFiltreListeColonne(champ) {
   }
   if (champ === "statut") {
     return Object.keys(COULEURS_STATUT).map(s =>
-      "<label><input type='checkbox' class='case-filtre-liste-statut' value=\"" + escapeHtml(s) + "\"" +
+      "<label title=\"" + escapeHtml(descriptionStatut(s)) + "\"><input type='checkbox' class='case-filtre-liste-statut' value=\"" + escapeHtml(s) + "\"" +
       (filtreStatutSelection.has(s) ? " checked" : "") + ">" + escapeHtml(s) + "</label>"
     ).join("");
   }
@@ -1587,6 +1626,10 @@ function trierLignes(lignes) {
     if (colonneTri === "Date_de_derniere_modification") {
       vA = epochDerniereModifDemande(a.id);
       vB = epochDerniereModifDemande(b.id);
+    }
+    if (colonneTri === "Statut") {
+      vA = rangStatut(a.Statut);
+      vB = rangStatut(b.Statut);
     }
     if (colonneTri === "Ref_BRM") {
       vA = refBrm(a);
@@ -2296,10 +2339,11 @@ function afficherFiche(ligne) {
 
   // --- Select Statut (coloré) ---
   const optionsStatut = Object.keys(COULEURS_STATUT).map(s =>
-    "<option value=\"" + escapeHtml(s) + "\"" + (s === ligne.Statut ? " selected" : "") + ">" + escapeHtml(s) + "</option>"
+    "<option value=\"" + escapeHtml(s) + "\" title=\"" + escapeHtml(descriptionStatut(s)) + "\"" + (s === ligne.Statut ? " selected" : "") + ">" + escapeHtml(s) + "</option>"
   ).join("");
   const statutSelectHtml =
-    "<select id='statut-select'>" + optionsStatut + "</select>" +
+    "<select id='statut-select' title=\"" + escapeHtml(descriptionStatut(ligne.Statut)) + "\">" + optionsStatut + "</select>" +
+    "<span class='info-statut' id='info-statut' title=\"" + escapeHtml(descriptionStatut(ligne.Statut)) + "\">ⓘ</span>" +
     "<span class='msg-sauvegarde' id='msg-statut'></span>";
 
   // --- Select Priorité ---
@@ -2592,7 +2636,10 @@ function afficherFiche(ligne) {
   // --- Édition du Statut (select coloré, sauvegarde immédiate) ---
   const statutSelect = conteneur.querySelector("#statut-select");
   const msgStatut = conteneur.querySelector("#msg-statut");
+  const infoStatut = conteneur.querySelector("#info-statut");
   statutSelect.addEventListener("change", () => {
+    statutSelect.title = descriptionStatut(statutSelect.value);
+    if (infoStatut) infoStatut.title = descriptionStatut(statutSelect.value);
     sauverChampEmergence("Statut", statutSelect.value, msgStatut);
   });
 
@@ -3597,7 +3644,7 @@ function construireContenuPopupFiltreActionColonne(champ) {
   }
   if (champ === "statut") {
     return Object.keys(COULEURS_STATUT).map(s =>
-      "<label><input type='checkbox' class='case-filtre-action-statut' value=\"" + escapeHtml(s) + "\"" +
+      "<label title=\"" + escapeHtml(descriptionStatut(s)) + "\"><input type='checkbox' class='case-filtre-action-statut' value=\"" + escapeHtml(s) + "\"" +
       (filtreActionStatutSelection.has(s) ? " checked" : "") + ">" + escapeHtml(s) + "</label>"
     ).join("");
   }
@@ -3861,7 +3908,7 @@ function afficherTableauActions() {
     else if (triActionColonne === "objet") { vA = a.__objet; vB = b.__objet; }
     else if (triActionColonne === "sponsor") { vA = a.__sponsor; vB = b.__sponsor; }
     else if (triActionColonne === "organisation") { vA = a.__organisation; vB = b.__organisation; }
-    else if (triActionColonne === "statut") { vA = a.__statut; vB = b.__statut; }
+    else if (triActionColonne === "statut") { vA = rangStatut(a.__statut); vB = rangStatut(b.__statut); }
     else { vA = a[triActionColonne]; vB = b[triActionColonne]; }
     if (vA == null) vA = "";
     if (vB == null) vB = "";
@@ -4265,7 +4312,7 @@ function calculerDonneesActivite() {
   const semainesFaites = semaines.map(s => faitesParSemaine[s] || 0);
   const semainesNonFaites = semaines.map(s => nonFaitesParSemaine[s] || 0);
 
-  // 3/ Demandes "0-Nouveau" ou "4 - En cours" sans aucune ligne RIDA de type Action (A).
+  // 3/ Demandes « Nouveau » ou « Accompagnement » sans aucune ligne RIDA de type Action (A).
   const demandesSansAction = lignesEmergence.filter(l =>
     (l.Statut === STATUT_NOUVEAU || l.Statut === STATUT_EN_COURS) &&
     !ridaToutes.some(r => idDepuisRef(r.ID2) === l.id && r.RIDA === "A")
@@ -4544,7 +4591,7 @@ function contenuPopupFiltreKanban() {
   const organisations = [...new Set(lignesEmergence.map(l => l.Organisation || ""))].sort((a, b) => a.localeCompare(b));
   return "<button type='button' class='btn-supprimer-filtre kanban-reinit' style='display:" + (kanbanFiltreActif() ? "" : "none") + "'>✕ <span>Supprimer les filtres</span></button>" +
     "<div class='kanban-filtre-titre'>Colonnes affichées</div>" +
-    cases("kf-colonne", Object.keys(COULEURS_STATUT), v => kanbanColonnesMasquees.has(v), v => escapeHtml(v)) +
+    cases("kf-colonne", Object.keys(COULEURS_STATUT), v => kanbanColonnesMasquees.has(v), v => "<span title=\"" + escapeHtml(descriptionStatut(v)) + "\">" + escapeHtml(v) + "</span>") +
     "<div class='kanban-filtre-titre'>Priorités affichées</div>" +
     cases("kf-priorite", ["P1", "P2", "P3", ""], v => kanbanPrioritesMasquees.has(v), v => v || "Sans priorité") +
     "<div class='kanban-filtre-titre'>Organisations affichées</div>" +
@@ -4622,7 +4669,7 @@ function construireKanban() {
         "</div>";
     }).join("");
     return "<div class='kanban-colonne'>" +
-      "<div class='kanban-colonne-titre' style='background:" + c.fond + "; color:" + c.texte + ";'><span>" + escapeHtml(col.statut) + "</span><span>" + col.lignes.length + "</span></div>" +
+      "<div class='kanban-colonne-titre' title=\"" + escapeHtml(descriptionStatut(col.statut)) + "\" style='background:" + c.fond + "; color:" + c.texte + ";'><span>" + escapeHtml(col.statut) + "</span><span>" + col.lignes.length + "</span></div>" +
       "<div class='kanban-cartes'>" + (cartes || "<div class='kanban-carte-detail' style='padding:4px;'>—</div>") + "</div></div>";
   }).join("");
 }
