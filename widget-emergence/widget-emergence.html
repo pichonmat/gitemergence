@@ -1,9 +1,10 @@
-<!-- Widget Emergence — v88 -->
+<!-- Widget Emergence — v89 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
   <button type="button" id="tag-contacts" class="tag-mode tag-mode-contacts">Contacts</button>
   <button type="button" id="tag-activite" class="tag-mode tag-mode-activite">Activité</button>
+  <button type="button" id="tag-reporting" class="tag-mode tag-mode-reporting">Reporting</button>
   <span id="utilisateur-connecte" class="utilisateur-connecte" style="display:none;"></span>
 </div>
 
@@ -125,6 +126,19 @@
 </div>
 
 <!-- Onglet Activité : indicateurs et graphiques -->
+<div id="vue-reporting" style="display:none;">
+  <div class="barre-reporting">
+    <button type="button" id="reporting-precedente" title="Semaine précédente">◀</button>
+    <span id="reporting-libelle-semaine" class="reporting-libelle-semaine"></span>
+    <button type="button" id="reporting-suivante" title="Semaine suivante">▶</button>
+    <button type="button" id="reporting-aujourdhui">Semaine en cours</button>
+    <select id="reporting-porteur" title="Filtrer par porteur"></select>
+    <button type="button" id="btn-export-pdf-reporting" class="btn-export-activite" title="Télécharger le reporting de la semaine au format PDF">📄 Exporter en PDF</button>
+    <span id="msg-export-pdf-reporting" class="msg-export-activite"></span>
+  </div>
+  <div id="contenu-reporting" class="contenu-reporting"></div>
+</div>
+
 <div id="vue-activite" style="display:none;">
   <div class="barre-export-activite">
     <button type="button" id="btn-export-pdf-activite" class="btn-export-activite" title="Télécharger l'activité au format PDF">📄 Exporter en PDF</button>
@@ -332,6 +346,27 @@
   .tag-mode-contacts { background: #e6f7ee; color: #0a6b3e; border-color: #1f9d5f; }
   .tag-mode-contacts:hover { background: #d1f0e0; }
   .tag-mode-contacts.active { background: #1f9d5f; color: #fff; }
+  .tag-mode-reporting { background: #e0f7f5; color: #0f5f5a; border-color: #14a39a; }
+  .tag-mode-reporting:hover { background: #ccf0ed; }
+  .tag-mode-reporting.active { background: #14a39a; color: #fff; }
+  .barre-reporting { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; --echelle-texte: 1; }
+  .barre-reporting button, .barre-reporting select { font-size: calc(12px * var(--echelle-texte)); padding: 4px 10px; border: 1px solid #ccc; border-radius: 6px; background: #f5f5f5; cursor: pointer; font-family: inherit; }
+  .barre-reporting button:hover { background: #eee; }
+  .reporting-libelle-semaine { font-weight: 700; font-size: calc(13px * var(--echelle-texte)); color: #1a3a6b; min-width: 270px; text-align: center; }
+  .reporting-section { margin-bottom: 18px; }
+  .reporting-section h2 { font-size: calc(15px * var(--echelle-texte)); margin: 0 0 2px; color: #1a3a6b; border-bottom: 2px solid #c7d2fe; padding-bottom: 3px; }
+  .reporting-total { font-size: calc(12px * var(--echelle-texte)); color: #6b7280; margin: 3px 0 8px; }
+  .reporting-vide { color: #9ca3af; font-size: calc(12px * var(--echelle-texte)); padding: 6px 2px; }
+  .reporting-groupe { border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 8px; overflow: hidden; background: #fff; }
+  .reporting-groupe-entete { background: #f3f4f6; padding: 5px 10px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: calc(13px * var(--echelle-texte)); }
+  .reporting-groupe-entete:hover { background: #e8edfb; }
+  .reporting-groupe-meta { margin-left: auto; color: #6b7280; font-size: calc(11px * var(--echelle-texte)); }
+  .reporting-lignes { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .reporting-lignes td { padding: 4px 10px; border-top: 1px solid #eee; font-size: calc(12px * var(--echelle-texte)); vertical-align: top; word-break: break-word; }
+  .reporting-lignes .reporting-type { width: 95px; font-weight: 700; }
+  .reporting-type-A { color: #c2570c; } .reporting-type-D { color: #6b21a8; } .reporting-type-I { color: #1e40af; }
+  .reporting-lignes .reporting-date { width: 85px; white-space: nowrap; }
+  .reporting-lignes .reporting-porteur { width: 190px; }
   .tag-mode-activite { background: #f3e8ff; color: #6b21a8; border-color: #9d4de0; }
   .tag-mode-activite:hover { background: #e9d8fd; }
   .tag-mode-activite.active { background: #9d4de0; color: #fff; }

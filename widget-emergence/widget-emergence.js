@@ -1,4 +1,4 @@
-// Widget Emergence — v88
+// Widget Emergence — v89
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -4360,13 +4360,15 @@ function basculerVue(mode) {
     demandes: document.getElementById("vue-demandes"),
     actions: document.getElementById("vue-actions"),
     contacts: document.getElementById("vue-contacts"),
-    activite: document.getElementById("vue-activite")
+    activite: document.getElementById("vue-activite"),
+    reporting: document.getElementById("vue-reporting")
   };
   const tags = {
     demandes: document.getElementById("tag-demandes"),
     actions: document.getElementById("tag-actions"),
     contacts: document.getElementById("tag-contacts"),
-    activite: document.getElementById("tag-activite")
+    activite: document.getElementById("tag-activite"),
+    reporting: document.getElementById("tag-reporting")
   };
 
   Object.keys(vues).forEach(cle => {
@@ -4383,6 +4385,8 @@ function basculerVue(mode) {
     chargerPageContacts();
   } else if (mode === "activite") {
     afficherActivite();
+  } else if (mode === "reporting") {
+    afficherReporting();
   }
 }
 
@@ -4390,6 +4394,7 @@ document.getElementById("tag-demandes").addEventListener("click", () => basculer
 document.getElementById("tag-actions").addEventListener("click", () => basculerVue("actions"));
 document.getElementById("tag-contacts").addEventListener("click", () => basculerVue("contacts"));
 document.getElementById("tag-activite").addEventListener("click", () => basculerVue("activite"));
+document.getElementById("tag-reporting").addEventListener("click", () => basculerVue("reporting"));
 
 // --- Onglet Activité : indicateurs et graphiques de synthèse ---
 
@@ -5211,6 +5216,259 @@ function telechargerBlob(blob, nomFichier) {
 
 const btnExportPdfActivite = document.getElementById("btn-export-pdf-activite");
 if (btnExportPdfActivite) btnExportPdfActivite.addEventListener("click", exporterPdfActivite);
+
+
+// ===================== Onglet Reporting hebdomadaire =====================
+// Résumé d'une semaine (lundi → dimanche) : les lignes RIDA faites dans la semaine (Actions,
+// Informations, Décisions) et les Actions / Décisions prévues la semaine suivante (Pour le dans la
+// semaine suivante, pas encore faites). Les lignes automatiques du journal des modifications
+// (« Champ « X » modifié ») sont exclues. Regroupé par demande, exportable en PDF.
+const JOURS_SEMAINE_S = 7 * 24 * 3600;
+let reportingDecalageSemaines = 0; // 0 = semaine en cours, -1 = précédente, +1 = suivante
+let reportingPorteur = "";         // "" = tous les porteurs
+
+function numeroSemaineIso(epochLundi) {
+  const d = new Date(epochLundi * 1000);
+  const jeudi = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 3));
+  const debutAnnee = new Date(Date.UTC(jeudi.getUTCFullYear(), 0, 1));
+  return Math.ceil((((jeudi - debutAnnee) / 86400000) + 1) / 7);
+}
+
+function lundiReporting() {
+  return lundiDeSemaineEpoch(aujourdHuiEpoch()) + reportingDecalageSemaines * JOURS_SEMAINE_S;
+}
+
+function estLigneJournalAuto(r) {
+  return r.RIDA === "I" && REGEX_LIGNE_JOURNAL.test(String(r.Description || ""));
+}
+
+// Regroupe des lignes RIDA par demande (statut puis titre) ; chaque groupe : { demande, lignes }.
+function grouperLignesParDemande(lignes, cleDate) {
+  const groupes = new Map();
+  lignes.forEach(r => {
+    const d = nomDemandeParId2(r.ID2);
+    const k = d.id || 0;
+    if (!groupes.has(k)) groupes.set(k, { demande: d, lignes: [] });
+    groupes.get(k).lignes.push(r);
+  });
+  const liste = [...groupes.values()];
+  liste.forEach(g => g.lignes.sort((a, b) => (a[cleDate] || 0) - (b[cleDate] || 0) || String(a.RIDA).localeCompare(String(b.RIDA))));
+  liste.sort((a, b) => rangStatut(a.demande.statut) - rangStatut(b.demande.statut) || String(a.demande.titre).localeCompare(String(b.demande.titre)));
+  return liste;
+}
+
+function comptagesParType(lignes) {
+  return { A: lignes.filter(r => r.RIDA === "A").length, I: lignes.filter(r => r.RIDA === "I").length, D: lignes.filter(r => r.RIDA === "D").length };
+}
+
+function libelleComptages(c) {
+  const morceaux = [];
+  if (c.A) morceaux.push(c.A + " action" + (c.A > 1 ? "s" : ""));
+  if (c.I) morceaux.push(c.I + " information" + (c.I > 1 ? "s" : ""));
+  if (c.D) morceaux.push(c.D + " décision" + (c.D > 1 ? "s" : ""));
+  return morceaux.join(" · ");
+}
+
+function calculerReporting() {
+  const lundi = lundiReporting();
+  const dimanche = lundi + 6 * 24 * 3600;
+  const lundiSuivant = lundi + JOURS_SEMAINE_S;
+  const dimancheSuivant = lundiSuivant + 6 * 24 * 3600;
+  const utiles = ridaToutes.filter(r => !estLigneJournalAuto(r));
+  const dansPorteur = (r) => !reportingPorteur || (r.Porteur || "") === reportingPorteur;
+  const faitesToutes = utiles.filter(r => typeof r.Fait_le === "number" && r.Fait_le >= lundi && r.Fait_le < lundiSuivant);
+  const prevuesToutes = utiles.filter(r => (r.RIDA === "A" || r.RIDA === "D") && !r.Fait_le &&
+    typeof r.Pour_le === "number" && r.Pour_le >= lundiSuivant && r.Pour_le < lundiSuivant + JOURS_SEMAINE_S);
+  const porteurs = [...new Set(faitesToutes.concat(prevuesToutes).map(r => r.Porteur || "").filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const faites = faitesToutes.filter(dansPorteur);
+  const prevues = prevuesToutes.filter(dansPorteur);
+  return {
+    lundi, dimanche, lundiSuivant, dimancheSuivant, porteurs,
+    numero: numeroSemaineIso(lundi), numeroSuivant: numeroSemaineIso(lundiSuivant),
+    faites, prevues,
+    groupesFaites: grouperLignesParDemande(faites, "Fait_le"),
+    groupesPrevues: grouperLignesParDemande(prevues, "Pour_le")
+  };
+}
+
+function libelleSemaineReporting(debut, fin, numero) {
+  return "Semaine " + numero + " · du " + formaterDate(debut) + " au " + formaterDate(fin);
+}
+
+function htmlGroupesReporting(groupes, cleDate, libelleDate) {
+  if (!groupes.length) return "<div class='reporting-vide'>Aucune ligne.</div>";
+  return groupes.map(g => {
+    const d = g.demande;
+    return "<div class='reporting-groupe'>" +
+      "<div class='reporting-groupe-entete' data-demande-id='" + (d.id || "") + "' title='Ouvrir la fiche de la demande'>" +
+      "<b>" + escapeHtml(d.titre) + "</b> " + (d.statut ? badgeStatut(d.statut) : "") +
+      "<span class='reporting-groupe-meta'>" + escapeHtml([d.sponsor, d.organisation].filter(Boolean).join(" · ")) + "</span></div>" +
+      "<table class='reporting-lignes'><tbody>" +
+      g.lignes.map(r =>
+        "<tr><td class='reporting-type reporting-type-" + escapeHtml(r.RIDA || "") + "'>" + escapeHtml(LIBELLES_TYPE_RIDA[r.RIDA] || r.RIDA || "—") + "</td>" +
+        "<td class='reporting-date'>" + formaterDate(r[cleDate]) + "</td>" +
+        "<td class='reporting-porteur'>" + (r.Porteur ? escapeHtml(r.Porteur) : "—") + "</td>" +
+        "<td class='reporting-description'>" + escapeHtml(r.Description || "") + "</td></tr>"
+      ).join("") + "</tbody></table></div>";
+  }).join("");
+}
+
+function afficherReporting() {
+  const conteneur = document.getElementById("contenu-reporting");
+  if (!conteneur) return;
+  const r = calculerReporting();
+  const sel = document.getElementById("reporting-porteur");
+  if (sel) {
+    const valeurs = r.porteurs.slice();
+    if (reportingPorteur && !valeurs.includes(reportingPorteur)) valeurs.push(reportingPorteur);
+    sel.innerHTML = "<option value=''>Tous les porteurs</option>" +
+      valeurs.map(v => "<option value=\"" + escapeHtml(v) + "\"" + (v === reportingPorteur ? " selected" : "") + ">" + escapeHtml(v) + "</option>").join("");
+  }
+  const lib = document.getElementById("reporting-libelle-semaine");
+  if (lib) lib.textContent = libelleSemaineReporting(r.lundi, r.dimanche, r.numero) +
+    (reportingDecalageSemaines === 0 ? " (en cours)" : "");
+  const cF = libelleComptages(comptagesParType(r.faites));
+  const cP = libelleComptages(comptagesParType(r.prevues));
+  conteneur.innerHTML =
+    "<section class='reporting-section'><h2>Réalisé — " + escapeHtml(libelleSemaineReporting(r.lundi, r.dimanche, r.numero)) + "</h2>" +
+    "<div class='reporting-total'>" + (cF || "Rien de réalisé cette semaine") + " · " + r.groupesFaites.length + " demande" + (r.groupesFaites.length > 1 ? "s" : "") + "</div>" +
+    htmlGroupesReporting(r.groupesFaites, "Fait_le") + "</section>" +
+    "<section class='reporting-section'><h2>Prévu — " + escapeHtml(libelleSemaineReporting(r.lundiSuivant, r.dimancheSuivant, r.numeroSuivant)) + "</h2>" +
+    "<div class='reporting-total'>" + (cP || "Rien de prévu la semaine suivante") + " · " + r.groupesPrevues.length + " demande" + (r.groupesPrevues.length > 1 ? "s" : "") + "</div>" +
+    htmlGroupesReporting(r.groupesPrevues, "Pour_le") + "</section>";
+  conteneur.querySelectorAll(".reporting-groupe-entete[data-demande-id]").forEach(el => {
+    el.addEventListener("click", () => {
+      const id = parseInt(el.getAttribute("data-demande-id"), 10);
+      if (!id) return;
+      basculerVue("demandes");
+      selectionnerLigne(id);
+    });
+  });
+}
+
+(function initReporting() {
+  const prec = document.getElementById("reporting-precedente");
+  const suiv = document.getElementById("reporting-suivante");
+  const auj = document.getElementById("reporting-aujourdhui");
+  const sel = document.getElementById("reporting-porteur");
+  if (prec) prec.addEventListener("click", () => { reportingDecalageSemaines--; afficherReporting(); });
+  if (suiv) suiv.addEventListener("click", () => { reportingDecalageSemaines++; afficherReporting(); });
+  if (auj) auj.addEventListener("click", () => { reportingDecalageSemaines = 0; afficherReporting(); });
+  if (sel) sel.addEventListener("change", () => { reportingPorteur = sel.value; afficherReporting(); });
+  const btnPdf = document.getElementById("btn-export-pdf-reporting");
+  if (btnPdf) btnPdf.addEventListener("click", exporterPdfReporting);
+})();
+
+function construirePdfReporting() {
+  const donnees = calculerReporting();
+  const pdf = creerEcrivainPdf();
+  const L = pdf.LARGEUR, H = pdf.HAUTEUR, MARGE = 28, BAS = H - 34;
+  const BLEU = "#1a3a6b", GRIS = "#6b7280";
+  const maintenant = new Date();
+  const dateTexte = formaterDate(Math.floor(Date.UTC(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate()) / 1000));
+  const sousTitre = libelleSemaineReporting(donnees.lundi, donnees.dimanche, donnees.numero) +
+    (reportingPorteur ? " · Porteur : " + reportingPorteur : "");
+  const X_TYPE = MARGE + 8, X_DATE = MARGE + 78, X_PORTEUR = MARGE + 142, X_DESC = MARGE + 282;
+  const W_DESC = L - MARGE - 8 - X_DESC, W_PORTEUR = X_DESC - X_PORTEUR - 8;
+  const TAILLE = 8.5, INTERLIGNE = 10.5;
+  let y = 0;
+
+  function nouvellePage(suite) {
+    pdf.nouvellePage();
+    pdf.rect(0, 0, L, 50, { fill: BLEU });
+    pdf.texte(MARGE, 31, "Émergence — Reporting hebdomadaire" + (suite ? " (suite)" : ""), { taille: 18, gras: true, couleur: "#ffffff" });
+    pdf.texte(L - MARGE, 22, "Édité le " + dateTexte, { taille: 9, couleur: "#dbe4f5", align: "right" });
+    pdf.texte(L - MARGE, 36, sousTitre, { taille: 9, couleur: "#dbe4f5", align: "right" });
+    y = 66;
+  }
+  function assurerPlace(hauteur, titreSection) {
+    if (y + hauteur > BAS) {
+      nouvellePage(true);
+      if (titreSection) { pdf.texte(MARGE, y + 10, titreSection + " (suite)", { taille: 10.5, gras: true, couleur: BLEU }); y += 20; }
+    }
+  }
+  function section(titre, sousLibelle, groupes, cleDate) {
+    assurerPlace(60, null);
+    pdf.rect(MARGE, y, L - 2 * MARGE, 20, { fill: "#e8edfb" });
+    pdf.texte(MARGE + 8, y + 14, titre, { taille: 11, gras: true, couleur: BLEU });
+    pdf.texte(L - MARGE - 8, y + 14, sousLibelle, { taille: 8.5, couleur: GRIS, align: "right" });
+    y += 28;
+    if (!groupes.length) {
+      pdf.texte(MARGE + 8, y + 8, "Aucune ligne.", { taille: 9, couleur: "#9ca3af" });
+      y += 22;
+      return;
+    }
+    groupes.forEach(g => {
+      const d = g.demande;
+      const enteteH = 17;
+      const lignesPrep = g.lignes.map(r => ({
+        r,
+        desc: pdf.decouper(r.Description || "", W_DESC, TAILLE, false, 8),
+        porteur: pdf.decouper(r.Porteur || "—", W_PORTEUR, TAILLE, false, 2)
+      }));
+      const hauteurLigne = (l) => Math.max(l.desc.length, l.porteur.length, 1) * INTERLIGNE + 5;
+      assurerPlace(enteteH + hauteurLigne(lignesPrep[0]), titre);
+      pdf.rect(MARGE, y, L - 2 * MARGE, enteteH, { fill: "#f3f4f6" });
+      const titreGroupe = pdf.decouper(d.titre, 430, 9.5, true, 1)[0] || "";
+      pdf.texte(MARGE + 8, y + 12, titreGroupe, { taille: 9.5, gras: true });
+      const c = COULEURS_STATUT[d.statut];
+      const meta = [d.statut, d.sponsor, d.organisation].filter(Boolean).join(" · ");
+      pdf.texte(L - MARGE - 8, y + 12, pdf.decouper(meta, 330, 8, false, 1)[0] || "", { taille: 8, couleur: c ? c.texte : GRIS, align: "right" });
+      y += enteteH;
+      lignesPrep.forEach(l => {
+        const h = hauteurLigne(l);
+        assurerPlace(h, titre);
+        const typeCouleur = l.r.RIDA === "A" ? "#c2570c" : l.r.RIDA === "D" ? "#6b21a8" : "#1e40af";
+        pdf.texte(X_TYPE, y + 11, LIBELLES_TYPE_RIDA[l.r.RIDA] || l.r.RIDA || "—", { taille: TAILLE, gras: true, couleur: typeCouleur });
+        pdf.texte(X_DATE, y + 11, formaterDate(l.r[cleDate]), { taille: TAILLE });
+        l.porteur.forEach((t, i) => pdf.texte(X_PORTEUR, y + 11 + i * INTERLIGNE, t, { taille: TAILLE }));
+        l.desc.forEach((t, i) => pdf.texte(X_DESC, y + 11 + i * INTERLIGNE, t, { taille: TAILLE }));
+        pdf.ligne(MARGE, y + h, L - MARGE, y + h, { couleur: "#e5e7eb", lw: 0.4 });
+        y += h;
+      });
+      y += 8;
+    });
+  }
+
+  nouvellePage(false);
+  const cF = libelleComptages(comptagesParType(donnees.faites));
+  const cP = libelleComptages(comptagesParType(donnees.prevues));
+  section("Réalisé — " + libelleSemaineReporting(donnees.lundi, donnees.dimanche, donnees.numero),
+    cF || "Rien de réalisé", donnees.groupesFaites, "Fait_le");
+  section("Prévu — " + libelleSemaineReporting(donnees.lundiSuivant, donnees.dimancheSuivant, donnees.numeroSuivant),
+    cP || "Rien de prévu", donnees.groupesPrevues, "Pour_le");
+
+  const n = pdf.nombrePages();
+  for (let i = 0; i < n; i++) {
+    pdf.surPage(i);
+    pdf.texte(L - MARGE, H - 14, "Page " + (i + 1) + " / " + n, { taille: 8, couleur: GRIS, align: "right" });
+  }
+  return { pdf, dateTexte, donnees };
+}
+
+function genererOctetsPdfReporting() {
+  const { pdf, donnees } = construirePdfReporting();
+  return pdf.finir("Émergence — Reporting semaine " + donnees.numero);
+}
+
+function exporterPdfReporting() {
+  const btn = document.getElementById("btn-export-pdf-reporting");
+  const msg = document.getElementById("msg-export-pdf-reporting");
+  if (btn) btn.disabled = true;
+  if (msg) msg.textContent = "Génération du PDF…";
+  try {
+    const octets = genererOctetsPdfReporting();
+    const d = calculerReporting();
+    const nom = "reporting_emergence_S" + String(d.numero).padStart(2, "0") + "_" + new Date(d.lundi * 1000).toISOString().slice(0, 10) + ".pdf";
+    telechargerBlob(new Blob([octets], { type: "application/pdf" }), nom);
+    if (msg) msg.textContent = "PDF généré.";
+  } catch (e) {
+    console.error("Export PDF reporting :", e);
+    if (msg) msg.textContent = "Erreur : " + e.message;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
 
 // ===================== Export Excel (zip) de toutes les tables Emergence =====================
 // Fichiers .xlsx et archive .zip générés sans bibliothèque externe (zip en mode « stocké »).
