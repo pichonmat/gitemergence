@@ -1,4 +1,4 @@
-// Widget Emergence — v87
+// Widget Emergence — v88
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -3996,15 +3996,17 @@ function afficherTableauActions() {
   if (lignes.length === 0) {
     corps.innerHTML = "<tr><td colspan='11' class='chargement'>Aucune action trouvée.</td></tr>";
   } else {
-    const htmlLigne = (r) => {
+    const htmlLigne = (r, groupe) => {
       const classeUrgence = classeUrgenceAction(r);
       const estInformation = r.RIDA === "I";
       return "<tr data-demande-id='" + (r.__demandeId || "") + "'" + (classeUrgence ? " class='" + classeUrgence + "'" : "") + ">" +
+        // En mode groupé, les informations de la demande sont dans l'en-tête du groupe : on ne les répète pas.
+        (groupe ? "<td></td><td></td><td></td><td></td><td></td>" :
         "<td title=\"" + escapeHtml(r.__titre) + "\">" + escapeHtml(r.__titre) + "</td>" +
         "<td title=\"" + escapeHtml(r.__objet) + "\">" + (r.__objet ? escapeHtml(r.__objet) : "—") + "</td>" +
         "<td class='editable-action-cell sponsor-action-editable' data-demande-id=\"" + (r.__demandeId || "") + "\" title=\"" + escapeHtml(r.__sponsor) + " (cliquer pour modifier)\">" + (r.__sponsor ? escapeHtml(r.__sponsor) : "—") + "</td>" +
         "<td title=\"" + escapeHtml(r.__organisation) + "\">" + (r.__organisation ? escapeHtml(r.__organisation) : "—") + "</td>" +
-        "<td>" + (r.__statut ? badgeStatut(r.__statut) : "—") + "</td>" +
+        "<td>" + (r.__statut ? badgeStatut(r.__statut) : "—") + "</td>") +
         "<td>" + escapeHtml(r.RIDA || "—") + "</td>" +
         "<td class='editable-action-cell porteur-action-editable' data-rida-id=\"" + r.id + "\" title=\"" + escapeHtml(r.Porteur || "") + " (cliquer pour modifier)\">" + (r.Porteur ? escapeHtml(r.Porteur) : "—") + "</td>" +
         "<td class='editable-action-cell date-action-editable' data-rida-id=\"" + r.id + "\" data-champ=\"Pour_le\" title=\"Cliquer pour modifier\">" + formaterDate(r.Pour_le) + "</td>" +
@@ -4028,13 +4030,20 @@ function afficherTableauActions() {
         const rows = parDemande.get(k);
         const replie = groupesActionsReplies.has(k);
         const premiere = rows[0];
+        // Informations de la demande (colonnes visibles) affichées une seule fois, sous l'en-tête.
+        const infos = [];
+        if (colonnesVisiblesActions.has("objet") && premiere.__objet) infos.push("<span class='rida-groupe-objet'>" + escapeHtml(premiere.__objet) + "</span>");
+        if (colonnesVisiblesActions.has("sponsor") && premiere.__sponsor) infos.push("<span><i>Sponsor</i> " + escapeHtml(premiere.__sponsor) + "</span>");
+        if (colonnesVisiblesActions.has("organisation") && premiere.__organisation) infos.push("<span><i>Organisation</i> " + escapeHtml(premiere.__organisation) + "</span>");
+        const ligneInfos = (!replie && infos.length)
+          ? "<tr class='rida-groupe-info' data-groupe-id='" + k + "'><td colspan='" + nbCol + "'>" + infos.join("") + "</td></tr>" : "";
         return "<tr class='rida-groupe' data-groupe-id='" + k + "'><td colspan='" + nbCol + "'>" +
           "<span class='rida-groupe-fleche'>" + (replie ? "▸" : "▾") + "</span> " +
           "<b>" + escapeHtml(premiere.__titre) + "</b> " +
-          (premiere.__statut ? badgeStatut(premiere.__statut) + " " : "") +
+          (premiere.__statut && colonnesVisiblesActions.has("statut") ? badgeStatut(premiere.__statut) + " " : "") +
           "<span class='rida-groupe-nb'>" + rows.length + " ligne" + (rows.length > 1 ? "s" : "") + "</span>" +
           (k ? " <a class='rida-groupe-ouvrir' data-demande-id='" + k + "' title='Ouvrir la fiche de la demande'>↗ ouvrir</a>" : "") +
-          "</td></tr>" + (replie ? "" : rows.map(htmlLigne).join(""));
+          "</td></tr>" + ligneInfos + (replie ? "" : rows.map(r => htmlLigne(r, true)).join(""));
       }).join("");
       corps.querySelectorAll("tr.rida-groupe").forEach(tr => {
         tr.addEventListener("click", (e) => {
@@ -4050,7 +4059,7 @@ function afficherTableauActions() {
         });
       });
     } else {
-      corps.innerHTML = lignes.map(htmlLigne).join("");
+      corps.innerHTML = lignes.map(r => htmlLigne(r, false)).join("");
     }
 
     corps.querySelectorAll("tr[data-demande-id]").forEach(tr => {
