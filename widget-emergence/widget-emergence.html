@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v83 -->
+<!-- Widget Emergence — v84 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -76,7 +76,8 @@
     <table id="table-actions">
       <thead>
         <tr>
-          <th data-col-action="titre" data-filtre-champ="titre" class="rida-th-triable"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Demande <span class="fleche-rida"></span><span class="poignee"></span></th>
+          <th data-col-action="titre" data-filtre-champ="titre" class="rida-th-triable"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Titre <span class="fleche-rida"></span><span class="poignee"></span></th>
+          <th data-col-action="objet" class="rida-th-triable"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span> Demande <span class="fleche-rida"></span><span class="poignee"></span></th>
           <th data-col-action="sponsor" data-filtre-champ="sponsor" class="rida-th-triable"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Sponsor <span class="fleche-rida"></span><span class="poignee"></span></th>
           <th data-col-action="organisation" data-filtre-champ="organisation" class="rida-th-triable"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Organisation <span class="fleche-rida"></span><span class="poignee"></span></th>
           <th data-col-action="statut" data-filtre-champ="statut" class="rida-th-triable"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Statut <span class="fleche-rida"></span><span class="poignee"></span></th>
@@ -142,7 +143,9 @@
       <div id="graphique-activite-semaines" class="graphique-conteneur"></div>
     </div>
     <div class="carte-activite carte-activite-large">
-      <div class="carte-activite-titre">Kanban des demandes par statut <span class="kanban-legende"><span class="kanban-pastille kanban-p1"></span>P1 <span class="kanban-pastille kanban-p2"></span>P2 <span class="kanban-pastille kanban-p3"></span>P3 <span class="kanban-pastille kanban-p0"></span>sans priorité</span></div>
+      <div class="carte-activite-titre">Kanban des demandes par statut <span class="kanban-legende"><span class="kanban-pastille kanban-p1"></span>P1 <span class="kanban-pastille kanban-p2"></span>P2 <span class="kanban-pastille kanban-p3"></span>P3 <span class="kanban-pastille kanban-p0"></span>sans priorité</span>
+        <button type="button" id="btn-filtre-kanban" class="btn-filtre-kanban" title="Filtrer le kanban (colonnes, priorité, organisation, partie prenante)">🔎 Filtrer</button>
+        <span id="kanban-filtre-info" class="kanban-filtre-info"></span></div>
       <div id="kanban-activite" class="kanban"></div>
     </div>
   </div>
@@ -296,10 +299,10 @@
   #zone-liste-complete { margin-bottom: 0; }
 
   /* --- Barre de mode (Demandes / Actions) --- */
-  .barre-mode-vue { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+  .barre-mode-vue { display: flex; gap: 6px; margin-bottom: 6px; padding: 3px 0; align-items: center; position: sticky; top: 0; z-index: 100; background: #ffffff; border-bottom: 1px solid #eceef2; }
   .utilisateur-connecte { margin-left: auto; font-size: calc(12px * var(--echelle-texte)); color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; cursor: default; }
   .tag-mode {
-    font-size: calc(13px * var(--echelle-texte)); font-weight: 700; padding: 6px 18px; border-radius: 16px;
+    font-size: calc(12px * var(--echelle-texte)); font-weight: 700; padding: 2px 14px; border-radius: 14px; line-height: 1.4;
     cursor: pointer; border: 2px solid transparent; font-family: inherit;
   }
   .tag-mode-demandes { background: #eaf0ff; color: #1a3a6b; border-color: #3b5bdb; }
@@ -355,6 +358,15 @@
   .kanban-p2 { border-left-color: #ea8a1a; background: #fff7ed; }
   .kanban-p3 { border-left-color: #16a34a; background: #f0fdf4; }
   .kanban-p0 { border-left-color: #9ca3af; background: #fff; }
+  .btn-filtre-kanban { margin-left: 10px; font-size: calc(11px * var(--echelle-texte)); padding: 1px 8px; border: 1px solid #ccc; border-radius: 10px; background: #fff; cursor: pointer; font-weight: 400; }
+  .btn-filtre-kanban:hover { background: #eee; }
+  .btn-filtre-kanban.filtre-actif { background: #ffd24d; border-color: #e0a800; color: #5a4300; font-weight: 600; }
+  .kanban-filtre-info { font-weight: 400; font-size: calc(11px * var(--echelle-texte)); color: #8a6d00; margin-left: 8px; }
+  .popup-filtre-kanban { max-height: 70vh; overflow-y: auto; min-width: 220px; z-index: 200; }
+  .kanban-filtre-titre { font-size: calc(10px * var(--echelle-texte)); text-transform: uppercase; letter-spacing: .3px; color: #888; margin: 8px 0 2px; }
+  .kanban-filtre-liste { max-height: 150px; overflow-y: auto; }
+  .popup-filtre-kanban label { display: block; font-size: calc(12px * var(--echelle-texte)); padding: 1px 0; white-space: nowrap; }
+  .popup-filtre-kanban input[type="text"] { width: 100%; box-sizing: border-box; font-size: calc(12px * var(--echelle-texte)); padding: 3px 5px; }
   .kanban-legende { font-weight: 400; font-size: calc(11px * var(--echelle-texte)); margin-left: 10px; color: #6b7280; }
   .kanban-pastille { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin: 0 2px 0 6px; vertical-align: middle; }
   .kanban-pastille.kanban-p1 { background: #dc2626; } .kanban-pastille.kanban-p2 { background: #ea8a1a; }

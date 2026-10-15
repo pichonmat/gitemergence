@@ -1,4 +1,4 @@
-// Widget Emergence — v83
+// Widget Emergence — v84
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -509,14 +509,14 @@ let colonnesVisibles = new Set(ORDRE_COLONNES.filter(c => !colonnesMasqueesIniti
 // --- Même mécanisme (largeur ajustable + colonnes affichables/masquables, mémorisé par
 // navigateur) pour le tableau consolidé de la vue "Actions". ---
 let largeursColonnesActions = {
-  "titre": 220, "sponsor": 130, "organisation": 110, "statut": 110, "RIDA": 70, "Porteur": 130,
+  "titre": 220, "objet": 260, "sponsor": 130, "organisation": 110, "statut": 110, "RIDA": 70, "Porteur": 130,
   "Pour_le": 100, "Fait_le": 100, "Date_de_modification": 130, "Description": 260
 };
 
-const ORDRE_COLONNES_ACTIONS = ["titre", "sponsor", "organisation", "statut", "RIDA", "Porteur", "Pour_le", "Fait_le", "Date_de_modification", "Description"];
+const ORDRE_COLONNES_ACTIONS = ["titre", "objet", "sponsor", "organisation", "statut", "RIDA", "Porteur", "Pour_le", "Fait_le", "Date_de_modification", "Description"];
 
 const LIBELLES_COLONNES_ACTIONS = {
-  "titre": "Demande", "sponsor": "Sponsor", "organisation": "Organisation", "statut": "Statut", "RIDA": "Type",
+  "titre": "Titre", "objet": "Demande", "sponsor": "Sponsor", "organisation": "Organisation", "statut": "Statut", "RIDA": "Type",
   "Porteur": "Porteur", "Pour_le": "Pour le", "Fait_le": "Fait le", "Date_de_modification": "Modifié le", "Description": "Description"
 };
 
@@ -543,7 +543,23 @@ function sauvegarderColonnesMasqueesActionsDansStockage() {
   }
 }
 
-const colonnesMasqueesActionsInitiales = chargerColonnesMasqueesActionsDepuisStockage();
+// Colonnes masquées tant que l'utilisateur n'a pas choisi de les afficher (v84 : « Demande » = objet de la demande).
+const COLONNES_MASQUEES_PAR_DEFAUT_ACTIONS = ["objet"];
+const CLE_STOCKAGE_COLONNES_ACTIONS_CONNUES = "emergence_actions_colonnes_connues";
+function colonnesMasqueesActionsAuDemarrage() {
+  const masquees = chargerColonnesMasqueesActionsDepuisStockage();
+  let connues = [];
+  try { connues = JSON.parse(window.localStorage.getItem(CLE_STOCKAGE_COLONNES_ACTIONS_CONNUES) || "[]"); } catch (e) { connues = []; }
+  if (!Array.isArray(connues)) connues = [];
+  // Une colonne que le navigateur ne connaissait pas encore prend son état par défaut.
+  COLONNES_MASQUEES_PAR_DEFAUT_ACTIONS.forEach(c => { if (!connues.includes(c) && !masquees.includes(c)) masquees.push(c); });
+  try {
+    window.localStorage.setItem(CLE_STOCKAGE_COLONNES_ACTIONS_CONNUES, JSON.stringify(ORDRE_COLONNES_ACTIONS));
+    window.localStorage.setItem(CLE_STOCKAGE_COLONNES_MASQUEES_ACTIONS, JSON.stringify(masquees));
+  } catch (e) { /* stockage indisponible */ }
+  return masquees;
+}
+const colonnesMasqueesActionsInitiales = colonnesMasqueesActionsAuDemarrage();
 let colonnesVisiblesActions = new Set(ORDRE_COLONNES_ACTIONS.filter(c => !colonnesMasqueesActionsInitiales.includes(c)));
 
 // Mode de la modale "créer/modifier un acteur" : null = création, sinon id de l'acteur modifié.
@@ -3430,6 +3446,7 @@ function nomDemandeParId2(valeurId2) {
   return {
     id: id,
     titre: ligne ? (ligne.Titre || "Sans titre") : "—",
+    objet: ligne ? String(ligne.Objet_de_la_demande || "").replace(/\s+/g, " ").trim() : "",
     sponsor: ligne ? nomActeur(ligne.Sponsor) : "",
     sponsorId: ligne ? (ligne.Sponsor || null) : null,
     organisation: ligne ? (ligne.Organisation || "") : "",
@@ -3797,6 +3814,7 @@ function afficherTableauActions() {
     const demande = nomDemandeParId2(r.ID2);
     return Object.assign({}, r, {
       __titre: demande.titre,
+      __objet: demande.objet,
       __demandeId: demande.id,
       __sponsor: demande.sponsor,
       __sponsorId: demande.sponsorId,
@@ -3840,6 +3858,7 @@ function afficherTableauActions() {
   lignes.sort((a, b) => {
     let vA, vB;
     if (triActionColonne === "titre") { vA = a.__titre; vB = b.__titre; }
+    else if (triActionColonne === "objet") { vA = a.__objet; vB = b.__objet; }
     else if (triActionColonne === "sponsor") { vA = a.__sponsor; vB = b.__sponsor; }
     else if (triActionColonne === "organisation") { vA = a.__organisation; vB = b.__organisation; }
     else if (triActionColonne === "statut") { vA = a.__statut; vB = b.__statut; }
@@ -3858,13 +3877,14 @@ function afficherTableauActions() {
   lignesActionsAffichees = lignes; // mémorisé pour l'export CSV (reflète filtres + tri actuels)
 
   if (lignes.length === 0) {
-    corps.innerHTML = "<tr><td colspan='10' class='chargement'>Aucune action trouvée.</td></tr>";
+    corps.innerHTML = "<tr><td colspan='11' class='chargement'>Aucune action trouvée.</td></tr>";
   } else {
     corps.innerHTML = lignes.map(r => {
       const classeUrgence = classeUrgenceAction(r);
       const estInformation = r.RIDA === "I";
       return "<tr data-demande-id='" + (r.__demandeId || "") + "'" + (classeUrgence ? " class='" + classeUrgence + "'" : "") + ">" +
         "<td title=\"" + escapeHtml(r.__titre) + "\">" + escapeHtml(r.__titre) + "</td>" +
+        "<td title=\"" + escapeHtml(r.__objet) + "\">" + (r.__objet ? escapeHtml(r.__objet) : "—") + "</td>" +
         "<td class='editable-action-cell sponsor-action-editable' data-demande-id=\"" + (r.__demandeId || "") + "\" title=\"" + escapeHtml(r.__sponsor) + " (cliquer pour modifier)\">" + (r.__sponsor ? escapeHtml(r.__sponsor) : "—") + "</td>" +
         "<td title=\"" + escapeHtml(r.__organisation) + "\">" + (r.__organisation ? escapeHtml(r.__organisation) : "—") + "</td>" +
         "<td>" + (r.__statut ? badgeStatut(r.__statut) : "—") + "</td>" +
@@ -4088,6 +4108,7 @@ function construireCsvActions() {
   };
   const valeurColonne = (r, c) => {
     if (c === "titre") return r.__titre;
+    if (c === "objet") return r.__objet;
     if (c === "sponsor") return r.__sponsor;
     if (c === "organisation") return r.__organisation;
     if (c === "statut") return r.__statut;
@@ -4463,8 +4484,7 @@ function afficherActivite() {
 
   indicateur.textContent = String(donnees.demandesSansAction);
 
-  const kanban = document.getElementById("kanban-activite");
-  if (kanban) kanban.innerHTML = construireKanban();
+  rafraichirKanban();
 }
 
 // Kanban des demandes : une colonne par statut (dans l'ordre de COULEURS_STATUT), une carte par
@@ -4474,12 +4494,118 @@ function classePrioriteKanban(priorite) {
   return { P1: "kanban-p1", P2: "kanban-p2", P3: "kanban-p3" }[code] || "kanban-p0";
 }
 
+// --- Filtres du kanban (icône 🔎 dans le titre) : colonnes affichées, priorités, organisations,
+// partie prenante. Ils ne concernent que l'affichage du kanban (pas l'export PDF). ---
+const kanbanColonnesMasquees = new Set();   // statuts masqués
+const kanbanPrioritesMasquees = new Set();  // "P1" | "P2" | "P3" | "" (sans priorité) masquées
+const kanbanOrganisationsMasquees = new Set(); // organisations masquées ("" = sans organisation)
+let kanbanFiltrePartiePrenante = "";
+
+function codePrioriteKanban(priorite) {
+  const code = String(priorite || "").trim().substring(0, 2).toUpperCase();
+  return ["P1", "P2", "P3"].includes(code) ? code : "";
+}
+function kanbanFiltreActif() {
+  return kanbanColonnesMasquees.size > 0 || kanbanPrioritesMasquees.size > 0 ||
+    kanbanOrganisationsMasquees.size > 0 || !!kanbanFiltrePartiePrenante.trim();
+}
+function ligneCorrespondFiltreKanban(l) {
+  if (kanbanPrioritesMasquees.has(codePrioriteKanban(l.Priorite))) return false;
+  if (kanbanOrganisationsMasquees.has(l.Organisation || "")) return false;
+  const q = normaliserTexteRecherche(kanbanFiltrePartiePrenante.trim());
+  if (q) {
+    const ids = nettoyerIdsActeurs(refListVersIds(l.Parties_prenantes_concernees).map(Number));
+    if (!ids.some(id => normaliserTexteRecherche(ligneActeur(id)).indexOf(q) !== -1)) return false;
+  }
+  return true;
+}
+function rafraichirKanban() {
+  const kanban = document.getElementById("kanban-activite");
+  if (kanban) kanban.innerHTML = construireKanban();
+  const btn = document.getElementById("btn-filtre-kanban");
+  if (btn) btn.classList.toggle("filtre-actif", kanbanFiltreActif());
+  const info = document.getElementById("kanban-filtre-info");
+  if (info) {
+    const total = lignesEmergence.length;
+    const affichees = lignesEmergence.filter(ligneCorrespondFiltreKanban).length;
+    info.textContent = kanbanFiltreActif() ? "filtré : " + affichees + " / " + total + " demandes" : "";
+  }
+}
+
+function fermerPopupFiltreKanban() {
+  const p = document.querySelector(".popup-filtre-kanban");
+  if (p) p.remove();
+}
+
+function contenuPopupFiltreKanban() {
+  const cases = (classe, valeurs, estMasque, libelle) => valeurs.map(v =>
+    "<label><input type='checkbox' class='" + classe + "' value=\"" + escapeHtml(v) + "\"" + (estMasque(v) ? "" : " checked") + ">" + libelle(v) + "</label>"
+  ).join("");
+  const organisations = [...new Set(lignesEmergence.map(l => l.Organisation || ""))].sort((a, b) => a.localeCompare(b));
+  return "<button type='button' class='btn-supprimer-filtre kanban-reinit' style='display:" + (kanbanFiltreActif() ? "" : "none") + "'>✕ <span>Supprimer les filtres</span></button>" +
+    "<div class='kanban-filtre-titre'>Colonnes affichées</div>" +
+    cases("kf-colonne", Object.keys(COULEURS_STATUT), v => kanbanColonnesMasquees.has(v), v => escapeHtml(v)) +
+    "<div class='kanban-filtre-titre'>Priorités affichées</div>" +
+    cases("kf-priorite", ["P1", "P2", "P3", ""], v => kanbanPrioritesMasquees.has(v), v => v || "Sans priorité") +
+    "<div class='kanban-filtre-titre'>Organisations affichées</div>" +
+    "<div class='kanban-filtre-liste'>" + cases("kf-organisation", organisations, v => kanbanOrganisationsMasquees.has(v), v => v ? escapeHtml(v) : "Sans organisation") + "</div>" +
+    "<div class='kanban-filtre-titre'>Partie prenante</div>" +
+    "<input type='text' class='kf-pp' list='datalist-filtre-pp' value=\"" + escapeHtml(kanbanFiltrePartiePrenante) + "\" placeholder='Filtrer par partie prenante...'>";
+}
+
+function ouvrirPopupFiltreKanban(btn) {
+  const dejaOuverte = !!document.querySelector(".popup-filtre-kanban");
+  fermerPopupFiltreKanban();
+  if (dejaOuverte) return;
+  const popup = document.createElement("div");
+  popup.className = "popup-filtre-action-colonne popup-filtre-kanban";
+  popup.innerHTML = contenuPopupFiltreKanban();
+  document.body.appendChild(popup);
+  const r = btn.getBoundingClientRect();
+  popup.style.top = (r.bottom + 4) + "px";
+  let gauche = r.left;
+  const largeur = popup.offsetWidth || 240;
+  if (gauche + largeur > window.innerWidth - 8) gauche = Math.max(8, window.innerWidth - 8 - largeur);
+  popup.style.left = gauche + "px";
+  popup.addEventListener("click", (e) => e.stopPropagation());
+  popup.addEventListener("pointerdown", (e) => e.stopPropagation());
+  const maj = () => {
+    rafraichirKanban();
+    const reinit = popup.querySelector(".kanban-reinit");
+    if (reinit) reinit.style.display = kanbanFiltreActif() ? "" : "none";
+  };
+  const lierCases = (classe, ensemble) => popup.querySelectorAll("." + classe).forEach(cb => {
+    cb.addEventListener("change", () => { if (cb.checked) ensemble.delete(cb.value); else ensemble.add(cb.value); maj(); });
+  });
+  lierCases("kf-colonne", kanbanColonnesMasquees);
+  lierCases("kf-priorite", kanbanPrioritesMasquees);
+  lierCases("kf-organisation", kanbanOrganisationsMasquees);
+  popup.querySelector(".kf-pp").addEventListener("input", (e) => { kanbanFiltrePartiePrenante = e.target.value; maj(); });
+  popup.querySelector(".kanban-reinit").addEventListener("click", () => {
+    kanbanColonnesMasquees.clear(); kanbanPrioritesMasquees.clear(); kanbanOrganisationsMasquees.clear();
+    kanbanFiltrePartiePrenante = "";
+    popup.innerHTML = contenuPopupFiltreKanban();
+    // les cases sont recréées : on referme la popup (réouverture = état à jour)
+    fermerPopupFiltreKanban();
+    rafraichirKanban();
+  });
+}
+
+const btnFiltreKanban = document.getElementById("btn-filtre-kanban");
+if (btnFiltreKanban) {
+  btnFiltreKanban.addEventListener("click", (e) => { e.stopPropagation(); ouvrirPopupFiltreKanban(btnFiltreKanban); });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".popup-filtre-kanban")) fermerPopupFiltreKanban();
+  });
+}
+
 function construireKanban() {
-  const statuts = Object.keys(COULEURS_STATUT);
-  const connus = new Set(statuts);
+  const statuts = Object.keys(COULEURS_STATUT).filter(st => !kanbanColonnesMasquees.has(st));
+  const connus = new Set(Object.keys(COULEURS_STATUT));
   const colonnes = statuts.map(st => ({ statut: st, lignes: [] }));
   const autres = { statut: "Autre / sans statut", lignes: [] };
-  lignesEmergence.forEach(l => {
+  lignesEmergence.filter(ligneCorrespondFiltreKanban).forEach(l => {
+    if (connus.has(l.Statut) && kanbanColonnesMasquees.has(l.Statut)) return;
     const col = colonnes.find(c => c.statut === l.Statut);
     (col || autres).lignes.push(l);
   });
