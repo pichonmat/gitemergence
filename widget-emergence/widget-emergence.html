@@ -1,9 +1,10 @@
-<!-- Widget Emergence — v0.94 -->
+<!-- Widget Emergence — v0.95 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
   <button type="button" id="tag-contacts" class="tag-mode tag-mode-contacts">Contacts</button>
   <button type="button" id="tag-activite" class="tag-mode tag-mode-activite">Activité</button>
+  <button type="button" id="tag-planning" class="tag-mode tag-mode-planning">Planning</button>
   <button type="button" id="tag-reporting" class="tag-mode tag-mode-reporting">Reporting</button>
   <button type="button" id="btn-parametres" class="btn-parametres" title="Paramètres généraux">⚙️</button>
   <span id="utilisateur-connecte" class="utilisateur-connecte" style="display:none;"></span>
@@ -127,6 +128,30 @@
 </div>
 
 <!-- Onglet Activité : indicateurs et graphiques -->
+<div id="vue-planning" style="display:none;">
+  <div class="barre-planning">
+    <button type="button" id="planning-precedente" title="Semaine précédente">◀</button>
+    <span id="planning-libelle-semaine" class="reporting-libelle-semaine"></span>
+    <button type="button" id="planning-suivante" title="Semaine suivante">▶</button>
+    <button type="button" id="planning-aujourdhui">Semaine en cours</button>
+    <span id="planning-compteur" class="msg-export-activite"></span>
+  </div>
+  <div class="barre-planning barre-planning-filtres">
+    <label class="planning-chk"><input type="checkbox" class="planning-type-chk" value="A" checked> Actions</label>
+    <label class="planning-chk"><input type="checkbox" class="planning-type-chk" value="D" checked> Décisions</label>
+    <label class="planning-chk"><input type="checkbox" class="planning-type-chk" value="I" checked> Informations</label>
+    <label class="planning-chk" title="Masque les actions déjà faites (les informations et décisions restent selon les cases cochées)"><input type="checkbox" id="planning-actions-ouvertes"> Actions non terminées uniquement</label>
+    <select id="planning-porteur" title="Filtrer par porteur"></select>
+    <input type="text" id="planning-pp" list="datalist-planning-pp" placeholder="Partie prenante…">
+    <datalist id="datalist-planning-pp"></datalist>
+    <input type="text" id="planning-titre" placeholder="Titre de la demande…">
+    <select id="planning-organisation" title="Filtrer par organisation"></select>
+    <input type="text" id="planning-general" placeholder="🔍 Recherche générale…">
+    <button type="button" id="planning-reset" title="Réinitialiser les filtres">Réinitialiser</button>
+  </div>
+  <div id="planning-grille" class="planning-grille"></div>
+</div>
+
 <div id="vue-reporting" style="display:none;">
   <div class="barre-reporting">
     <button type="button" id="reporting-precedente" title="Semaine précédente">◀</button>
@@ -402,6 +427,29 @@
   .reporting-synthese-titre button { margin-left: 4px; font-size: calc(11px * var(--echelle-texte, 1)); padding: 2px 8px; border: 1px solid #ccc; border-radius: 6px; background: #fff; cursor: pointer; }
   .reporting-synthese-aide { font-weight: 400; color: #7c6fb0; font-size: calc(11px * var(--echelle-texte, 1)); }
   #reporting-synthese-texte { width: 100%; box-sizing: border-box; font-family: inherit; font-size: calc(12px * var(--echelle-texte, 1)); }
+  .tag-mode-planning { background: #fff4e0; color: #8a4b00; border-color: #e08a00; }
+  .tag-mode-planning:hover { background: #ffe8c2; }
+  .tag-mode-planning.active { background: #e08a00; color: #fff; }
+  .barre-planning { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 8px; --echelle-texte: 1; }
+  .barre-planning button, .barre-planning select, .barre-planning input[type=text] { font-size: calc(12px * var(--echelle-texte)); padding: 4px 8px; border: 1px solid #ccc; border-radius: 6px; background: #fff; font-family: inherit; }
+  .barre-planning button { background: #f5f5f5; cursor: pointer; }
+  .planning-chk { font-size: calc(12px * var(--echelle-texte)); display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
+  .planning-grille { display: grid; grid-template-columns: repeat(7, minmax(150px, 1fr)); gap: 6px; overflow-x: auto; align-items: start; }
+  .planning-jour { background: #fafafa; border: 1px solid #e3e5ea; border-radius: 8px; padding: 4px; min-height: 120px; }
+  .planning-weekend { background: #f4f4f7; }
+  .planning-aujourdhui { border-color: #e08a00; box-shadow: 0 0 0 2px rgba(224,138,0,0.25); background: #fffaf0; }
+  .planning-jour-entete { font-weight: 700; font-size: calc(12px * var(--echelle-texte)); color: #1a3a6b; padding: 2px 4px 4px; border-bottom: 1px solid #e3e5ea; margin-bottom: 4px; }
+  .planning-nb { background: #1a3a6b; color: #fff; border-radius: 9px; padding: 0 6px; font-size: calc(10px * var(--echelle-texte)); margin-left: 4px; }
+  .planning-vide { color: #c0c4cc; text-align: center; padding: 8px 0; }
+  .planning-carte { background: #fff; border: 1px solid #e0e0e0; border-left: 4px solid #999; border-radius: 6px; padding: 4px 6px; margin-bottom: 4px; cursor: pointer; font-size: calc(11px * var(--echelle-texte)); }
+  .planning-carte:hover { background: #f0f4ff; }
+  .planning-type-A { border-left-color: #c2570c; } .planning-type-D { border-left-color: #6b21a8; } .planning-type-I { border-left-color: #1e40af; }
+  .planning-carte-tete { display: flex; justify-content: space-between; font-weight: 700; }
+  .planning-type-A .planning-carte-type { color: #c2570c; } .planning-type-D .planning-carte-type { color: #6b21a8; } .planning-type-I .planning-carte-type { color: #1e40af; }
+  .planning-carte-ok { color: #15803d; font-weight: 600; }
+  .planning-carte-desc { margin: 2px 0; word-break: break-word; max-height: 5.2em; overflow: hidden; }
+  .planning-carte-meta { color: #6b7280; }
+  .planning-fait { opacity: 0.6; } .planning-fait .planning-carte-desc { text-decoration: line-through; }
   .tag-mode-reporting { background: #e0f7f5; color: #0f5f5a; border-color: #14a39a; }
   .tag-mode-reporting:hover { background: #ccf0ed; }
   .tag-mode-reporting.active { background: #14a39a; color: #fff; }

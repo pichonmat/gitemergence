@@ -1,6 +1,6 @@
-// Widget Emergence — v0.94
-// Numéro de release : <majeure>.<build> (0.94 = release majeure 0, build 94).
-const VERSION_WIDGET = "0.94";
+// Widget Emergence — v0.95
+// Numéro de release : <majeure>.<build> (0.95 = release majeure 0, build 95).
+const VERSION_WIDGET = "0.95";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -4523,6 +4523,7 @@ function basculerVue(mode) {
     actions: document.getElementById("vue-actions"),
     contacts: document.getElementById("vue-contacts"),
     activite: document.getElementById("vue-activite"),
+    planning: document.getElementById("vue-planning"),
     reporting: document.getElementById("vue-reporting")
   };
   const tags = {
@@ -4530,6 +4531,7 @@ function basculerVue(mode) {
     actions: document.getElementById("tag-actions"),
     contacts: document.getElementById("tag-contacts"),
     activite: document.getElementById("tag-activite"),
+    planning: document.getElementById("tag-planning"),
     reporting: document.getElementById("tag-reporting")
   };
 
@@ -4547,6 +4549,8 @@ function basculerVue(mode) {
     chargerPageContacts();
   } else if (mode === "activite") {
     afficherActivite();
+  } else if (mode === "planning") {
+    afficherPlanning();
   } else if (mode === "reporting") {
     afficherReporting();
   }
@@ -4557,6 +4561,7 @@ document.getElementById("tag-actions").addEventListener("click", () => basculerV
 document.getElementById("tag-contacts").addEventListener("click", () => basculerVue("contacts"));
 document.getElementById("tag-activite").addEventListener("click", () => basculerVue("activite"));
 document.getElementById("tag-reporting").addEventListener("click", () => basculerVue("reporting"));
+document.getElementById("tag-planning").addEventListener("click", () => basculerVue("planning"));
 
 // --- Onglet Activité : indicateurs et graphiques de synthèse ---
 
@@ -5379,6 +5384,129 @@ function telechargerBlob(blob, nomFichier) {
 const btnExportPdfActivite = document.getElementById("btn-export-pdf-activite");
 if (btnExportPdfActivite) btnExportPdfActivite.addEventListener("click", exporterPdfActivite);
 
+
+
+// ===================== Onglet Planning =====================
+// Planning hebdomadaire (lundi → dimanche) des éléments RIDA, placés au jour de leur date
+// « Pour le » (à défaut « Fait le »). Filtres : types, porteur, partie prenante, titre,
+// organisation, recherche générale, actions non terminées. Navigation semaine par semaine.
+let planningDecalage = 0; // 0 = semaine en cours
+const planningFiltres = { types: new Set(["A", "I", "D"]), porteur: "", partiePrenante: "", titre: "", organisation: "", general: "", actionsOuvertes: false };
+const JOURS_COURTS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+function datePlanningRida(r) {
+  if (typeof r.Pour_le === "number" && r.Pour_le) return r.Pour_le;
+  if (typeof r.Fait_le === "number" && r.Fait_le) return r.Fait_le;
+  return null;
+}
+
+function nomsPartiesPrenantesDemande(demandeId) {
+  const l = lignesEmergence.find(x => x.id === demandeId);
+  if (!l) return [];
+  return nettoyerIdsActeurs(refListVersIds(l.Parties_prenantes_concernees).map(Number)).map(nomActeurParId);
+}
+
+function ridaPassePlanning(r) {
+  const f = planningFiltres;
+  if (estLigneJournalAuto(r)) return false;
+  if (!f.types.has(r.RIDA)) return false;
+  if (f.actionsOuvertes && r.RIDA === "A" && r.Fait_le) return false;
+  if (f.porteur && (r.Porteur || "") !== f.porteur) return false;
+  const demandeId = idDepuisRef(r.ID2);
+  const d = nomDemandeParId2(r.ID2);
+  const ligne = lignesEmergence.find(x => x.id === demandeId);
+  const norm = normaliserTexteRecherche;
+  if (f.organisation && ((ligne && ligne.Organisation) || "") !== f.organisation) return false;
+  if (f.titre && norm(d.titre || "").indexOf(norm(f.titre)) === -1) return false;
+  const pps = nomsPartiesPrenantesDemande(demandeId);
+  if (f.partiePrenante && !pps.some(n => norm(n).indexOf(norm(f.partiePrenante)) !== -1)) return false;
+  if (f.general) {
+    const foin = norm([r.Description, r.Porteur, d.titre, d.objet, d.sponsor, d.organisation, d.statut, LIBELLES_TYPE_RIDA[r.RIDA]].concat(pps).join(" "));
+    if (!f.general.split(/\s+/).filter(Boolean).every(mot => foin.indexOf(norm(mot)) !== -1)) return false;
+  }
+  return true;
+}
+
+function remplirListesFiltresPlanning() {
+  const selP = document.getElementById("planning-porteur"), selO = document.getElementById("planning-organisation");
+  const dl = document.getElementById("datalist-planning-pp");
+  if (selP) {
+    const porteurs = [...new Set(ridaToutes.map(r => r.Porteur).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    selP.innerHTML = "<option value=''>Tous les porteurs</option>" + porteurs.map(v => "<option value=\"" + escapeHtml(v) + "\"" + (v === planningFiltres.porteur ? " selected" : "") + ">" + escapeHtml(v) + "</option>").join("");
+  }
+  if (selO) {
+    const orgs = [...new Set(lignesEmergence.map(l => l.Organisation).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    selO.innerHTML = "<option value=''>Toutes les organisations</option>" + orgs.map(v => "<option value=\"" + escapeHtml(v) + "\"" + (v === planningFiltres.organisation ? " selected" : "") + ">" + escapeHtml(v) + "</option>").join("");
+  }
+  if (dl) dl.innerHTML = acteursTriesParNom.map(a => "<option value=\"" + escapeHtml(nomActeurParId(a.id)) + "\"></option>").join("");
+}
+
+function afficherPlanning() {
+  const grille = document.getElementById("planning-grille");
+  if (!grille) return;
+  remplirListesFiltresPlanning();
+  const lundi = lundiDeSemaineEpoch(aujourdHuiEpoch()) + planningDecalage * 7 * 24 * 3600;
+  const dimanche = lundi + 6 * 24 * 3600;
+  const lib = document.getElementById("planning-libelle-semaine");
+  if (lib) lib.textContent = libelleSemaineReporting(lundi, dimanche, numeroSemaineIso(lundi)) + (planningDecalage === 0 ? " (en cours)" : "");
+  const aujourdhui = aujourdHuiEpoch();
+  const retenus = ridaToutes.filter(ridaPassePlanning);
+  const sansDate = retenus.filter(r => !datePlanningRida(r)).length;
+  const ordreType = { A: 0, D: 1, I: 2 };
+  let total = 0;
+  let html = "";
+  for (let i = 0; i < 7; i++) {
+    const jour = lundi + i * 24 * 3600;
+    const items = retenus.filter(r => datePlanningRida(r) === jour)
+      .sort((a, b) => (a.Fait_le ? 1 : 0) - (b.Fait_le ? 1 : 0) || (ordreType[a.RIDA] ?? 9) - (ordreType[b.RIDA] ?? 9) || String(nomDemandeParId2(a.ID2).titre).localeCompare(String(nomDemandeParId2(b.ID2).titre)));
+    total += items.length;
+    html += "<div class='planning-jour" + (jour === aujourdhui ? " planning-aujourdhui" : "") + (i >= 5 ? " planning-weekend" : "") + "'>" +
+      "<div class='planning-jour-entete'>" + JOURS_COURTS[i] + " " + formaterDate(jour).slice(0, 5) + (items.length ? " <span class='planning-nb'>" + items.length + "</span>" : "") + "</div>" +
+      (items.length ? items.map(r => {
+        const d = nomDemandeParId2(r.ID2);
+        const fait = !!r.Fait_le && r.RIDA !== "I";
+        return "<div class='planning-carte planning-type-" + escapeHtml(r.RIDA || "") + (fait ? " planning-fait" : "") + "' data-demande-id='" + (d.id || "") + "' title=\"" + escapeHtml((LIBELLES_TYPE_RIDA[r.RIDA] || "") + " — " + (d.titre || "") + (r.Porteur ? " — " + r.Porteur : "") + "\n" + (r.Description || "")) + "\">" +
+          "<div class='planning-carte-tete'><span class='planning-carte-type'>" + escapeHtml(LIBELLES_TYPE_RIDA[r.RIDA] || r.RIDA || "—") + "</span>" + (fait ? "<span class='planning-carte-ok'>✓ fait</span>" : "") + "</div>" +
+          "<div class='planning-carte-desc'>" + escapeHtml(r.Description || "(sans description)") + "</div>" +
+          "<div class='planning-carte-meta'><b>" + escapeHtml(d.titre || "—") + "</b>" + (r.Porteur ? " · " + escapeHtml(r.Porteur) : "") + "</div></div>";
+      }).join("") : "<div class='planning-vide'>—</div>") + "</div>";
+  }
+  grille.innerHTML = html;
+  const nb = document.getElementById("planning-compteur");
+  if (nb) nb.textContent = total + " élément" + (total > 1 ? "s" : "") + " cette semaine" + (sansDate ? " · " + sansDate + " sans date (non affiché" + (sansDate > 1 ? "s" : "") + ")" : "");
+  grille.querySelectorAll(".planning-carte[data-demande-id]").forEach(el => el.addEventListener("click", () => {
+    const id = parseInt(el.getAttribute("data-demande-id"), 10);
+    if (!id) return;
+    basculerVue("demandes");
+    selectionnerLigne(id);
+  }));
+}
+
+(function initPlanning() {
+  const $ = (id) => document.getElementById(id);
+  if (!$("planning-grille")) return;
+  $("planning-precedente").addEventListener("click", () => { planningDecalage--; afficherPlanning(); });
+  $("planning-suivante").addEventListener("click", () => { planningDecalage++; afficherPlanning(); });
+  $("planning-aujourdhui").addEventListener("click", () => { planningDecalage = 0; afficherPlanning(); });
+  document.querySelectorAll(".planning-type-chk").forEach(cb => cb.addEventListener("change", () => {
+    if (cb.checked) planningFiltres.types.add(cb.value); else planningFiltres.types.delete(cb.value);
+    afficherPlanning();
+  }));
+  const lier = (id, cle, evt) => $(id).addEventListener(evt || "input", (e) => { planningFiltres[cle] = e.target.value; afficherPlanning(); });
+  lier("planning-porteur", "porteur", "change");
+  lier("planning-organisation", "organisation", "change");
+  lier("planning-pp", "partiePrenante");
+  lier("planning-titre", "titre");
+  lier("planning-general", "general");
+  $("planning-actions-ouvertes").addEventListener("change", (e) => { planningFiltres.actionsOuvertes = e.target.checked; afficherPlanning(); });
+  $("planning-reset").addEventListener("click", () => {
+    Object.assign(planningFiltres, { types: new Set(["A", "I", "D"]), porteur: "", partiePrenante: "", titre: "", organisation: "", general: "", actionsOuvertes: false });
+    document.querySelectorAll(".planning-type-chk").forEach(cb => { cb.checked = true; });
+    ["planning-pp", "planning-titre", "planning-general"].forEach(id => { $(id).value = ""; });
+    $("planning-actions-ouvertes").checked = false;
+    afficherPlanning();
+  });
+})();
 
 // ===================== Onglet Reporting hebdomadaire =====================
 // Résumé d'une semaine (lundi → dimanche) : les lignes RIDA faites dans la semaine (Actions,
