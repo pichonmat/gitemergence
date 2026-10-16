@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.99 -->
+<!-- Widget Emergence — v0.100 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -424,6 +424,14 @@
   .filtre-modif-presets { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
   .btn-preset-modif { font-size: calc(11px * var(--echelle-texte, 1)); padding: 2px 8px; border: 1px solid #c7d2fe; background: #eef2ff; border-radius: 10px; cursor: pointer; }
   .btn-preset-modif:hover { background: #dde5ff; }
+  .img-md { max-width: 100%; max-height: 360px; height: auto; border-radius: 4px; border: 1px solid #ddd; cursor: zoom-in; display: block; margin: 4px 0; }
+  .lightbox-image-md { position: fixed; inset: 0; z-index: 5000; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
+  .lightbox-image-md img { max-width: 94vw; max-height: 94vh; border-radius: 6px; background: #fff; }
+  .liste-valeurs-filtre { max-height: 220px; overflow-y: auto; margin-top: 4px; border-top: 1px solid #eee; }
+  .valeur-filtre-liste { padding: 3px 8px; cursor: pointer; font-size: calc(12px * var(--echelle-texte, 1)); border-radius: 4px; }
+  .valeur-filtre-liste:hover { background: #e8edfb; }
+  .valeur-filtre-liste.valeur-courante { background: #dbeafe; font-weight: 700; }
+  .valeur-filtre-vide { padding: 3px 8px; color: #999; font-size: calc(12px * var(--echelle-texte, 1)); }
   .btn-parametres { margin-left: auto; border: 0; background: transparent; cursor: pointer; font-size: calc(15px * var(--echelle-texte, 1)); padding: 0 6px; line-height: 1; }
   .btn-parametres:hover { background: #e5e7eb; border-radius: 6px; }
   .select-liste-edition { width: 100%; box-sizing: border-box; font-size: inherit; }

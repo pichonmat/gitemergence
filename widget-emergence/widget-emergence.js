@@ -1,6 +1,6 @@
-// Widget Emergence — v0.99
-// Numéro de release : <majeure>.<build> (0.99 = release majeure 0, build 99).
-const VERSION_WIDGET = "0.99";
+// Widget Emergence — v0.100
+// Numéro de release : <majeure>.<build> (0.100 = release majeure 0, build 100).
+const VERSION_WIDGET = "0.100";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -924,6 +924,11 @@ function markdownToHtml(texte) {
   let txt = String(texte)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+  // Images : ![texte](attachment:ID) = pièce jointe du document Grist (résolue après affichage, voir
+  // resoudreImagesAttachments) ; ![texte](data:image/...;base64,...) = image intégrée au texte.
+  txt = txt.replace(/!\[([^\]]*)\]\((?:attachment:(\d+)|(data:image\/[a-z+.-]+;base64,[A-Za-z0-9+\/=]+))\)/g, (m, alt, att, data) =>
+    att ? "<img class='img-md' data-att='" + att + "' alt='" + alt.replace(/'/g, "&#39;") + "' title='Cliquer pour agrandir'>"
+        : "<img class='img-md' src='" + data + "' alt='" + alt.replace(/'/g, "&#39;") + "' title='Cliquer pour agrandir'>");
   // Gras / italique / liens : appliqués globalement avant le découpage ligne par ligne
   txt = txt.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
   txt = txt.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<i>$1</i>");
@@ -1034,8 +1039,10 @@ function initChampMarkdown(conteneur, idPrefix, champGrist, valeurInitiale, lign
   btnModifier.addEventListener("click", passerEnEdition);
   boiteDiv.addEventListener("click", (e) => {
     if (e.target.closest("a")) return; // laisse les liens markdown fonctionner normalement
+    if (e.target.closest("img.img-md")) { agrandirImageMarkdown(e.target.closest("img.img-md")); return; } // clic sur une image : agrandir
     passerEnEdition();
   });
+  brancherCollageImage(textarea, ligneId, msgEl);
 
   async function sauverSiModifie() {
     if (textarea.value === valeurInitiale) {
@@ -1456,6 +1463,17 @@ function ajouterCroixSuppressionFiltre(popup, estActif, effacer, rafraichir) {
   return btn;
 }
 
+// Valeurs proposées sous le champ de saisie des filtres Sponsor / Porteur / Parties prenantes.
+function valeursPossiblesFiltreListe(champ) {
+  const noms = new Set();
+  lignesEmergence.forEach(l => {
+    if (champ === "porteur") { const v = String(l.Porteurs || "").trim(); if (v) noms.add(v); }
+    else if (champ === "sponsor") { const v = nomActeur(l.Sponsor); if (v) noms.add(v); }
+    else nettoyerIdsActeurs(refListVersIds(l.Parties_prenantes_concernees).map(Number)).forEach(id => { const v = nomActeurParId(id); if (v) noms.add(v); });
+  });
+  return [...noms].sort((a, b) => a.localeCompare(b));
+}
+
 function construireContenuPopupFiltreListeColonne(champ) {
   if (champ === "titre") {
     return "<input type='text' class='champ-filtre-liste-texte' data-champ=\"titre\" value=\"" +
@@ -1476,8 +1494,9 @@ function construireContenuPopupFiltreListeColonne(champ) {
   if (champ === "sponsor" || champ === "porteur" || champ === "partie-prenante") {
     const valeur = champ === "sponsor" ? filtreSponsorTexte : champ === "porteur" ? filtrePorteurTexte : filtrePartiePrenanteTexte;
     const invite = champ === "sponsor" ? "Filtrer par sponsor..." : champ === "porteur" ? "Filtrer par porteur..." : "Filtrer par partie prenante...";
-    return "<input type='text' class='champ-filtre-liste-texte' data-champ=\"" + champ + "\" list='datalist-filtre-pp' value=\"" +
-      escapeHtml(valeur) + "\" placeholder='" + invite + "'>";
+    return "<input type='text' class='champ-filtre-liste-texte' data-champ=\"" + champ + "\" autocomplete='off' value=\"" +
+      escapeHtml(valeur) + "\" placeholder='" + invite + "'>" +
+      "<div class='liste-valeurs-filtre' data-champ=\"" + champ + "\"></div>";
   }
   if (champ === "statut") {
     return Object.keys(COULEURS_STATUT).map(s =>
@@ -1543,6 +1562,26 @@ function ouvrirPopupFiltreListeColonne(th, icone) {
   popup.addEventListener("change", () => { croixListe.style.display = filtreListeColonneEstActif(champ) ? "" : "none"; });
 
   const champTexte = popup.querySelector(".champ-filtre-liste-texte");
+  const zoneValeurs = popup.querySelector(".liste-valeurs-filtre");
+  if (champTexte && zoneValeurs) {
+    // Liste des valeurs possibles, affichée dès l'ouverture et réduite au fil de la saisie ; un clic applique la valeur.
+    const toutes = valeursPossiblesFiltreListe(champ);
+    const rendre = () => {
+      const q = normaliserTexteRecherche(champTexte.value);
+      const items = toutes.filter(v => !q || normaliserTexteRecherche(v).indexOf(q) !== -1);
+      zoneValeurs.innerHTML = items.length
+        ? items.map(v => "<div class='valeur-filtre-liste" + (normaliserTexteRecherche(v) === q ? " valeur-courante" : "") + "' data-v=\"" + escapeHtml(v) + "\">" + escapeHtml(v) + "</div>").join("")
+        : "<div class='valeur-filtre-vide'>Aucune valeur</div>";
+    };
+    rendre();
+    champTexte.addEventListener("input", rendre);
+    zoneValeurs.addEventListener("click", (e) => {
+      const el = e.target.closest(".valeur-filtre-liste");
+      if (!el) return;
+      champTexte.value = el.getAttribute("data-v");
+      champTexte.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
   if (champTexte) {
     champTexte.addEventListener("input", (e) => {
       const c = e.target.getAttribute("data-champ");
@@ -5911,6 +5950,135 @@ function exporterPdfReporting() {
 }
 
 
+
+
+// ===================== Images collées dans les champs markdown =====================
+// Ctrl+V d'une image (ou glisser-déposer d'un fichier image) dans un champ markdown : l'image est
+// envoyée dans les pièces jointes du document Grist (uploadAttachment), rattachée à la demande dans
+// la table Emergence_PJ (sinon Grist purgerait une pièce jointe non référencée) et insérée dans le
+// texte sous la forme ![image](attachment:ID). Si l'envoi est refusé, repli : image réduite
+// intégrée au texte en base64.
+let jetonAttachments = null; // { token, base, exp }
+
+async function obtenirJetonAttachments(forcer) {
+  if (!forcer && jetonAttachments && jetonAttachments.exp > Date.now() + 15000) return jetonAttachments;
+  const r = await grist.docApi.getAccessToken({ readOnly: true });
+  jetonAttachments = { token: r.token, base: r.baseUrl, exp: Date.now() + (r.ttlMsecs || 60000) };
+  return jetonAttachments;
+}
+
+async function urlAttachment(id, forcerJeton) {
+  try {
+    const j = await obtenirJetonAttachments(forcerJeton);
+    return j.base + "/attachments/" + id + "/download?auth=" + encodeURIComponent(j.token);
+  } catch (e) {
+    return GRIST_BASE_URL + "/api/docs/" + DOC_ID + "/attachments/" + id + "/download"; // repli : session du navigateur
+  }
+}
+
+async function resoudreImagesAttachments(racine) {
+  const imgs = (racine || document).querySelectorAll("img[data-att]:not([data-resolu])");
+  for (const img of imgs) {
+    img.setAttribute("data-resolu", "1");
+    const id = img.getAttribute("data-att");
+    let reessaye = false;
+    img.addEventListener("error", async () => {
+      if (reessaye) return;
+      reessaye = true; // jeton expiré : un seul nouvel essai avec un jeton frais
+      img.src = await urlAttachment(id, true);
+    });
+    img.src = await urlAttachment(id, false);
+  }
+}
+new MutationObserver((mutations) => {
+  if (mutations.some(m => m.addedNodes.length)) resoudreImagesAttachments(document);
+}).observe(document.body, { childList: true, subtree: true });
+
+function agrandirImageMarkdown(img) {
+  const fond = document.createElement("div");
+  fond.className = "lightbox-image-md";
+  fond.innerHTML = "<img>";
+  fond.querySelector("img").src = img.src;
+  fond.addEventListener("click", () => fond.remove());
+  document.body.appendChild(fond);
+}
+
+// Réduit une image trop grande (> 1600 px de large) en JPEG ; sans canvas ou si déjà raisonnable : fichier d'origine.
+async function reduireImage(fichier) {
+  try {
+    if (!fichier.type.startsWith("image/") || fichier.type === "image/gif") return fichier;
+    const url = URL.createObjectURL(fichier);
+    const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = url; });
+    URL.revokeObjectURL(url);
+    const MAX = 1600;
+    if (img.width <= MAX && fichier.size < 1500000) return fichier;
+    const k = Math.min(1, MAX / img.width);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.width * k); canvas.height = Math.round(img.height * k);
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise(ok => canvas.toBlob(ok, "image/jpeg", 0.85));
+    return blob ? new File([blob], (fichier.name || "image").replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }) : fichier;
+  } catch (e) { return fichier; }
+}
+
+function fichierVersDataUrl(fichier) {
+  return new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(fichier); });
+}
+
+function insererTexteDansTextarea(ta, texte) {
+  const d = ta.selectionStart, f = ta.selectionEnd;
+  ta.value = ta.value.slice(0, d) + texte + ta.value.slice(f);
+  ta.selectionStart = ta.selectionEnd = d + texte.length;
+}
+
+async function ajouterImageDansChamp(textarea, fichier, ligneId, msgEl) {
+  const date = formaterDate(aujourdHuiEpoch());
+  if (msgEl) { msgEl.textContent = "Envoi de l'image…"; msgEl.className = "msg-sauvegarde"; }
+  const reduit = await reduireImage(fichier);
+  let texte;
+  try {
+    const nom = reduit.name && reduit.name !== "image.png" ? reduit.name : "image-" + date + (reduit.type === "image/jpeg" ? ".jpg" : ".png");
+    const fichierNomme = reduit.name === nom ? reduit : new File([reduit], nom, { type: reduit.type });
+    const attId = await grist.docApi.uploadAttachment(fichierNomme);
+    texte = "![image](attachment:" + attId + ")";
+    try {
+      await grist.docApi.applyUserActions([["AddRecord", TABLE_PJ, null, { Titre: "Image collée " + date, Lien: ["L", attId], ID2: ligneId }]]);
+      pjToutes = tableVersLignes(await grist.docApi.fetchTable(TABLE_PJ));
+    } catch (e) { console.error("Enregistrement de l'image dans Emergence_PJ impossible :", e); }
+  } catch (e) {
+    console.error("Envoi de l'image impossible, repli en base64 :", e);
+    try {
+      const petite = await reduireImage(fichier);
+      texte = "![image](" + await fichierVersDataUrl(petite) + ")";
+    } catch (e2) {
+      if (msgEl) { msgEl.textContent = "Erreur : image non ajoutée (" + e2.message + ")"; msgEl.className = "msg-sauvegarde erreur"; }
+      return;
+    }
+  }
+  textarea.focus();
+  insererTexteDansTextarea(textarea, "\n" + texte + "\n");
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  if (msgEl) msgEl.textContent = "";
+}
+
+function brancherCollageImage(textarea, ligneId, msgEl) {
+  if (!textarea) return;
+  const imagesDe = (dt) => dt ? [...(dt.files || [])].filter(f => f.type && f.type.startsWith("image/")) : [];
+  textarea.addEventListener("paste", (e) => {
+    let fichiers = [...((e.clipboardData && e.clipboardData.items) || [])].filter(i => i.kind === "file" && i.type.startsWith("image/")).map(i => i.getAsFile()).filter(Boolean);
+    if (!fichiers.length) fichiers = imagesDe(e.clipboardData);
+    if (!fichiers.length) return; // collage de texte : comportement normal
+    e.preventDefault();
+    fichiers.forEach(f => ajouterImageDansChamp(textarea, f, ligneId, msgEl));
+  });
+  textarea.addEventListener("dragover", (e) => { if (e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files")) e.preventDefault(); });
+  textarea.addEventListener("drop", (e) => {
+    const fichiers = imagesDe(e.dataTransfer);
+    if (!fichiers.length) return;
+    e.preventDefault();
+    fichiers.forEach(f => ajouterImageDansChamp(textarea, f, ligneId, msgEl));
+  });
+}
 
 // ===================== Suggestions de titres pour les lignes RIDA =====================
 // Quand on commence à saisir la description d'une ligne RIDA (fiche ou onglet Rida), une liste de
