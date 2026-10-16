@@ -1,6 +1,6 @@
-// Widget Emergence — v0.100
-// Numéro de release : <majeure>.<build> (0.100 = release majeure 0, build 100).
-const VERSION_WIDGET = "0.100";
+// Widget Emergence — v0.101
+// Numéro de release : <majeure>.<build> (0.101 = release majeure 0, build 101).
+const VERSION_WIDGET = "0.101";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -3686,7 +3686,7 @@ document.getElementById("modale-pj-valider").addEventListener("click", async () 
     // NOTE : uploadAttachment est la méthode documentée de l'API Grist pour envoyer
     // un fichier et récupérer son identifiant de pièce jointe. Si ta version de Grist
     // expose une méthode différente, le message d'erreur ci-dessous le révélera.
-    const attachmentId = await grist.docApi.uploadAttachment(fichier);
+    const attachmentId = await televerserAttachment(fichier);
 
     await appliquerActions([
       ["AddRecord", TABLE_PJ, null, {
@@ -5956,8 +5956,7 @@ function exporterPdfReporting() {
 // Ctrl+V d'une image (ou glisser-déposer d'un fichier image) dans un champ markdown : l'image est
 // envoyée dans les pièces jointes du document Grist (uploadAttachment), rattachée à la demande dans
 // la table Emergence_PJ (sinon Grist purgerait une pièce jointe non référencée) et insérée dans le
-// texte sous la forme ![image](attachment:ID). Si l'envoi est refusé, repli : image réduite
-// intégrée au texte en base64.
+// texte sous la forme ![image](attachment:ID). Si l'envoi échoue, l'erreur est affichée (pas de base64).
 let jetonAttachments = null; // { token, base, exp }
 
 async function obtenirJetonAttachments(forcer) {
@@ -6021,6 +6020,26 @@ async function reduireImage(fichier) {
   } catch (e) { return fichier; }
 }
 
+// Envoi d'un fichier dans les pièces jointes du document : l'API des widgets Grist n'a pas de méthode
+// d'envoi, on passe par l'API REST avec un jeton d'accès en écriture (POST {baseUrl}/attachments,
+// champ multipart « upload »). Si le runtime fournit uploadAttachment, il est utilisé en priorité.
+async function televerserAttachment(fichier) {
+  if (typeof grist.docApi.uploadAttachment === "function") return await grist.docApi.uploadAttachment(fichier);
+  const acces = await grist.docApi.getAccessToken({ readOnly: false });
+  const form = new FormData();
+  form.append("upload", fichier, fichier.name || "image.png");
+  const reponse = await fetch(acces.baseUrl + "/attachments?auth=" + encodeURIComponent(acces.token), { method: "POST", body: form });
+  if (!reponse.ok) {
+    let detail = "";
+    try { detail = (await reponse.text()).slice(0, 200); } catch (e) { /* ignore */ }
+    throw new Error("HTTP " + reponse.status + (detail ? " — " + detail : ""));
+  }
+  const ids = await reponse.json();
+  const id = Array.isArray(ids) ? ids[0] : (ids && ids.id);
+  if (!Number.isInteger(id)) throw new Error("Réponse inattendue de Grist : " + JSON.stringify(ids).slice(0, 100));
+  return id;
+}
+
 function fichierVersDataUrl(fichier) {
   return new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(fichier); });
 }
@@ -6039,21 +6058,17 @@ async function ajouterImageDansChamp(textarea, fichier, ligneId, msgEl) {
   try {
     const nom = reduit.name && reduit.name !== "image.png" ? reduit.name : "image-" + date + (reduit.type === "image/jpeg" ? ".jpg" : ".png");
     const fichierNomme = reduit.name === nom ? reduit : new File([reduit], nom, { type: reduit.type });
-    const attId = await grist.docApi.uploadAttachment(fichierNomme);
+    const attId = await televerserAttachment(fichierNomme);
     texte = "![image](attachment:" + attId + ")";
     try {
       await grist.docApi.applyUserActions([["AddRecord", TABLE_PJ, null, { Titre: "Image collée " + date, Lien: ["L", attId], ID2: ligneId }]]);
       pjToutes = tableVersLignes(await grist.docApi.fetchTable(TABLE_PJ));
     } catch (e) { console.error("Enregistrement de l'image dans Emergence_PJ impossible :", e); }
   } catch (e) {
-    console.error("Envoi de l'image impossible, repli en base64 :", e);
-    try {
-      const petite = await reduireImage(fichier);
-      texte = "![image](" + await fichierVersDataUrl(petite) + ")";
-    } catch (e2) {
-      if (msgEl) { msgEl.textContent = "Erreur : image non ajoutée (" + e2.message + ")"; msgEl.className = "msg-sauvegarde erreur"; }
-      return;
-    }
+    // Pas de repli en base64 (cellule alourdie) : l'erreur est affichée telle quelle.
+    console.error("Envoi de l'image impossible :", e);
+    if (msgEl) { msgEl.textContent = "Image non ajoutée — envoi impossible : " + e.message; msgEl.className = "msg-sauvegarde erreur"; }
+    return;
   }
   textarea.focus();
   insererTexteDansTextarea(textarea, "\n" + texte + "\n");
