@@ -1,6 +1,6 @@
-// Widget Emergence — v0.98
-// Numéro de release : <majeure>.<build> (0.98 = release majeure 0, build 98).
-const VERSION_WIDGET = "0.98";
+// Widget Emergence — v0.99
+// Numéro de release : <majeure>.<build> (0.99 = release majeure 0, build 99).
+const VERSION_WIDGET = "0.99";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -147,7 +147,54 @@ const LIBELLES_CHAMPS_JOURNAL = {
   Contributeurs_SDID: "Contributeurs SDID", Organisation_Id: "Organisation Id",
   Ref_BRM: "Ref BRM", RefBRM: "Ref BRM", ref_brm: "Ref BRM"
 };
-let journalModificationsActif = true;
+// Options générales (⚙ Paramètres généraux), mémorisées par navigateur. Le journal automatique des
+// modifications (ligne RIDA « Champ … modifié ») est DÉSACTIVÉ par défaut (v0.99) : la date de
+// dernière modification est portée par la colonne « Date de modification » de la table Emergence.
+const CLE_STOCKAGE_OPTIONS = "emergence_options_generales_v1";
+function chargerOptionsGenerales() {
+  try { return Object.assign({ journalRida: false }, JSON.parse(window.localStorage.getItem(CLE_STOCKAGE_OPTIONS) || "{}")); }
+  catch (e) { return { journalRida: false }; }
+}
+function sauverOptionsGenerales(opts) {
+  try { window.localStorage.setItem(CLE_STOCKAGE_OPTIONS, JSON.stringify(opts)); return true; } catch (e) { return false; }
+}
+let journalModificationsActif = chargerOptionsGenerales().journalRida === true;
+
+// Colonne « Date de modification » de la table Emergence (ajoutée par l'utilisateur dans Grist) :
+// horodatée à chaque modification de la fiche (champs de la demande, ajout / modification /
+// suppression d'une ligne RIDA de la demande). Utilisée seulement si la colonne existe.
+const COLONNE_DATE_MODIF_EMERGENCE = "Date_de_modification";
+let colonneDateModifEmergenceDisponible = false;
+let dateModifEmergenceRefusee = false; // Grist a refusé l'écriture (ex. colonne à formule) : désactivée pour la session
+
+function horodaterActionsEmergence(actions) {
+  if (!colonneDateModifEmergenceDisponible) return actions;
+  const maintenant = Math.floor(Date.now() / 1000);
+  const demandesTouchees = new Set();
+  const demandesDejaHorodatees = new Set();
+  actions.forEach(a => {
+    if (!Array.isArray(a)) return;
+    if (a[1] === TABLE_PRINCIPALE && (a[0] === "AddRecord" || a[0] === "UpdateRecord") && a[3] && typeof a[3] === "object") {
+      a[3][COLONNE_DATE_MODIF_EMERGENCE] = maintenant;
+      if (a[2]) demandesDejaHorodatees.add(a[2]);
+    } else if (a[1] === TABLE_RIDA) {
+      let id = null;
+      if ((a[0] === "AddRecord") && a[3] && a[3].ID2 !== undefined) id = idDepuisRef(a[3].ID2);
+      else if ((a[0] === "UpdateRecord" || a[0] === "RemoveRecord") && a[2]) {
+        const r = ridaToutes.find(x => x.id === a[2]);
+        id = r ? idDepuisRef(r.ID2) : (a[3] && a[3].ID2 !== undefined ? idDepuisRef(a[3].ID2) : null);
+      }
+      if (id) demandesTouchees.add(id);
+    }
+  });
+  const extras = [];
+  demandesTouchees.forEach(id => {
+    if (!demandesDejaHorodatees.has(id) && lignesEmergence.some(l => l.id === id)) {
+      extras.push(["UpdateRecord", TABLE_PRINCIPALE, id, { [COLONNE_DATE_MODIF_EMERGENCE]: maintenant }]);
+    }
+  });
+  return actions.concat(extras);
+}
 
 function libelleChampJournal(cle) {
   return LIBELLES_CHAMPS_JOURNAL[cle] || String(cle).replace(/_/g, " ");
@@ -336,7 +383,7 @@ function appliquerPorteurParDefaut(actions) {
 
 function preparerActions(actions) {
   const complet = actions.concat(actionsJournalModifications(actions));
-  return retirerTelephoneSiIndisponible(horodaterActionsRida(appliquerPorteurParDefaut(complet)));
+  return retirerTelephoneSiIndisponible(horodaterActionsRida(appliquerPorteurParDefaut(horodaterActionsEmergence(complet))));
 }
 
 // Supprime la colonne défectueuse puis la recrée à l'identique (colonne simple, sans formule).
@@ -373,6 +420,14 @@ async function appliquerActionsBrut(actions) {
   try {
     return await grist.docApi.applyUserActions(preparerActions(actions));
   } catch (err) {
+    if (colonneDateModifEmergenceDisponible && /Date_de_modification/.test((err && err.message) || "") && !COLONNES_OPTIONNELLES[colonneAbsenteDansErreur(err)]) {
+      // Colonne « Date de modification » de la table Emergence inutilisable (ex. colonne à formule) : on rejoue sans elle.
+      colonneDateModifEmergenceDisponible = false;
+      dateModifEmergenceRefusee = true;
+      console.error("Colonne « Date de modification » (Emergence) refusée par Grist : horodatage désactivé pour cette session.", err);
+      actions.forEach(x => { if (Array.isArray(x) && x[1] === TABLE_PRINCIPALE && x[3] && typeof x[3] === "object") delete x[3][COLONNE_DATE_MODIF_EMERGENCE]; });
+      return grist.docApi.applyUserActions(preparerActions(actions));
+    }
     const nom = colonneAbsenteDansErreur(err);
     const c = nom && COLONNES_OPTIONNELLES[nom];
     if (!c || !c.estActive()) throw err;
@@ -501,7 +556,7 @@ function cleRefBrm(ligne) {
 const LIBELLES_COLONNES = {
   "Priorite": "Priorité",
   "Statut": "Statut",
-  "Date_de_derniere_modification": "Dernière modification (RIDA)",
+  "Date_de_derniere_modification": "Dernière modification",
   "Date_de_soumission": "Date de soumission",
   "Organisation": "Organisation",
   "Sponsor": "Sponsor",
@@ -629,6 +684,8 @@ let filtreSponsorTexte = "";          // recherche libre dans le Sponsor
 let filtrePorteurTexte = "";          // recherche libre dans le(s) Porteur(s)
 let filtrePartiePrenanteTexte = "";   // recherche libre dans les Parties prenantes
 let filtreTitreTexte = "";
+let filtreModifDu = null;                     // « Dernière modification » : borne basse (ms, minuit local) ou null
+let filtreModifAu = null;                     // borne haute incluse (ms, minuit local du dernier jour) ou null
 let filtreRefBrmRenseigne = false;            // true = masque les demandes sans Ref BRM
 // Filtre Statut à sélection multiple : initialisé sur les statuts 0 à 4
 let filtreStatutSelection = new Set(STATUTS_ACTIFS_PAR_DEFAUT);
@@ -656,6 +713,7 @@ async function chargerTablePrincipale() {
     const table = await grist.docApi.fetchTable(TABLE_PRINCIPALE);
     lignesEmergence = tableVersLignes(table);
     lignesEmergence.forEach(l => { l.Statut = normaliserStatut(l.Statut); });
+    if (!dateModifEmergenceRefusee) colonneDateModifEmergenceDisponible = COLONNE_DATE_MODIF_EMERGENCE in table;
   } catch (e) { console.error("Erreur chargement Emergence :", e); }
 }
 
@@ -1253,6 +1311,12 @@ function appliquerFiltres(lignes) {
       if (normaliserTexteRecherche(nomActeur(l.Parties_prenantes_concernees)).indexOf(normaliserTexteRecherche(filtrePartiePrenanteTexte)) === -1) return false;
     }
     if (filtreRefBrmRenseigne && !String(refBrm(l) || "").trim()) return false;
+    if (filtreModifDu !== null || filtreModifAu !== null) {
+      const t = epochDerniereModifDemande(l.id);
+      if (t === null) return false;
+      if (filtreModifDu !== null && t * 1000 < filtreModifDu) return false;
+      if (filtreModifAu !== null && t * 1000 >= filtreModifAu + 86400000) return false;
+    }
     if (filtreTitreTexte) {
       if (normaliserTexteRecherche(l.Titre || "").indexOf(normaliserTexteRecherche(filtreTitreTexte)) === -1) return false;
     }
@@ -1335,6 +1399,7 @@ function filtreListeColonneEstActif(champ) {
   if (champ === "partie-prenante") return !!filtrePartiePrenanteTexte;
   if (champ === "titre") return !!filtreTitreTexte;
   if (champ === "ref-brm") return filtreRefBrmRenseigne;
+  if (champ === "derniere-modif") return filtreModifDu !== null || filtreModifAu !== null;
   return false;
 }
 
@@ -1356,6 +1421,18 @@ function effacerFiltreListeColonne(champ) {
   else if (champ === "partie-prenante") filtrePartiePrenanteTexte = "";
   else if (champ === "titre") filtreTitreTexte = "";
   else if (champ === "ref-brm") filtreRefBrmRenseigne = false;
+  else if (champ === "derniere-modif") { filtreModifDu = null; filtreModifAu = null; }
+}
+
+// « YYYY-MM-DD » (champ date) -> ms au minuit LOCAL de ce jour ; null si vide / invalide.
+function minuitLocalDepuisInput(valeur) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(valeur || ""));
+  return m ? new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10)).getTime() : null;
+}
+function inputDepuisMs(ms) {
+  if (ms === null) return "";
+  const d = new Date(ms);
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }
 
 // Petite croix en tête de popup (visible seulement quand le filtre est actif) : supprime le
@@ -1369,7 +1446,7 @@ function ajouterCroixSuppressionFiltre(popup, estActif, effacer, rafraichir) {
   btn.style.display = estActif() ? "" : "none";
   btn.addEventListener("click", () => {
     popup.querySelectorAll("input[type='checkbox']").forEach(cb => { cb.checked = false; });
-    popup.querySelectorAll("input[type='text']").forEach(inp => { inp.value = ""; });
+    popup.querySelectorAll("input[type='text'], input[type='date']").forEach(inp => { inp.value = ""; });
     popup.querySelectorAll("select").forEach(sel => { sel.value = "tout"; });
     effacer(); // après le nettoyage générique (le type RIDA recoche I/D/A)
     rafraichir();
@@ -1383,6 +1460,14 @@ function construireContenuPopupFiltreListeColonne(champ) {
   if (champ === "titre") {
     return "<input type='text' class='champ-filtre-liste-texte' data-champ=\"titre\" value=\"" +
       escapeHtml(filtreTitreTexte) + "\" placeholder='Filtrer par titre...'>";
+  }
+  if (champ === "derniere-modif") {
+    return "<div class='filtre-modif-presets'>" +
+      "<button type='button' class='btn-preset-modif' data-jours='1'>Aujourd'hui</button>" +
+      "<button type='button' class='btn-preset-modif' data-jours='7'>7 derniers jours</button>" +
+      "<button type='button' class='btn-preset-modif' data-jours='30'>30 derniers jours</button></div>" +
+      "<label>Du <input type='date' class='champ-filtre-modif-date' data-bord='du' value=\"" + inputDepuisMs(filtreModifDu) + "\"></label>" +
+      "<label>Au <input type='date' class='champ-filtre-modif-date' data-bord='au' value=\"" + inputDepuisMs(filtreModifAu) + "\"></label>";
   }
   if (champ === "ref-brm") {
     return "<label><input type='checkbox' class='case-filtre-liste-refbrm'" + (filtreRefBrmRenseigne ? " checked" : "") +
@@ -1470,6 +1555,22 @@ function ouvrirPopupFiltreListeColonne(th, icone) {
     });
     champTexte.focus();
   }
+  const majFiltreModif = () => {
+    filtreModifDu = minuitLocalDepuisInput((popup.querySelector("[data-bord='du']") || {}).value);
+    filtreModifAu = minuitLocalDepuisInput((popup.querySelector("[data-bord='au']") || {}).value);
+    afficherListe();
+    mettreAJourIconesFiltreListe();
+  };
+  popup.querySelectorAll(".champ-filtre-modif-date").forEach(inp => inp.addEventListener("change", majFiltreModif));
+  popup.querySelectorAll(".btn-preset-modif").forEach(btn => btn.addEventListener("click", () => {
+    const n = parseInt(btn.getAttribute("data-jours"), 10);
+    const auj = new Date(); auj.setHours(0, 0, 0, 0);
+    const du = new Date(auj.getFullYear(), auj.getMonth(), auj.getDate() - (n - 1)).getTime();
+    popup.querySelector("[data-bord='du']").value = inputDepuisMs(du);
+    popup.querySelector("[data-bord='au']").value = "";
+    majFiltreModif();
+    croixListe.style.display = "";
+  }));
   popup.querySelectorAll(".case-filtre-liste-refbrm").forEach(cb => {
     cb.addEventListener("change", () => {
       filtreRefBrmRenseigne = cb.checked;
@@ -1554,6 +1655,8 @@ document.getElementById("btn-reset-filtres").addEventListener("click", () => {
   filtrePartiePrenanteTexte = "";
   filtreTitreTexte = "";
   filtreRefBrmRenseigne = false;
+  filtreModifDu = null;
+  filtreModifAu = null;
   rechercheGlobaleTexte = "";
   const champRechercheGlobale = document.getElementById("champ-recherche-globale");
   if (champRechercheGlobale) champRechercheGlobale.value = "";
@@ -1600,7 +1703,12 @@ function epochDerniereModifDemande(ligneId) {
     });
     indexDerniereModifDemande = { rida: ridaToutes, map };
   }
-  return indexDerniereModifDemande.map.has(ligneId) ? indexDerniereModifDemande.map.get(ligneId) : null;
+  const tRida = indexDerniereModifDemande.map.has(ligneId) ? indexDerniereModifDemande.map.get(ligneId) : null;
+  // Date de modification de la fiche elle-même (colonne de la table Emergence), si renseignée.
+  const l = lignesEmergence.find(x => x.id === ligneId);
+  const tFiche = l && typeof l[COLONNE_DATE_MODIF_EMERGENCE] === "number" && l[COLONNE_DATE_MODIF_EMERGENCE] ? l[COLONNE_DATE_MODIF_EMERGENCE] : null;
+  if (tRida === null) return tFiche;
+  return tFiche !== null && tFiche > tRida ? tFiche : tRida;
 }
 
 function formaterDerniereModifDemande(ligneId) {
@@ -1773,7 +1881,7 @@ function afficherListe() {
     html += "<tr class='" + sel + "' data-id='" + ligne.id + "'>" +
       "<td class='cellule-priorite cellule-liste-editable' data-edit='priorite' title='Cliquer sur l\'icône pour modifier la priorité'><span class='texte-cellule-edit'>" + iconePriorite(ligne.Priorite) + "</span></td>" +
       "<td class='cellule-statut-modifiable' title='Cliquer pour changer le statut'>" + badgeStatut(ligne.Statut) + "</td>" +
-      "<td class='cellule-derniere-modif' title='Dernière modification des lignes RIDA de cette demande'>" + (formaterDerniereModifDemande(ligne.id) || "—") + "</td>" +
+      "<td class='cellule-derniere-modif' title='Dernière modification de la demande (fiche ou lignes RIDA)'>" + (formaterDerniereModifDemande(ligne.id) || "—") + "</td>" +
       "<td class='cellule-liste-editable' data-edit='date' title=\"" + escapeHtml(formaterDate(ligne.Date_de_soumission) || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (formaterDate(ligne.Date_de_soumission) || "—") + "</span></td>" +
       "<td class='cellule-liste-editable' data-edit='organisation' title=\"" + escapeHtml(ligne.Organisation || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + escapeHtml(ligne.Organisation || "—") + "</span></td>" +
       "<td class='cellule-liste-editable' data-edit='sponsor' title=\"" + escapeHtml(sponsorNom) + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (escapeHtml(sponsorNom) || "—") + "</span></td>" +
@@ -6023,6 +6131,7 @@ function ouvrirParametres() {
   if (!fond) return;
   const cfg = chargerConfigLlm();
   document.getElementById("param-version").textContent = "v" + VERSION_WIDGET;
+  document.getElementById("param-journal-rida").checked = journalModificationsActif;
   document.getElementById("param-llm-fournisseur").value = FOURNISSEURS_LLM[cfg.fournisseur] ? cfg.fournisseur : "general";
   document.getElementById("param-llm-url").value = cfg.url || "";
   document.getElementById("param-llm-modele").value = cfg.modele || "";
@@ -6091,6 +6200,8 @@ function lireFormulaireParametres() {
     document.getElementById("param-llm-prompt").value = PROMPT_SYNTHESE_DEFAUT;
   });
   document.getElementById("param-enregistrer").addEventListener("click", () => {
+    journalModificationsActif = document.getElementById("param-journal-rida").checked;
+    sauverOptionsGenerales({ journalRida: journalModificationsActif });
     const ok = sauverConfigLlm(lireFormulaireParametres());
     msg.className = "modale-msg";
     msg.textContent = ok ? "Paramètres enregistrés dans ce navigateur." : "Enregistrés pour cette session seulement (stockage du navigateur indisponible).";

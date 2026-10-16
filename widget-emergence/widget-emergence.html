@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.98 -->
+<!-- Widget Emergence — v0.99 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -35,7 +35,7 @@
           <tr>
             <th data-col="Priorite" data-filtre-champ="priorite" title="Priorité"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Prio. <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Statut" data-filtre-champ="statut"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Statut <span class="fleche"></span><span class="poignee"></span></th>
-            <th data-col="Date_de_derniere_modification" title="Dernière modification d'une ligne RIDA de la demande"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span> Modifié le <span class="fleche"></span><span class="poignee"></span></th>
+            <th data-col="Date_de_derniere_modification" data-filtre-champ="derniere-modif" title="Dernière modification de la demande (fiche ou ligne RIDA)"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Modifié le <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Date_de_soumission"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span> Date de s... <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Organisation" data-filtre-champ="organisation"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Organisation <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Sponsor" data-filtre-champ="sponsor"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Sponsor <span class="fleche"></span><span class="poignee"></span></th>
@@ -210,6 +210,11 @@
 <div class="modale-fond" id="modale-parametres-fond" style="display:none;">
   <div class="modale-boite" style="max-width:560px;width:92%;max-height:90vh;overflow:auto;">
     <div class="modale-titre">⚙️ Paramètres généraux <span style="font-weight:400;color:#888;font-size:0.8em;">Émergence <span id="param-version"></span></span></div>
+    <div style="font-weight:700;margin:6px 0;">Général</div>
+    <label class="planning-chk" style="display:flex;align-items:flex-start;gap:6px;margin-bottom:10px;" title="Désactivé par défaut. La date de dernière modification de la demande est de toute façon enregistrée dans la colonne « Date de modification » de la table Emergence.">
+      <input type="checkbox" id="param-journal-rida" style="margin-top:3px;">
+      <span>Ajouter une ligne d'information au RIDA à chaque modification d'une demande (journal automatique)<br><span style="color:#777;font-size:0.85em;">Désactivé par défaut. Réglage propre à ce navigateur.</span></span>
+    </label>
     <div style="font-weight:700;margin:6px 0;">Assistant IA (LLM)</div>
     <div class="modale-champ"><label>Fournisseur</label>
       <select id="param-llm-fournisseur">
@@ -416,6 +421,9 @@
   .popup-suggestions-rida { position: fixed; z-index: 3000; background: #fff; border: 1px solid #c7d2fe; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); padding: 3px; max-width: 90vw; }
   .suggestion-rida { padding: 4px 10px; cursor: pointer; border-radius: 6px; font-size: calc(12px * var(--echelle-texte, 1)); }
   .suggestion-rida:hover, .suggestion-rida.suggestion-active { background: #e8edfb; }
+  .filtre-modif-presets { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .btn-preset-modif { font-size: calc(11px * var(--echelle-texte, 1)); padding: 2px 8px; border: 1px solid #c7d2fe; background: #eef2ff; border-radius: 10px; cursor: pointer; }
+  .btn-preset-modif:hover { background: #dde5ff; }
   .btn-parametres { margin-left: auto; border: 0; background: transparent; cursor: pointer; font-size: calc(15px * var(--echelle-texte, 1)); padding: 0 6px; line-height: 1; }
   .btn-parametres:hover { background: #e5e7eb; border-radius: 6px; }
   .select-liste-edition { width: 100%; box-sizing: border-box; font-size: inherit; }
