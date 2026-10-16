@@ -1,12 +1,11 @@
-// Widget Emergence — v0.108
-// Numéro de release : <majeure>.<build> (0.108 = release majeure 0, build 108).
-const VERSION_WIDGET = "0.108";
+// Widget Emergence — v0.109
+// Numéro de release : <majeure>.<build> (0.109 = release majeure 0, build 109).
+const VERSION_WIDGET = "0.109";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
 const TABLE_PRINCIPALE = "Emergence";
 const TABLE_ACTEURS = "Emergence_Acteurs";
-const TABLE_PJ = "Emergence_PJ";
 const TABLE_IMAGES = "Emergence_Images"; // images collées (base64), créée par l'outil creation-table-images
 const TABLE_RIDA = "Emergence_Rida";
 
@@ -666,7 +665,6 @@ let acteursParId = {};
 let acteursChargesOk = false; // true une fois la table des acteurs lue avec succès
 let acteursTriesParNom = [];   // [{id, label}] tous les acteurs, triés alphabétiquement
 let sponsorsCandidats = [];    // [{id, label}] acteurs SDID uniquement, pour le select Sponsor
-let pjToutes = [];
 let ridaToutes = [];
 let colonneTri = "Date_de_soumission";
 let sensTri = "desc";
@@ -754,11 +752,6 @@ async function chargerTablesAnnexes() {
   } catch (e) { console.error("Erreur chargement acteurs :", e); }
 
   try {
-    const pj = await grist.docApi.fetchTable(TABLE_PJ);
-    pjToutes = tableVersLignes(pj);
-  } catch (e) { console.error("Erreur chargement PJ :", e); }
-
-  try {
     let rida = await grist.docApi.fetchTable(TABLE_RIDA);
     if (!(COLONNE_DATE_MODIF_RIDA in rida) && await creerColonneDateModifRida()) {
       rida = await grist.docApi.fetchTable(TABLE_RIDA);
@@ -787,15 +780,6 @@ async function rechargerRidaEtRafraichir(ligneId) {
     const rida = await grist.docApi.fetchTable(TABLE_RIDA);
     ridaToutes = tableVersLignes(rida);
   } catch (e) { console.error("Erreur rechargement RIDA :", e); }
-  const ligneCourante = lignesEmergence.find(l => l.id === ligneId);
-  if (ligneCourante) afficherFiche(ligneCourante);
-}
-
-async function rechargerPjEtRafraichir(ligneId) {
-  try {
-    const pj = await grist.docApi.fetchTable(TABLE_PJ);
-    pjToutes = tableVersLignes(pj);
-  } catch (e) { console.error("Erreur rechargement PJ :", e); }
   const ligneCourante = lignesEmergence.find(l => l.id === ligneId);
   if (ligneCourante) afficherFiche(ligneCourante);
 }
@@ -2635,29 +2619,6 @@ function afficherFiche(ligne) {
     "<li><b>" + label + " :</b> " + valeurOuTiret(val) + "</li>"
   ).join("");
 
-  const pjLiees = pjToutes.filter(pj => {
-    const refId = idDepuisRef(pj.ID2);
-    return refId === ligne.id || (ligne.ID_Note && refId === ligne.ID_Note);
-  });
-  let pjLignesHtml = "";
-  pjLiees.forEach(pj => {
-    const titre = pj.Titre || "Sans titre";
-    const fichiers = refListVersIds(pj.Lien);
-    if (fichiers.length === 0) {
-      pjLignesHtml += "<tr><td>" + titre + "</td><td>—</td><td>—</td></tr>";
-    } else {
-      fichiers.forEach(attId => {
-        const url = GRIST_BASE_URL + "/api/docs/" + DOC_ID + "/attachments/" + attId + "/download";
-        pjLignesHtml += "<tr><td>" + titre + "</td><td>Fichier " + attId + "</td>" +
-          "<td><a href='" + url + "' target='_blank'>Télécharger</a></td></tr>";
-      });
-    }
-  });
-  const pjContenu = pjLignesHtml
-    ? "<table class='tableau-fiche'><thead><tr><th>Titre</th><th>Fichier</th><th>Lien</th></tr></thead><tbody>" + pjLignesHtml + "</tbody></table>"
-    : "<span style='color:#bbb;'>Aucune pièce jointe trouvée</span>";
-  const pjContenuAvecBouton = pjContenu + "<button id='btn-ajouter-pj' class='btn-ajouter-rida' type='button'>+ Ajouter une pièce jointe</button>";
-
   const ridaLies = ridaToutes.filter(r => idDepuisRef(r.ID2) === ligne.id);
   if (triRidaColonne === "Pour_le") {
     ridaLies.sort((a, b) => {
@@ -2768,7 +2729,6 @@ function afficherFiche(ligne) {
       <button class="tab-btn ${ongletActif === 'general' ? 'active' : ''}" data-tab="general">Général</button>
       <button class="tab-btn ${ongletActif === 'main-courante' ? 'active' : ''}" data-tab="main-courante">Main courante</button>
       <button class="tab-btn ${ongletActif === 'autres' ? 'active' : ''}" data-tab="autres">Autres champs</button>
-      <button class="tab-btn ${ongletActif === 'pj' ? 'active' : ''}" data-tab="pj">Pièces jointes</button>
     </div>
     <div class="tab-panel ${ongletActif === 'rida' ? 'active' : ''}" data-panel="rida">${ridaContenu}</div>
     <div class="tab-panel ${ongletActif === 'general' ? 'active' : ''}" data-panel="general">
@@ -2789,7 +2749,6 @@ function afficherFiche(ligne) {
     <div class="tab-panel ${ongletActif === 'autres' ? 'active' : ''}" data-panel="autres">
       <ul class="liste-champs">${listeChamps}</ul>
     </div>
-    <div class="tab-panel ${ongletActif === 'pj' ? 'active' : ''}" data-panel="pj">${pjContenuAvecBouton}</div>
   `;
 
   conteneur.querySelectorAll(".tab-btn").forEach(btn => {
@@ -3277,16 +3236,6 @@ function afficherFiche(ligne) {
     });
   }
 
-  // --- Ouverture de la modale "Ajouter une pièce jointe" ---
-  const btnAjouterPj = conteneur.querySelector("#btn-ajouter-pj");
-  if (btnAjouterPj) {
-    btnAjouterPj.addEventListener("click", () => {
-      document.getElementById("modale-pj-titre").value = "";
-      document.getElementById("modale-pj-fichier").value = "";
-      document.getElementById("modale-pj-msg").textContent = "";
-      document.getElementById("modale-pj-fond").style.display = "flex";
-    });
-  }
 }
 
 // --- Modale : gérer la liste complète des acteurs ---
@@ -3653,55 +3602,6 @@ document.getElementById("modale-acteur-valider").addEventListener("click", async
     }
 
     document.getElementById("modale-acteur-fond").style.display = "none";
-  } catch (err) {
-    msgEl.textContent = "Erreur : " + err.message;
-  } finally {
-    btnValider.disabled = false;
-  }
-});
-
-// --- Modale : ajouter une pièce jointe ---
-document.getElementById("modale-pj-annuler").addEventListener("click", () => {
-  document.getElementById("modale-pj-fond").style.display = "none";
-});
-
-document.getElementById("modale-pj-valider").addEventListener("click", async () => {
-  const titre = document.getElementById("modale-pj-titre").value.trim();
-  const fichierInput = document.getElementById("modale-pj-fichier");
-  const fichier = fichierInput.files && fichierInput.files[0];
-  const msgEl = document.getElementById("modale-pj-msg");
-  const btnValider = document.getElementById("modale-pj-valider");
-
-  if (!titre) {
-    msgEl.textContent = "Le titre est obligatoire.";
-    return;
-  }
-  if (!fichier) {
-    msgEl.textContent = "Sélectionne un fichier.";
-    return;
-  }
-
-  btnValider.disabled = true;
-  msgEl.textContent = "";
-  try {
-    const ligne = lignesEmergence.find(l => l.id === ligneSelectionneeId);
-    if (!ligne) throw new Error("Aucune fiche sélectionnée.");
-
-    // NOTE : uploadAttachment est la méthode documentée de l'API Grist pour envoyer
-    // un fichier et récupérer son identifiant de pièce jointe. Si ta version de Grist
-    // expose une méthode différente, le message d'erreur ci-dessous le révélera.
-    const attachmentId = await televerserAttachment(fichier);
-
-    await appliquerActions([
-      ["AddRecord", TABLE_PJ, null, {
-        Titre: titre,
-        Lien: ["L", attachmentId],
-        ID2: ligne.id
-      }]
-    ]);
-
-    await rechargerPjEtRafraichir(ligne.id);
-    document.getElementById("modale-pj-fond").style.display = "none";
   } catch (err) {
     msgEl.textContent = "Erreur : " + err.message;
   } finally {
@@ -5957,10 +5857,10 @@ function exporterPdfReporting() {
 
 
 // ===================== Images collées dans les champs markdown =====================
-// Ctrl+V d'une image (ou glisser-déposer d'un fichier image) dans un champ markdown : l'image est
-// envoyée dans les pièces jointes du document Grist (uploadAttachment), rattachée à la demande dans
-// la table Emergence_PJ (sinon Grist purgerait une pièce jointe non référencée) et insérée dans le
-// texte sous la forme ![image](attachment:ID). Si l'envoi échoue, l'erreur est affichée (pas de base64).
+// Ctrl+V d'une image (ou glisser-déposer d'un fichier image) dans un champ markdown : l'image réduite
+// est enregistrée en base64 dans la table Emergence_Images et insérée dans le texte sous la forme
+// ![image](image:ID). Si l'enregistrement échoue, l'erreur est affichée et le base64 dans le texte est
+// proposé (bouton). Les anciennes images ![image](attachment:ID) restent affichées.
 let jetonAttachments = null; // { token, base, exp }
 
 async function obtenirJetonAttachments(forcer) {
@@ -6056,21 +5956,6 @@ async function reduireImage(fichier) {
 // Envoi d'un fichier dans les pièces jointes du document : l'API des widgets Grist n'a pas de méthode
 // d'envoi, on passe par l'API REST avec un jeton d'accès en écriture (POST {baseUrl}/attachments,
 // champ multipart « upload »). Si le runtime fournit uploadAttachment, il est utilisé en priorité.
-// Envoi d'un fichier dans les pièces jointes du document. Les widgets n'ont plus de méthode d'envoi
-// (uploadAttachment a été retirée de l'API) et l'API REST refuse le jeton d'accès du widget (401) :
-// l'envoi n'est donc possible que si le runtime fournit une méthode « upload… ».
-async function televerserAttachment(fichier) {
-  for (const objet of [grist.docApi, grist]) {
-    const nom = Object.keys(objet || {}).find(k => /upload/i.test(k) && typeof objet[k] === "function");
-    if (nom) {
-      const r = await objet[nom](fichier);
-      const id = Array.isArray(r) ? r[0] : (r && typeof r === "object" ? r.id : r);
-      if (Number.isInteger(id)) return id;
-    }
-  }
-  throw new Error("Grist n'autorise pas l'envoi de fichiers depuis un widget sur cette instance");
-}
-
 function fichierVersDataUrl(fichier) {
   return new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(fichier); });
 }
@@ -6106,18 +5991,8 @@ async function ajouterImageDansChamp(textarea, fichier, ligneId, msgEl) {
   const nom = reduit.name && reduit.name !== "image.png" ? reduit.name : "image-" + date + (reduit.type === "image/jpeg" ? ".jpg" : ".png");
   let texte = null;
   let erreur = null;
-  // 1) pièce jointe Grist (si le runtime offre encore une méthode d'envoi)
-  try {
-    const fichierNomme = reduit.name === nom ? reduit : new File([reduit], nom, { type: reduit.type });
-    const attId = await televerserAttachment(fichierNomme);
-    texte = "![image](attachment:" + attId + ")";
-    try {
-      await grist.docApi.applyUserActions([["AddRecord", TABLE_PJ, null, { Titre: "Image collée " + date, Lien: ["L", attId], ID2: ligneId }]]);
-      pjToutes = tableVersLignes(await grist.docApi.fetchTable(TABLE_PJ));
-    } catch (e) { console.error("Enregistrement de l'image dans Emergence_PJ impossible :", e); }
-  } catch (e) { erreur = e; }
-  // 2) table Emergence_Images (image en base64 dans une table dédiée, lien image:ID dans le texte)
-  if (!texte) {
+  // Table Emergence_Images (image en base64 dans une table dédiée, lien image:ID dans le texte)
+  {
     try {
       const imgId = await enregistrerImageDansTable(reduit, nom, ligneId);
       texte = "![image](image:" + imgId + ")";
