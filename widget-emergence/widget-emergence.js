@@ -1,4 +1,6 @@
-// Widget Emergence — v90
+// Widget Emergence — v0.91
+// Numéro de release : <majeure>.<build> (0.91 = release majeure 0, build 91).
+const VERSION_WIDGET = "0.91";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -1766,17 +1768,17 @@ function afficherListe() {
       celluleRida = "<span style='color:#bbb;'>—</span>";
     }
     html += "<tr class='" + sel + "' data-id='" + ligne.id + "'>" +
-      "<td class='cellule-priorite'>" + iconePriorite(ligne.Priorite) + "</td>" +
+      "<td class='cellule-priorite cellule-liste-editable' data-edit='priorite' title='Cliquer pour modifier la priorité'>" + iconePriorite(ligne.Priorite) + "</td>" +
       "<td class='cellule-statut-modifiable' title='Cliquer pour changer le statut'>" + badgeStatut(ligne.Statut) + "</td>" +
       "<td class='cellule-derniere-modif' title='Dernière modification des lignes RIDA de cette demande'>" + (formaterDerniereModifDemande(ligne.id) || "—") + "</td>" +
-      "<td title='" + (formaterDate(ligne.Date_de_soumission) || "") + "'>" + formaterDate(ligne.Date_de_soumission) + "</td>" +
-      "<td title='" + (ligne.Organisation || "") + "'>" + (ligne.Organisation || "—") + "</td>" +
-      "<td title='" + sponsorNom + "'>" + (sponsorNom || "—") + "</td>" +
-      "<td title='" + porteurTexte + "'>" + (porteurTexte || "—") + "</td>" +
-      "<td class='cellule-titre-objet' title=\"" + escapeHtml(infobulleObjetDemande(ligne)) + "\">" + escapeHtml(ligne.Titre || "—") + "</td>" +
+      "<td class='cellule-liste-editable' data-edit='date' title=\"" + escapeHtml(formaterDate(ligne.Date_de_soumission) || "") + " (cliquer pour modifier)\">" + formaterDate(ligne.Date_de_soumission) + "</td>" +
+      "<td class='cellule-liste-editable' data-edit='organisation' title=\"" + escapeHtml(ligne.Organisation || "") + " (cliquer pour modifier)\">" + escapeHtml(ligne.Organisation || "—") + "</td>" +
+      "<td class='cellule-liste-editable' data-edit='sponsor' title=\"" + escapeHtml(sponsorNom) + " (cliquer pour modifier)\">" + (escapeHtml(sponsorNom) || "—") + "</td>" +
+      "<td class='cellule-liste-editable' data-edit='porteur' title=\"" + escapeHtml(porteurTexte) + " (cliquer pour modifier)\">" + (escapeHtml(porteurTexte) || "—") + "</td>" +
+      "<td class='cellule-titre-objet cellule-liste-editable' data-edit='titre' title=\"" + escapeHtml(infobulleObjetDemande(ligne)) + "\">" + escapeHtml(ligne.Titre || "—") + "</td>" +
       "<td class='cellule-ref-brm-editable' title=\"" + escapeHtml(refBrm(ligne)) + (cleRefBrm(ligne) ? " (cliquer pour modifier)" : "") + "\">" + (escapeHtml(refBrm(ligne)) || "—") + "</td>" +
-      "<td title='" + (ligne.Typologie_de_la_demande || "") + "'>" + (ligne.Typologie_de_la_demande || "—") + "</td>" +
-      "<td title='" + partiesPrenantesTexte + "'>" + (partiesPrenantesTexte || "—") + "</td>" +
+      "<td class='cellule-liste-editable' data-edit='typologie' title=\"" + escapeHtml(ligne.Typologie_de_la_demande || "") + " (cliquer pour modifier)\">" + (escapeHtml(ligne.Typologie_de_la_demande || "") || "—") + "</td>" +
+      "<td class='cellule-liste-editable' data-edit='pp' title=\"" + escapeHtml(partiesPrenantesTexte) + " (cliquer pour modifier)\">" + (escapeHtml(partiesPrenantesTexte) || "—") + "</td>" +
       "<td>" + celluleRida + "</td>" +
       "</tr>";
   }
@@ -1839,9 +1841,163 @@ function afficherListe() {
       ouvrirPopupStatutListe(td, parseInt(td.closest("tr").getAttribute("data-id"), 10));
     });
   });
+  activerEditionCellulesListe(corps);
   mettreAJourFleches();
   appliquerLargeursColonnes();
   appliquerVisibiliteColonnes();
+}
+
+// ---------- Édition en place des cellules de la liste des demandes ----------
+// Un clic sur une cellule éditable fait apparaître le champ de saisie (liste déroulante, date,
+// texte avec suggestions) ; Entrée / perte de focus / choix = enregistre, Échap = annule.
+// Statut et Ref BRM ont leur propre éditeur ; « Dernière modif » et « RIDA » sont calculées
+// (issues des lignes RIDA) et ne sont donc pas éditables ici.
+async function enregistrerChampListe(ligneId, champ, valeur) {
+  try {
+    await appliquerActions([["UpdateRecord", TABLE_PRINCIPALE, ligneId, { [champ]: valeur }]]);
+    await rechargerEmergenceEtRafraichir(ligneId === ligneSelectionneeId ? ligneId : null);
+  } catch (err) {
+    alert("Erreur lors de l'enregistrement : " + err.message);
+    afficherListe();
+  }
+}
+
+function assurerDatalistActeursListe() {
+  let dl = document.getElementById("datalist-liste-acteurs");
+  if (!dl) { dl = document.createElement("datalist"); dl.id = "datalist-liste-acteurs"; document.body.appendChild(dl); }
+  dl.innerHTML = acteursTriesParNom.map(a => "<option value=\"" + escapeHtml(a.label) + "\"></option>").join("");
+}
+
+function activerEditionCellulesListe(corps) {
+  corps.querySelectorAll("tr[data-id] td[data-edit]").forEach(td => {
+    td.addEventListener("click", (e) => {
+      e.stopPropagation(); // ne change pas la fiche sélectionnée
+      if (td.querySelector("input, select")) return;
+      const type = td.getAttribute("data-edit");
+      const ligneId = parseInt(td.closest("tr").getAttribute("data-id"), 10);
+      const ligne = lignesEmergence.find(l => l.id === ligneId);
+      if (!ligne) return;
+      if (type === "pp") { ouvrirPopupPartiesPrenantesListe(td, ligneId); return; }
+      let champ, valeurInitiale, element;
+      let termine = false;
+      const finir = (valeurEnregistree, aChange) => {
+        if (termine) return;
+        termine = true;
+        if (!aChange) { afficherListe(); return; }
+        enregistrerChampListe(ligneId, champ, valeurEnregistree);
+      };
+      if (type === "priorite" || type === "typologie") {
+        champ = type === "priorite" ? "Priorite" : "Typologie_de_la_demande";
+        valeurInitiale = ligne[champ] || "";
+        let choix = type === "priorite" ? CHOIX_PRIORITE.slice() : CHOIX_TYPOLOGIE.slice();
+        if (valeurInitiale && !choix.includes(valeurInitiale)) choix.push(valeurInitiale);
+        element = document.createElement("select");
+        element.className = "select-liste-edition";
+        element.innerHTML = "<option value=''>—</option>" + choix.map(v =>
+          "<option value=\"" + escapeHtml(v) + "\"" + (v === valeurInitiale ? " selected" : "") + ">" + escapeHtml(v) + "</option>").join("");
+        element.addEventListener("change", () => finir(element.value || null, element.value !== valeurInitiale));
+        element.addEventListener("blur", () => finir(null, false));
+      } else if (type === "date") {
+        champ = "Date_de_soumission";
+        valeurInitiale = dateEpochVersInput(ligne[champ]);
+        element = document.createElement("input");
+        element.type = "date";
+        element.className = "input-ref-brm-liste";
+        element.value = valeurInitiale;
+        element.addEventListener("change", () => finir(inputVersDateEpoch(element.value), element.value !== valeurInitiale));
+        element.addEventListener("blur", () => finir(null, false));
+      } else {
+        // texte : Titre, Organisation ; texte avec suggestions : Sponsor (référence), Porteur (choix libre)
+        champ = { titre: "Titre", organisation: "Organisation", sponsor: "Sponsor", porteur: "Porteurs" }[type];
+        valeurInitiale = type === "sponsor" ? nomActeur(ligne.Sponsor) : String(ligne[champ] || "");
+        element = document.createElement("input");
+        element.type = "text";
+        element.className = "input-ref-brm-liste";
+        element.value = valeurInitiale;
+        if (type === "sponsor" || type === "porteur") { assurerDatalistActeursListe(); element.setAttribute("list", "datalist-liste-acteurs"); }
+        const valider = () => {
+          const texte = element.value.trim();
+          if (texte === valeurInitiale) { finir(null, false); return; }
+          if (type === "sponsor") {
+            if (!texte) { finir(null, true); return; }
+            const cand = acteursTriesParNom.find(a => normaliserTexteRecherche(a.label) === normaliserTexteRecherche(texte));
+            if (!cand) { termine = true; alert("Aucun acteur ne correspond à « " + texte + " »."); afficherListe(); return; }
+            finir(cand.id, true);
+          } else if (type === "porteur") {
+            const cand = acteursTriesParNom.find(a => normaliserTexteRecherche(a.label) === normaliserTexteRecherche(texte));
+            finir(texte ? (cand ? cand.label : texte) : null, true);
+          } else {
+            finir(texte, true);
+          }
+        };
+        element.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter") valider();
+          else if (ev.key === "Escape") finir(null, false);
+        });
+        element.addEventListener("blur", valider);
+      }
+      element.addEventListener("click", (ev) => ev.stopPropagation());
+      if (element.tagName === "SELECT") element.addEventListener("keydown", (ev) => { if (ev.key === "Escape") finir(null, false); });
+      td.textContent = "";
+      td.appendChild(element);
+      element.focus();
+      if (element.tagName === "INPUT" && element.type === "text") element.select();
+    });
+  });
+}
+
+// Popup « Parties prenantes » d'une demande : retirer une personne (✕) ou en ajouter une.
+function ouvrirPopupPartiesPrenantesListe(cellule, ligneId) {
+  const dejaOuverte = document.querySelector(".popup-pp-liste");
+  fermerPopupFiltreListeColonne();
+  if (dejaOuverte && dejaOuverte.getAttribute("data-ligne-id") === String(ligneId)) return;
+  const ligne = lignesEmergence.find(l => l.id === ligneId);
+  if (!ligne) return;
+  assurerDatalistActeursListe();
+  const ids = nettoyerIdsActeurs(refListVersIds(ligne.Parties_prenantes_concernees).map(Number));
+  const popup = document.createElement("div");
+  popup.className = "popup-filtre-action-colonne popup-filtre-liste-colonne popup-pp-liste";
+  popup.setAttribute("data-ligne-id", String(ligneId));
+  popup.innerHTML =
+    "<div class='pp-liste-chips'>" + (ids.length ? ids.map(id =>
+      "<span class='chip-pp-liste'>" + escapeHtml(nomActeurParId(id)) + " <button type='button' class='pp-liste-retirer' data-id='" + id + "' title='Retirer'>✕</button></span>").join("")
+      : "<em style='color:#888;'>Aucune partie prenante</em>") + "</div>" +
+    "<input type='text' class='pp-liste-ajout' list='datalist-liste-acteurs' placeholder='Ajouter (tapez un nom, Entrée)'>";
+  document.body.appendChild(popup);
+  const rect = cellule.getBoundingClientRect();
+  popup.style.top = (rect.bottom + 2) + "px";
+  let gauche = rect.left;
+  const largeur = popup.offsetWidth || 260;
+  if (gauche + largeur > window.innerWidth - 8) gauche = Math.max(8, window.innerWidth - 8 - largeur);
+  popup.style.left = gauche + "px";
+  popup.addEventListener("click", (e) => e.stopPropagation());
+  popup.addEventListener("pointerdown", (e) => e.stopPropagation());
+  const sauver = async (nouveauxIds) => {
+    try {
+      await appliquerActions([["UpdateRecord", TABLE_PRINCIPALE, ligneId, { Parties_prenantes_concernees: ["L"].concat(nouveauxIds) }]]);
+      await rechargerEmergenceEtRafraichir(ligneId === ligneSelectionneeId ? ligneId : null);
+      const td = document.querySelector('#corps-tableau tr[data-id="' + ligneId + '"] td[data-edit="pp"]');
+      if (td) ouvrirPopupPartiesPrenantesListe(td, ligneId); // rouvre avec la liste à jour
+    } catch (err) {
+      alert("Erreur lors de l'enregistrement : " + err.message);
+    }
+  };
+  popup.querySelectorAll(".pp-liste-retirer").forEach(b => b.addEventListener("click", () => {
+    const idARetirer = parseInt(b.getAttribute("data-id"), 10);
+    fermerPopupFiltreListeColonne();
+    sauver(ids.filter(i => i !== idARetirer));
+  }));
+  const champ = popup.querySelector(".pp-liste-ajout");
+  champ.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const texte = champ.value.trim();
+    if (!texte) return;
+    const cand = acteursTriesParNom.find(a => !ids.includes(a.id) && normaliserTexteRecherche(a.label) === normaliserTexteRecherche(texte));
+    if (!cand) { alert("Aucun acteur (non déjà présent) ne correspond à « " + texte + " »."); return; }
+    fermerPopupFiltreListeColonne();
+    sauver(ids.concat([cand.id]));
+  });
+  champ.focus();
 }
 
 // Popup de choix du statut d'une demande, ouverte depuis la liste. Un second clic sur la même
@@ -5342,6 +5498,7 @@ function afficherReporting() {
     "<section class='reporting-section'><h2>Prévu — " + escapeHtml(libelleSemaineReporting(r.lundiSuivant, r.dimancheSuivant, r.numeroSuivant)) + "</h2>" +
     "<div class='reporting-total'>" + (cP || "Rien de prévu la semaine suivante") + " · " + r.groupesPrevues.length + " demande" + (r.groupesPrevues.length > 1 ? "s" : "") + "</div>" +
     htmlGroupesReporting(r.groupesPrevues, "Pour_le") + "</section>";
+  afficherSyntheseReporting();
   conteneur.querySelectorAll(".reporting-groupe-entete[data-demande-id]").forEach(el => {
     el.addEventListener("click", () => {
       const id = parseInt(el.getAttribute("data-demande-id"), 10);
@@ -5363,6 +5520,8 @@ function afficherReporting() {
   if (sel) sel.addEventListener("change", () => { reportingPorteur = sel.value; afficherReporting(); });
   const btnPdf = document.getElementById("btn-export-pdf-reporting");
   if (btnPdf) btnPdf.addEventListener("click", exporterPdfReporting);
+  const btnSynth = document.getElementById("reporting-synthese-btn");
+  if (btnSynth) btnSynth.addEventListener("click", genererSyntheseReporting);
 })();
 
 function construirePdfReporting() {
@@ -5437,6 +5596,20 @@ function construirePdfReporting() {
   }
 
   nouvellePage(false);
+  if (reportingSynthese.texte && reportingSynthese.cle === cleReportingCourante()) {
+    pdf.rect(MARGE, y, L - 2 * MARGE, 20, { fill: "#ede9fe" });
+    pdf.texte(MARGE + 8, y + 14, "Synthèse", { taille: 11, gras: true, couleur: "#5b21b6" });
+    y += 28;
+    reportingSynthese.texte.split(/\r?\n/).forEach(par => {
+      const lignes = par.trim() ? pdf.decouper(par, L - 2 * MARGE - 16, 9, false, 40) : [""];
+      lignes.forEach(t => {
+        assurerPlace(13, null);
+        if (t) pdf.texte(MARGE + 8, y + 9, t, { taille: 9 });
+        y += 12.5;
+      });
+    });
+    y += 10;
+  }
   const cF = libelleComptages(comptagesParType(donnees.faites));
   const cP = libelleComptages(comptagesParType(donnees.prevues));
   section("Réalisé — " + libelleSemaineReporting(donnees.lundi, donnees.dimanche, donnees.numero),
@@ -5474,6 +5647,206 @@ function exporterPdfReporting() {
   } finally {
     if (btn) btn.disabled = false;
   }
+}
+
+
+// ===================== Paramètres généraux + assistant IA (LLM) =====================
+// Configuration d'un LLM compatible API OpenAI (/chat/completions) : MirAI, Albert (DINUM) ou
+// service général. Elle est enregistrée dans le navigateur de l'utilisateur (localStorage) et
+// jamais dans le document Grist : la clé d'API reste donc personnelle.
+const CLE_STOCKAGE_LLM = "emergence_llm_config_v1";
+const PROMPT_SYNTHESE_DEFAUT =
+  "Tu es l'assistant de l'équipe Émergence (ministère de l'Intérieur). À partir des éléments RIDA " +
+  "(Actions, Informations, Décisions) réalisés pendant la semaine et de ceux prévus la semaine suivante, " +
+  "rédige en français une synthèse hebdomadaire concise destinée à la direction, structurée ainsi : " +
+  "faits marquants et décisions ; actions réalisées ; points d'attention ; prévu pour la semaine suivante. " +
+  "Texte brut sans mise en forme markdown (tirets simples pour les listes), 20 lignes maximum. " +
+  "N'invente aucune information absente des éléments fournis.";
+const FOURNISSEURS_LLM = {
+  mirai:   { libelle: "MirAI",   url: "",                                     modele: "" },
+  albert:  { libelle: "Albert (API DINUM)", url: "https://albert.api.etalab.gouv.fr/v1", modele: "albert-large" },
+  general: { libelle: "Général (compatible OpenAI)", url: "",                  modele: "" }
+};
+let configLlmMemoire = null; // repli si localStorage est indisponible
+
+function configLlmParDefaut() {
+  return { fournisseur: "albert", url: FOURNISSEURS_LLM.albert.url, modele: FOURNISSEURS_LLM.albert.modele, cle: "", temperature: 0.2, prompt: PROMPT_SYNTHESE_DEFAUT };
+}
+
+function chargerConfigLlm() {
+  let brut = null;
+  try { brut = window.localStorage.getItem(CLE_STOCKAGE_LLM); } catch (e) { /* stockage indisponible */ }
+  if (brut) {
+    try { return Object.assign(configLlmParDefaut(), JSON.parse(brut)); } catch (e) { /* config corrompue */ }
+  }
+  return Object.assign(configLlmParDefaut(), configLlmMemoire || {});
+}
+
+function sauverConfigLlm(cfg) {
+  configLlmMemoire = cfg;
+  try { window.localStorage.setItem(CLE_STOCKAGE_LLM, JSON.stringify(cfg)); return true; } catch (e) { return false; }
+}
+
+function llmEstConfigure(cfg) {
+  const c = cfg || chargerConfigLlm();
+  return !!(c.url && c.modele);
+}
+
+// Appel « chat completions » ; renvoie le texte de la réponse.
+async function appelerLlm(messages, cfgOptionnelle) {
+  const cfg = cfgOptionnelle || chargerConfigLlm();
+  if (!llmEstConfigure(cfg)) throw new Error("Assistant IA non configuré (Paramètres généraux : URL et modèle).");
+  const url = String(cfg.url).replace(/\/+$/, "") + "/chat/completions";
+  const entetes = { "Content-Type": "application/json" };
+  if (cfg.cle) entetes["Authorization"] = "Bearer " + cfg.cle;
+  const reponse = await fetch(url, {
+    method: "POST",
+    headers: entetes,
+    body: JSON.stringify({ model: cfg.modele, messages, temperature: Number(cfg.temperature) || 0, stream: false })
+  });
+  if (!reponse.ok) {
+    let detail = "";
+    try { detail = (await reponse.text()).slice(0, 300); } catch (e) { /* ignore */ }
+    throw new Error("Erreur " + reponse.status + (detail ? " : " + detail : ""));
+  }
+  const json = await reponse.json();
+  const texte = json && json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content;
+  if (!texte) throw new Error("Réponse vide ou inattendue du service.");
+  return String(texte).trim();
+}
+
+function ouvrirParametres() {
+  const fond = document.getElementById("modale-parametres-fond");
+  if (!fond) return;
+  const cfg = chargerConfigLlm();
+  document.getElementById("param-version").textContent = "v" + VERSION_WIDGET;
+  document.getElementById("param-llm-fournisseur").value = FOURNISSEURS_LLM[cfg.fournisseur] ? cfg.fournisseur : "general";
+  document.getElementById("param-llm-url").value = cfg.url || "";
+  document.getElementById("param-llm-modele").value = cfg.modele || "";
+  document.getElementById("param-llm-cle").value = cfg.cle || "";
+  document.getElementById("param-llm-temperature").value = cfg.temperature;
+  document.getElementById("param-llm-prompt").value = cfg.prompt || PROMPT_SYNTHESE_DEFAUT;
+  document.getElementById("param-llm-msg").textContent = "";
+  fond.style.display = "flex";
+}
+
+function lireFormulaireParametres() {
+  return {
+    fournisseur: document.getElementById("param-llm-fournisseur").value,
+    url: document.getElementById("param-llm-url").value.trim(),
+    modele: document.getElementById("param-llm-modele").value.trim(),
+    cle: document.getElementById("param-llm-cle").value.trim(),
+    temperature: parseFloat(document.getElementById("param-llm-temperature").value) || 0,
+    prompt: document.getElementById("param-llm-prompt").value.trim() || PROMPT_SYNTHESE_DEFAUT
+  };
+}
+
+(function initParametres() {
+  const fond = document.getElementById("modale-parametres-fond");
+  const btn = document.getElementById("btn-parametres");
+  if (!fond || !btn) return;
+  const msg = document.getElementById("param-llm-msg");
+  const fermer = () => { fond.style.display = "none"; };
+  btn.addEventListener("click", ouvrirParametres);
+  document.getElementById("param-annuler").addEventListener("click", fermer);
+  fond.addEventListener("mousedown", (e) => { if (e.target === fond) fermer(); });
+  document.getElementById("param-llm-fournisseur").addEventListener("change", (e) => {
+    // Applique le préréglage (URL, modèle) du fournisseur choisi si les champs sont vides ou égaux à un préréglage.
+    const preset = FOURNISSEURS_LLM[e.target.value] || FOURNISSEURS_LLM.general;
+    const url = document.getElementById("param-llm-url"), modele = document.getElementById("param-llm-modele");
+    const estPreset = (v, cle) => !v || Object.values(FOURNISSEURS_LLM).some(f => f[cle] === v);
+    if (estPreset(url.value.trim(), "url")) url.value = preset.url;
+    if (estPreset(modele.value.trim(), "modele")) modele.value = preset.modele;
+  });
+  document.getElementById("param-llm-prompt-defaut").addEventListener("click", () => {
+    document.getElementById("param-llm-prompt").value = PROMPT_SYNTHESE_DEFAUT;
+  });
+  document.getElementById("param-enregistrer").addEventListener("click", () => {
+    const ok = sauverConfigLlm(lireFormulaireParametres());
+    msg.className = "modale-msg";
+    msg.textContent = ok ? "Paramètres enregistrés dans ce navigateur." : "Enregistrés pour cette session seulement (stockage du navigateur indisponible).";
+    afficherReporting();
+  });
+  document.getElementById("param-llm-tester").addEventListener("click", async () => {
+    msg.className = "modale-msg";
+    msg.textContent = "Test en cours…";
+    try {
+      const rep = await appelerLlm([{ role: "user", content: "Réponds uniquement par le mot : OK" }], lireFormulaireParametres());
+      msg.textContent = "Connexion réussie. Réponse : « " + rep.slice(0, 80) + " »";
+    } catch (e) {
+      msg.className = "modale-msg erreur";
+      msg.textContent = "Échec : " + e.message;
+    }
+  });
+})();
+
+// ----- Synthèse IA du Reporting -----
+let reportingSynthese = { cle: "", texte: "" };
+
+function cleReportingCourante() { return lundiReporting() + "|" + reportingPorteur; }
+
+function ligneReportingPourLlm(r, cleDate) {
+  const desc = String(r.Description || "").replace(/\s+/g, " ").trim().slice(0, 400);
+  return "  - " + (LIBELLES_TYPE_RIDA[r.RIDA] || r.RIDA) + " (" + formaterDate(r[cleDate]) + (r.Porteur ? ", " + r.Porteur : "") + ") : " + desc;
+}
+
+function textePourLlmReporting(d) {
+  const bloc = (groupes, cleDate) => groupes.length ? groupes.map(g =>
+    "- Demande « " + g.demande.titre + " »" + (g.demande.statut ? " [statut : " + g.demande.statut + "]" : "") +
+    (g.demande.organisation ? " [" + g.demande.organisation + "]" : "") + "\n" +
+    g.lignes.map(r => ligneReportingPourLlm(r, cleDate)).join("\n")).join("\n") : "(rien)";
+  const texte =
+    libelleSemaineReporting(d.lundi, d.dimanche, d.numero) + (reportingPorteur ? " — porteur : " + reportingPorteur : "") + "\n\n" +
+    "RÉALISÉ CETTE SEMAINE :\n" + bloc(d.groupesFaites, "Fait_le") + "\n\n" +
+    "PRÉVU LA SEMAINE SUIVANTE (" + libelleSemaineReporting(d.lundiSuivant, d.dimancheSuivant, d.numeroSuivant) + ") :\n" + bloc(d.groupesPrevues, "Pour_le");
+  return texte.length > 24000 ? texte.slice(0, 24000) + "\n[… tronqué]" : texte;
+}
+
+async function genererSyntheseReporting() {
+  const btn = document.getElementById("reporting-synthese-btn");
+  const msg = document.getElementById("reporting-synthese-msg");
+  if (!llmEstConfigure()) {
+    if (msg) msg.textContent = "Configurez d'abord l'assistant IA (⚙ Paramètres généraux).";
+    return;
+  }
+  const d = calculerReporting();
+  if (!d.faites.length && !d.prevues.length) { if (msg) msg.textContent = "Rien à synthétiser pour cette période."; return; }
+  if (btn) btn.disabled = true;
+  if (msg) msg.textContent = "Génération de la synthèse…";
+  try {
+    const cfg = chargerConfigLlm();
+    const texte = await appelerLlm([
+      { role: "system", content: cfg.prompt || PROMPT_SYNTHESE_DEFAUT },
+      { role: "user", content: textePourLlmReporting(d) }
+    ], cfg);
+    reportingSynthese = { cle: cleReportingCourante(), texte };
+    if (msg) msg.textContent = "";
+  } catch (e) {
+    console.error("Synthèse IA :", e);
+    if (msg) msg.textContent = "Erreur : " + e.message;
+  } finally {
+    if (btn) btn.disabled = false;
+    afficherSyntheseReporting();
+  }
+}
+
+function afficherSyntheseReporting() {
+  const zone = document.getElementById("reporting-synthese-zone");
+  if (!zone) return;
+  if (reportingSynthese.cle !== cleReportingCourante()) reportingSynthese = { cle: "", texte: "" };
+  if (!reportingSynthese.texte) { zone.style.display = "none"; zone.innerHTML = ""; return; }
+  zone.style.display = "block";
+  zone.innerHTML =
+    "<div class='reporting-synthese-titre'>✨ Synthèse IA <span class='reporting-synthese-aide'>(modifiable ; incluse en tête du PDF)</span>" +
+    "<button type='button' id='reporting-synthese-copier'>Copier</button><button type='button' id='reporting-synthese-effacer'>Effacer</button></div>" +
+    "<textarea id='reporting-synthese-texte' rows='9'></textarea>";
+  const ta = zone.querySelector("#reporting-synthese-texte");
+  ta.value = reportingSynthese.texte;
+  ta.addEventListener("input", () => { reportingSynthese.texte = ta.value; });
+  zone.querySelector("#reporting-synthese-effacer").addEventListener("click", () => { reportingSynthese = { cle: "", texte: "" }; afficherSyntheseReporting(); });
+  zone.querySelector("#reporting-synthese-copier").addEventListener("click", () => {
+    try { navigator.clipboard.writeText(ta.value); } catch (e) { ta.select(); document.execCommand("copy"); }
+  });
 }
 
 // ===================== Export Excel (zip) de toutes les tables Emergence =====================

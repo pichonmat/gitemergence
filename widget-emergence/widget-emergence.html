@@ -1,10 +1,11 @@
-<!-- Widget Emergence — v90 -->
+<!-- Widget Emergence — v0.91 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
   <button type="button" id="tag-contacts" class="tag-mode tag-mode-contacts">Contacts</button>
   <button type="button" id="tag-activite" class="tag-mode tag-mode-activite">Activité</button>
   <button type="button" id="tag-reporting" class="tag-mode tag-mode-reporting">Reporting</button>
+  <button type="button" id="btn-parametres" class="btn-parametres" title="Paramètres généraux">⚙️</button>
   <span id="utilisateur-connecte" class="utilisateur-connecte" style="display:none;"></span>
 </div>
 
@@ -134,8 +135,11 @@
     <button type="button" id="reporting-aujourdhui">Semaine en cours</button>
     <select id="reporting-porteur" title="Filtrer par porteur"></select>
     <button type="button" id="btn-export-pdf-reporting" class="btn-export-activite" title="Télécharger le reporting de la semaine au format PDF">📄 Exporter en PDF</button>
+    <button type="button" id="reporting-synthese-btn" title="Génère une synthèse de la semaine avec l'assistant IA configuré (Paramètres généraux)">✨ Synthèse IA</button>
+    <span id="reporting-synthese-msg" class="msg-export-activite"></span>
     <span id="msg-export-pdf-reporting" class="msg-export-activite"></span>
   </div>
+  <div id="reporting-synthese-zone" class="reporting-synthese" style="display:none;"></div>
   <div id="contenu-reporting" class="contenu-reporting"></div>
 </div>
 
@@ -174,6 +178,37 @@
 </div>
 
 <!-- Modale : créer un nouvel acteur -->
+<div class="modale-fond" id="modale-parametres-fond" style="display:none;">
+  <div class="modale-boite" style="max-width:560px;width:92%;max-height:90vh;overflow:auto;">
+    <div class="modale-titre">⚙️ Paramètres généraux <span style="font-weight:400;color:#888;font-size:0.8em;">Émergence <span id="param-version"></span></span></div>
+    <div style="font-weight:700;margin:6px 0;">Assistant IA (LLM)</div>
+    <div class="modale-champ"><label>Fournisseur</label>
+      <select id="param-llm-fournisseur">
+        <option value="mirai">MirAI</option>
+        <option value="albert">Albert (API DINUM)</option>
+        <option value="general">Général (compatible OpenAI)</option>
+      </select></div>
+    <div class="modale-champ"><label>URL de l'API (base, sans /chat/completions)</label>
+      <input type="text" id="param-llm-url" placeholder="https://…/v1"></div>
+    <div class="modale-champ"><label>Modèle</label>
+      <input type="text" id="param-llm-modele" placeholder="ex. albert-large"></div>
+    <div class="modale-champ"><label>Clé d'API</label>
+      <input type="password" id="param-llm-cle" autocomplete="off" placeholder="Bearer token"></div>
+    <div class="modale-champ"><label>Température</label>
+      <input type="number" id="param-llm-temperature" min="0" max="2" step="0.1" style="width:90px;"></div>
+    <div class="modale-champ"><label>Consigne (prompt système) de la synthèse du Reporting
+      <button type="button" id="param-llm-prompt-defaut" class="btn-secondaire" style="margin-left:6px;">Rétablir</button></label>
+      <textarea id="param-llm-prompt" rows="6" style="width:100%;box-sizing:border-box;"></textarea></div>
+    <div style="font-size:0.8em;color:#777;margin:4px 0;">Ces réglages (dont la clé) sont enregistrés uniquement dans votre navigateur, pas dans le document Grist. La synthèse envoie au service choisi les titres, statuts, sponsors, porteurs et descriptions des lignes RIDA de la semaine : n'utilisez qu'un service habilité pour ces données.</div>
+    <div class="modale-msg" id="param-llm-msg"></div>
+    <div class="modale-actions">
+      <button type="button" id="param-llm-tester" class="btn-secondaire">Tester la connexion</button>
+      <button type="button" id="param-annuler" class="btn-secondaire">Fermer</button>
+      <button type="button" id="param-enregistrer">Appliquer</button>
+    </div>
+  </div>
+</div>
+
 <div class="modale-fond" id="modale-acteur-fond" style="display:none;">
   <div class="modale-boite">
     <div class="modale-titre" id="modale-acteur-titre">Créer un nouvel acteur</div>
@@ -332,7 +367,7 @@
 
   /* --- Barre de mode (Demandes / Actions) --- */
   .barre-mode-vue { display: flex; gap: 6px; margin-bottom: 6px; padding: 3px 0; align-items: center; position: sticky; top: 0; z-index: 100; background: #ffffff; border-bottom: 1px solid #eceef2; }
-  .utilisateur-connecte { margin-left: auto; font-size: calc(12px * var(--echelle-texte)); color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; cursor: default; }
+  .utilisateur-connecte { margin-left: 0; font-size: calc(12px * var(--echelle-texte)); color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; cursor: default; }
   .tag-mode {
     font-size: calc(12px * var(--echelle-texte)); font-weight: 700; padding: 2px 14px; border-radius: 14px; line-height: 1.4;
     cursor: pointer; border: 2px solid transparent; font-family: inherit;
@@ -346,6 +381,21 @@
   .tag-mode-contacts { background: #e6f7ee; color: #0a6b3e; border-color: #1f9d5f; }
   .tag-mode-contacts:hover { background: #d1f0e0; }
   .tag-mode-contacts.active { background: #1f9d5f; color: #fff; }
+  .btn-parametres { margin-left: auto; border: 0; background: transparent; cursor: pointer; font-size: calc(15px * var(--echelle-texte, 1)); padding: 0 6px; line-height: 1; }
+  .btn-parametres:hover { background: #e5e7eb; border-radius: 6px; }
+  .cellule-liste-editable { cursor: text; }
+  .cellule-liste-editable:hover { background: #fffbe6; }
+  .select-liste-edition { width: 100%; box-sizing: border-box; font-size: inherit; }
+  .popup-pp-liste { min-width: 260px; padding: 8px; }
+  .pp-liste-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .chip-pp-liste { background: #dbeafe; color: #1e40af; border-radius: 10px; padding: 1px 8px; font-size: calc(12px * var(--echelle-texte, 1)); }
+  .pp-liste-retirer { border: 0; background: transparent; color: #1e40af; cursor: pointer; padding: 0 0 0 2px; }
+  .pp-liste-ajout { width: 100%; box-sizing: border-box; }
+  .reporting-synthese { border: 1px solid #c4b5fd; background: #f5f3ff; border-radius: 8px; padding: 8px 10px; margin-bottom: 14px; }
+  .reporting-synthese-titre { font-weight: 700; color: #5b21b6; margin-bottom: 6px; display: flex; gap: 8px; align-items: center; }
+  .reporting-synthese-titre button { margin-left: 4px; font-size: calc(11px * var(--echelle-texte, 1)); padding: 2px 8px; border: 1px solid #ccc; border-radius: 6px; background: #fff; cursor: pointer; }
+  .reporting-synthese-aide { font-weight: 400; color: #7c6fb0; font-size: calc(11px * var(--echelle-texte, 1)); }
+  #reporting-synthese-texte { width: 100%; box-sizing: border-box; font-family: inherit; font-size: calc(12px * var(--echelle-texte, 1)); }
   .tag-mode-reporting { background: #e0f7f5; color: #0f5f5a; border-color: #14a39a; }
   .tag-mode-reporting:hover { background: #ccf0ed; }
   .tag-mode-reporting.active { background: #14a39a; color: #fff; }
