@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.91 -->
+<!-- Widget Emergence — v0.92 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -191,9 +191,12 @@
     <div class="modale-champ"><label>URL de l'API (base, sans /chat/completions)</label>
       <input type="text" id="param-llm-url" placeholder="https://…/v1"></div>
     <div class="modale-champ"><label>Modèle</label>
-      <input type="text" id="param-llm-modele" placeholder="ex. albert-large"></div>
+      <input type="text" id="param-llm-modele" list="datalist-llm-modeles" placeholder="ex. albert-large">
+      <datalist id="datalist-llm-modeles"></datalist>
+      <button type="button" id="param-llm-lister" class="btn-secondaire" style="margin-top:4px;" title="Interroge /models et ne garde que les modèles de génération de texte (LLM) quand l'information est fournie">📋 Lister les modèles LLM</button></div>
     <div class="modale-champ"><label>Clé d'API</label>
-      <input type="password" id="param-llm-cle" autocomplete="off" placeholder="Bearer token"></div>
+      <input type="password" id="param-llm-cle" autocomplete="off" placeholder="Bearer token">
+      <a id="param-llm-lien-cle" href="#" target="_blank" rel="noopener noreferrer" style="font-size:0.85em;display:none;"></a></div>
     <div class="modale-champ"><label>Température</label>
       <input type="number" id="param-llm-temperature" min="0" max="2" step="0.1" style="width:90px;"></div>
     <div class="modale-champ"><label>Consigne (prompt système) de la synthèse du Reporting

@@ -1,6 +1,6 @@
-// Widget Emergence — v0.91
-// Numéro de release : <majeure>.<build> (0.91 = release majeure 0, build 91).
-const VERSION_WIDGET = "0.91";
+// Widget Emergence — v0.92
+// Numéro de release : <majeure>.<build> (0.92 = release majeure 0, build 92).
+const VERSION_WIDGET = "0.92";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -5663,10 +5663,37 @@ const PROMPT_SYNTHESE_DEFAUT =
   "Texte brut sans mise en forme markdown (tirets simples pour les listes), 20 lignes maximum. " +
   "N'invente aucune information absente des éléments fournis.";
 const FOURNISSEURS_LLM = {
-  mirai:   { libelle: "MirAI",   url: "",                                     modele: "" },
-  albert:  { libelle: "Albert (API DINUM)", url: "https://albert.api.etalab.gouv.fr/v1", modele: "albert-large" },
-  general: { libelle: "Général (compatible OpenAI)", url: "",                  modele: "" }
+  mirai:   { libelle: "MirAI",   url: "https://api.mirai.interieur.gouv.fr/v1", modele: "",
+             lienCle: "https://acces.api.mirai.interieur.gouv.fr/pats", texteCle: "Récupérer une clé MirAI (jeton d'accès personnel)" },
+  albert:  { libelle: "Albert (API DINUM)", url: "https://albert.api.etalab.gouv.fr/v1", modele: "albert-large",
+             lienCle: "https://albert.playground.etalab.gouv.fr/keys", texteCle: "Récupérer une clé Albert" },
+  general: { libelle: "Général (compatible OpenAI)", url: "", modele: "", lienCle: "", texteCle: "" }
 };
+// Types de modèles (champ « type » renvoyé par /models, ex. Albert) utilisables pour générer du texte.
+const TYPES_MODELES_LLM = ["text-generation", "image-text-to-text", "chat", "llm"];
+const REGEX_MODELES_NON_LLM = /embed|whisper|rerank|tts|speech|moderation|classif|ocr|transcri|stable-diffusion|dall-e/i;
+
+// Ne garde que les modèles « LLM » d'une réponse /models : par le champ type/task quand il existe,
+// sinon (réponse type OpenAI sans cette info) en écartant les identifiants manifestement non génératifs.
+function filtrerModelesLlm(reponse) {
+  const liste = Array.isArray(reponse) ? reponse : (reponse && Array.isArray(reponse.data) ? reponse.data : []);
+  const total = liste.length;
+  const retenus = liste.filter(m => {
+    const type = String((m && (m.type || m.task || m.pipeline_tag)) || "").toLowerCase();
+    if (type) return TYPES_MODELES_LLM.includes(type);
+    return !REGEX_MODELES_NON_LLM.test(String((m && m.id) || ""));
+  }).map(m => m.id).filter(Boolean);
+  return { ids: [...new Set(retenus)].sort((a, b) => a.localeCompare(b)), total };
+}
+
+async function listerModelesLlm(cfg) {
+  if (!cfg.url) throw new Error("Renseignez d'abord l'URL de l'API.");
+  const entetes = {};
+  if (cfg.cle) entetes["Authorization"] = "Bearer " + cfg.cle;
+  const reponse = await fetch(String(cfg.url).replace(/\/+$/, "") + "/models", { method: "GET", headers: entetes });
+  if (!reponse.ok) throw new Error("Erreur " + reponse.status);
+  return filtrerModelesLlm(await reponse.json());
+}
 let configLlmMemoire = null; // repli si localStorage est indisponible
 
 function configLlmParDefaut() {
@@ -5727,7 +5754,16 @@ function ouvrirParametres() {
   document.getElementById("param-llm-temperature").value = cfg.temperature;
   document.getElementById("param-llm-prompt").value = cfg.prompt || PROMPT_SYNTHESE_DEFAUT;
   document.getElementById("param-llm-msg").textContent = "";
+  mettreAJourLienCleLlm();
   fond.style.display = "flex";
+}
+
+function mettreAJourLienCleLlm() {
+  const f = FOURNISSEURS_LLM[document.getElementById("param-llm-fournisseur").value] || FOURNISSEURS_LLM.general;
+  const lien = document.getElementById("param-llm-lien-cle");
+  if (!lien) return;
+  if (f.lienCle) { lien.href = f.lienCle; lien.textContent = "🔑 " + f.texteCle + " ↗"; lien.style.display = "inline"; }
+  else { lien.removeAttribute("href"); lien.style.display = "none"; }
 }
 
 function lireFormulaireParametres() {
@@ -5757,6 +5793,23 @@ function lireFormulaireParametres() {
     const estPreset = (v, cle) => !v || Object.values(FOURNISSEURS_LLM).some(f => f[cle] === v);
     if (estPreset(url.value.trim(), "url")) url.value = preset.url;
     if (estPreset(modele.value.trim(), "modele")) modele.value = preset.modele;
+    mettreAJourLienCleLlm();
+  });
+  document.getElementById("param-llm-lister").addEventListener("click", async () => {
+    msg.className = "modale-msg";
+    msg.textContent = "Récupération des modèles…";
+    try {
+      const { ids, total } = await listerModelesLlm(lireFormulaireParametres());
+      document.getElementById("datalist-llm-modeles").innerHTML = ids.map(i => "<option value=\"" + escapeHtml(i) + "\"></option>").join("");
+      const champ = document.getElementById("param-llm-modele");
+      if (!champ.value.trim() && ids.length) champ.value = ids[0];
+      msg.textContent = ids.length + " modèle(s) LLM disponible(s)" + (total > ids.length ? " (" + (total - ids.length) + " non génératif(s) masqué(s))" : "") +
+        " — cliquez dans le champ Modèle pour choisir.";
+      if (ids.length) champ.focus();
+    } catch (e) {
+      msg.className = "modale-msg erreur";
+      msg.textContent = "Liste des modèles indisponible : " + e.message + " (vous pouvez saisir le modèle à la main).";
+    }
   });
   document.getElementById("param-llm-prompt-defaut").addEventListener("click", () => {
     document.getElementById("param-llm-prompt").value = PROMPT_SYNTHESE_DEFAUT;
