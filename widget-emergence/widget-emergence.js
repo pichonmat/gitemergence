@@ -1,6 +1,6 @@
-// Widget Emergence — v0.101
-// Numéro de release : <majeure>.<build> (0.101 = release majeure 0, build 101).
-const VERSION_WIDGET = "0.101";
+// Widget Emergence — v0.102
+// Numéro de release : <majeure>.<build> (0.102 = release majeure 0, build 102).
+const VERSION_WIDGET = "0.102";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -6028,7 +6028,14 @@ async function televerserAttachment(fichier) {
   const acces = await grist.docApi.getAccessToken({ readOnly: false });
   const form = new FormData();
   form.append("upload", fichier, fichier.name || "image.png");
-  const reponse = await fetch(acces.baseUrl + "/attachments?auth=" + encodeURIComponent(acces.token), { method: "POST", body: form });
+  let reponse;
+  try {
+    reponse = await fetch(acces.baseUrl + "/attachments?auth=" + encodeURIComponent(acces.token), { method: "POST", body: form });
+  } catch (e) {
+    // Requête bloquée par le navigateur (CORS, URL injoignable, contenu mixte…) : on donne l'adresse visée.
+    let cible = acces.baseUrl; try { cible = new URL(acces.baseUrl).origin; } catch (e2) { /* garde baseUrl */ }
+    throw new Error(e.message + " [cible : " + cible + "/attachments, page : " + location.origin + "]");
+  }
   if (!reponse.ok) {
     let detail = "";
     try { detail = (await reponse.text()).slice(0, 200); } catch (e) { /* ignore */ }
