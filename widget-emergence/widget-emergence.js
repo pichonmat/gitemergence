@@ -1,6 +1,6 @@
-// Widget Emergence — v0.102
-// Numéro de release : <majeure>.<build> (0.102 = release majeure 0, build 102).
-const VERSION_WIDGET = "0.102";
+// Widget Emergence — v0.103
+// Numéro de release : <majeure>.<build> (0.103 = release majeure 0, build 103).
+const VERSION_WIDGET = "0.103";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -6034,7 +6034,8 @@ async function televerserAttachment(fichier) {
   } catch (e) {
     // Requête bloquée par le navigateur (CORS, URL injoignable, contenu mixte…) : on donne l'adresse visée.
     let cible = acces.baseUrl; try { cible = new URL(acces.baseUrl).origin; } catch (e2) { /* garde baseUrl */ }
-    throw new Error(e.message + " [cible : " + cible + "/attachments, page : " + location.origin + "]");
+    let methodes = ""; try { methodes = Object.keys(grist.docApi || {}).join(","); } catch (e3) { /* ignore */ }
+    throw new Error(e.message + " [cible : " + cible + "/attachments, page : " + location.origin + ", typeof uploadAttachment : " + typeof grist.docApi.uploadAttachment + ", docApi : " + methodes + "]");
   }
   if (!reponse.ok) {
     let detail = "";
