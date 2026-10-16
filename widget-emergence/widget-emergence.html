@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.95 -->
+<!-- Widget Emergence — v0.96 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -136,17 +136,21 @@
     <button type="button" id="planning-aujourdhui">Semaine en cours</button>
     <span id="planning-compteur" class="msg-export-activite"></span>
   </div>
-  <div class="barre-planning barre-planning-filtres">
+  <div class="barre-planning barre-planning-types">
     <label class="planning-chk"><input type="checkbox" class="planning-type-chk" value="A" checked> Actions</label>
     <label class="planning-chk"><input type="checkbox" class="planning-type-chk" value="D" checked> Décisions</label>
     <label class="planning-chk"><input type="checkbox" class="planning-type-chk" value="I" checked> Informations</label>
     <label class="planning-chk" title="Masque les actions déjà faites (les informations et décisions restent selon les cases cochées)"><input type="checkbox" id="planning-actions-ouvertes"> Actions non terminées uniquement</label>
-    <select id="planning-porteur" title="Filtrer par porteur"></select>
-    <input type="text" id="planning-pp" list="datalist-planning-pp" placeholder="Partie prenante…">
+  </div>
+  <div class="barre-planning barre-planning-filtres">
+    <select id="planning-porteur" class="planning-champ" title="Filtrer par porteur"></select>
+    <select id="planning-organisation" class="planning-champ" title="Filtrer par organisation"></select>
+    <input type="text" id="planning-pp" class="planning-champ" list="datalist-planning-pp" placeholder="Partie prenante…">
     <datalist id="datalist-planning-pp"></datalist>
-    <input type="text" id="planning-titre" placeholder="Titre de la demande…">
-    <select id="planning-organisation" title="Filtrer par organisation"></select>
-    <input type="text" id="planning-general" placeholder="🔍 Recherche générale…">
+    <input type="text" id="planning-titre" class="planning-champ" placeholder="Titre de la demande…">
+  </div>
+  <div class="barre-planning barre-planning-recherche">
+    <input type="text" id="planning-general" placeholder="🔍 Recherche générale (description, porteur, demande, sponsor…)">
     <button type="button" id="planning-reset" title="Réinitialiser les filtres">Réinitialiser</button>
   </div>
   <div id="planning-grille" class="planning-grille"></div>
@@ -414,8 +418,6 @@
   .suggestion-rida:hover, .suggestion-rida.suggestion-active { background: #e8edfb; }
   .btn-parametres { margin-left: auto; border: 0; background: transparent; cursor: pointer; font-size: calc(15px * var(--echelle-texte, 1)); padding: 0 6px; line-height: 1; }
   .btn-parametres:hover { background: #e5e7eb; border-radius: 6px; }
-  .cellule-liste-editable { cursor: text; }
-  .cellule-liste-editable:hover { background: #fffbe6; }
   .select-liste-edition { width: 100%; box-sizing: border-box; font-size: inherit; }
   .popup-pp-liste { min-width: 260px; padding: 8px; }
   .pp-liste-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
@@ -433,6 +435,11 @@
   .barre-planning { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 8px; --echelle-texte: 1; }
   .barre-planning button, .barre-planning select, .barre-planning input[type=text] { font-size: calc(12px * var(--echelle-texte)); padding: 4px 8px; border: 1px solid #ccc; border-radius: 6px; background: #fff; font-family: inherit; }
   .barre-planning button { background: #f5f5f5; cursor: pointer; }
+  .barre-planning-filtres { flex-wrap: nowrap; }
+  .barre-planning .planning-champ { width: 200px; flex: 0 0 200px; box-sizing: border-box; }
+  .barre-planning-recherche #planning-general { flex: 1 1 420px; min-width: 260px; max-width: 760px; font-size: calc(13px * var(--echelle-texte)); padding: 6px 10px; }
+  .texte-cellule-edit { cursor: text; border-radius: 3px; padding: 0 2px; }
+  .texte-cellule-edit:hover { background: #fff3b0; outline: 1px dashed #d4a800; }
   .planning-chk { font-size: calc(12px * var(--echelle-texte)); display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
   .planning-grille { display: grid; grid-template-columns: repeat(7, minmax(150px, 1fr)); gap: 6px; overflow-x: auto; align-items: start; }
   .planning-jour { background: #fafafa; border: 1px solid #e3e5ea; border-radius: 8px; padding: 4px; min-height: 120px; }

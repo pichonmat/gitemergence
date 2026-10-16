@@ -1,6 +1,6 @@
-// Widget Emergence — v0.95
-// Numéro de release : <majeure>.<build> (0.95 = release majeure 0, build 95).
-const VERSION_WIDGET = "0.95";
+// Widget Emergence — v0.96
+// Numéro de release : <majeure>.<build> (0.96 = release majeure 0, build 96).
+const VERSION_WIDGET = "0.96";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -620,6 +620,8 @@ let triRidaSens = "asc";
 let masquerZoneListe = function () {}; // réassignée par initRedimensionnementListe
 let dernierClicId = null;
 let dernierClicTemps = 0;
+const DELAI_DOUBLE_CLIC_MS = 400;
+let timerEditionListe = null; // édition en place différée : annulée si un double clic suit
 let filtrePrioriteSelection = new Set();      // vide = toutes les priorités (valeur "" = sans priorité)
 let filtreTypologieSelection = new Set();    // vide = toutes les typologies
 let filtreOrganisationSelection = new Set(); // vide = toutes les organisations
@@ -1721,6 +1723,7 @@ function infobulleObjetDemande(ligne) {
 }
 
 function afficherListe() {
+  clearTimeout(timerEditionListe);
   const corps = document.getElementById("corps-tableau");
   const lignesFiltrees = appliquerFiltres(lignesEmergence);
   const lignesTriees = trierLignes(lignesFiltrees);
@@ -1768,17 +1771,17 @@ function afficherListe() {
       celluleRida = "<span style='color:#bbb;'>—</span>";
     }
     html += "<tr class='" + sel + "' data-id='" + ligne.id + "'>" +
-      "<td class='cellule-priorite cellule-liste-editable' data-edit='priorite' title='Cliquer pour modifier la priorité'>" + iconePriorite(ligne.Priorite) + "</td>" +
+      "<td class='cellule-priorite cellule-liste-editable' data-edit='priorite' title='Cliquer sur l\'icône pour modifier la priorité'><span class='texte-cellule-edit'>" + iconePriorite(ligne.Priorite) + "</span></td>" +
       "<td class='cellule-statut-modifiable' title='Cliquer pour changer le statut'>" + badgeStatut(ligne.Statut) + "</td>" +
       "<td class='cellule-derniere-modif' title='Dernière modification des lignes RIDA de cette demande'>" + (formaterDerniereModifDemande(ligne.id) || "—") + "</td>" +
-      "<td class='cellule-liste-editable' data-edit='date' title=\"" + escapeHtml(formaterDate(ligne.Date_de_soumission) || "") + " (cliquer pour modifier)\">" + formaterDate(ligne.Date_de_soumission) + "</td>" +
-      "<td class='cellule-liste-editable' data-edit='organisation' title=\"" + escapeHtml(ligne.Organisation || "") + " (cliquer pour modifier)\">" + escapeHtml(ligne.Organisation || "—") + "</td>" +
-      "<td class='cellule-liste-editable' data-edit='sponsor' title=\"" + escapeHtml(sponsorNom) + " (cliquer pour modifier)\">" + (escapeHtml(sponsorNom) || "—") + "</td>" +
-      "<td class='cellule-liste-editable' data-edit='porteur' title=\"" + escapeHtml(porteurTexte) + " (cliquer pour modifier)\">" + (escapeHtml(porteurTexte) || "—") + "</td>" +
-      "<td class='cellule-titre-objet cellule-liste-editable' data-edit='titre' title=\"" + escapeHtml(infobulleObjetDemande(ligne)) + "\">" + escapeHtml(ligne.Titre || "—") + "</td>" +
+      "<td class='cellule-liste-editable' data-edit='date' title=\"" + escapeHtml(formaterDate(ligne.Date_de_soumission) || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (formaterDate(ligne.Date_de_soumission) || "—") + "</span></td>" +
+      "<td class='cellule-liste-editable' data-edit='organisation' title=\"" + escapeHtml(ligne.Organisation || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + escapeHtml(ligne.Organisation || "—") + "</span></td>" +
+      "<td class='cellule-liste-editable' data-edit='sponsor' title=\"" + escapeHtml(sponsorNom) + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (escapeHtml(sponsorNom) || "—") + "</span></td>" +
+      "<td class='cellule-liste-editable' data-edit='porteur' title=\"" + escapeHtml(porteurTexte) + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (escapeHtml(porteurTexte) || "—") + "</span></td>" +
+      "<td class='cellule-titre-objet cellule-liste-editable' data-edit='titre' title=\"" + escapeHtml(infobulleObjetDemande(ligne)) + "\"><span class='texte-cellule-edit'>" + escapeHtml(ligne.Titre || "—") + "</span></td>" +
       "<td class='cellule-ref-brm-editable' title=\"" + escapeHtml(refBrm(ligne)) + (cleRefBrm(ligne) ? " (cliquer pour modifier)" : "") + "\">" + (escapeHtml(refBrm(ligne)) || "—") + "</td>" +
-      "<td class='cellule-liste-editable' data-edit='typologie' title=\"" + escapeHtml(ligne.Typologie_de_la_demande || "") + " (cliquer pour modifier)\">" + (escapeHtml(ligne.Typologie_de_la_demande || "") || "—") + "</td>" +
-      "<td class='cellule-liste-editable' data-edit='pp' title=\"" + escapeHtml(partiesPrenantesTexte) + " (cliquer pour modifier)\">" + (escapeHtml(partiesPrenantesTexte) || "—") + "</td>" +
+      "<td class='cellule-liste-editable' data-edit='typologie' title=\"" + escapeHtml(ligne.Typologie_de_la_demande || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (escapeHtml(ligne.Typologie_de_la_demande || "") || "—") + "</span></td>" +
+      "<td class='cellule-liste-editable' data-edit='pp' title=\"" + escapeHtml(partiesPrenantesTexte) + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (escapeHtml(partiesPrenantesTexte) || "—") + "</span></td>" +
       "<td>" + celluleRida + "</td>" +
       "</tr>";
   }
@@ -1787,7 +1790,7 @@ function afficherListe() {
     tr.addEventListener("click", () => {
       const id = parseInt(tr.getAttribute("data-id"), 10);
       const maintenant = Date.now();
-      const estDoubleClic = id === dernierClicId && (maintenant - dernierClicTemps) < 400;
+      const estDoubleClic = id === dernierClicId && (maintenant - dernierClicTemps) < DELAI_DOUBLE_CLIC_MS;
       selectionnerLigne(id);
       if (estDoubleClic) {
         masquerZoneListe();
@@ -1870,9 +1873,8 @@ function assurerDatalistActeursListe() {
 
 function activerEditionCellulesListe(corps) {
   corps.querySelectorAll("tr[data-id] td[data-edit]").forEach(td => {
-    td.addEventListener("click", (e) => {
-      e.stopPropagation(); // ne change pas la fiche sélectionnée
-      if (td.querySelector("input, select")) return;
+    const demarrerEdition = () => {
+      if (!td.isConnected || td.querySelector("input, select")) return;
       const type = td.getAttribute("data-edit");
       const ligneId = parseInt(td.closest("tr").getAttribute("data-id"), 10);
       const ligne = lignesEmergence.find(l => l.id === ligneId);
@@ -1942,6 +1944,25 @@ function activerEditionCellulesListe(corps) {
       td.appendChild(element);
       element.focus();
       if (element.tagName === "INPUT" && element.type === "text") element.select();
+    };
+    // Clic sur le TEXTE de la cellule : édition en place (après un court délai, pour laisser le temps
+    // d'un double clic). Clic ailleurs dans la cellule : comportement normal de la ligne (sélection,
+    // double clic = ouverture de la fiche). Double clic sur le texte : ouvre la fiche, sans édition.
+    td.addEventListener("click", (e) => {
+      if (td.querySelector("input, select")) { e.stopPropagation(); return; }
+      if (!(e.target.closest && e.target.closest(".texte-cellule-edit"))) return;
+      e.stopPropagation(); // ne change pas la fiche sélectionnée
+      clearTimeout(timerEditionListe);
+      timerEditionListe = setTimeout(demarrerEdition, DELAI_DOUBLE_CLIC_MS);
+    });
+    td.addEventListener("dblclick", (e) => {
+      if (!(e.target.closest && e.target.closest(".texte-cellule-edit"))) return;
+      clearTimeout(timerEditionListe);
+      fermerPopupFiltreListeColonne();
+      const id = parseInt(td.closest("tr").getAttribute("data-id"), 10);
+      dernierClicId = null;
+      selectionnerLigne(id);
+      masquerZoneListe();
     });
   });
 }
