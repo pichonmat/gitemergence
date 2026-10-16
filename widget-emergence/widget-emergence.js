@@ -1,6 +1,6 @@
-// Widget Emergence — v0.104
-// Numéro de release : <majeure>.<build> (0.104 = release majeure 0, build 104).
-const VERSION_WIDGET = "0.104";
+// Widget Emergence — v0.105
+// Numéro de release : <majeure>.<build> (0.105 = release majeure 0, build 105).
+const VERSION_WIDGET = "0.105";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -6023,6 +6023,13 @@ async function reduireImage(fichier) {
 // Envoi d'un fichier dans les pièces jointes du document : l'API des widgets Grist n'a pas de méthode
 // d'envoi, on passe par l'API REST avec un jeton d'accès en écriture (POST {baseUrl}/attachments,
 // champ multipart « upload »). Si le runtime fournit uploadAttachment, il est utilisé en priorité.
+// Identifiants des pièces jointes du document (table système), éventuellement pour un nom de fichier donné.
+async function idsAttachmentsExistants(nom) {
+  const t = await grist.docApi.fetchTable("_grist_Attachments");
+  const ids = t.id || [];
+  return ids.filter((id, i) => !nom || (t.fileName || [])[i] === nom);
+}
+
 async function televerserAttachment(fichier) {
   if (typeof grist.docApi.uploadAttachment === "function") return await grist.docApi.uploadAttachment(fichier);
   // L'API a pu changer de nom : toute méthode « upload… » exposée par grist ou grist.docApi est essayée.
@@ -6035,16 +6042,39 @@ async function televerserAttachment(fichier) {
     }
   }
   const acces = await grist.docApi.getAccessToken({ readOnly: false });
+  const url = acces.baseUrl + "/attachments?auth=" + encodeURIComponent(acces.token);
+  const nomFichier = fichier.name || "image.png";
+  let idsAvant = []; try { idsAvant = await idsAttachmentsExistants(); } catch (e) { idsAvant = null; }
   const form = new FormData();
-  form.append("upload", fichier, fichier.name || "image.png");
+  form.append("upload", fichier, nomFichier);
   let reponse;
   try {
-    reponse = await fetch(acces.baseUrl + "/attachments?auth=" + encodeURIComponent(acces.token), { method: "POST", body: form });
+    reponse = await fetch(url, { method: "POST", body: form });
   } catch (e) {
-    // Requête bloquée par le navigateur (CORS, URL injoignable, contenu mixte…) : on donne l'adresse visée.
+    // Réponse illisible depuis ce domaine (CORS) : la requête part quand même. On l'envoie en mode
+    // « no-cors » (réponse opaque), puis on retrouve la pièce jointe créée dans _grist_Attachments.
     let cible = acces.baseUrl; try { cible = new URL(acces.baseUrl).origin; } catch (e2) { /* garde baseUrl */ }
-    let methodes = ""; try { methodes = Object.keys(grist.docApi || {}).join(",") + " | grist : " + Object.keys(grist).join(","); } catch (e3) { /* ignore */ }
-    throw new Error(e.message + " [cible : " + cible + "/attachments, page : " + location.origin + ", typeof uploadAttachment : " + typeof grist.docApi.uploadAttachment + ", docApi : " + methodes + "]");
+    const detail = e.message + " [cible : " + cible + ", page : " + location.origin + "]";
+    const retrouver = async () => {
+      if (!idsAvant) throw new Error("table des pièces jointes illisible");
+      const nouveaux = (await idsAttachmentsExistants(nomFichier)).filter(id => !idsAvant.includes(id));
+      return nouveaux.length ? Math.max(...nouveaux) : null;
+    };
+    try {
+      // La requête a peut-être abouti malgré l'erreur de lecture : pas de renvoi (doublon) dans ce cas.
+      await new Promise(r => setTimeout(r, 400));
+      const dejaLa = await retrouver();
+      if (dejaLa) return dejaLa;
+      const form2 = new FormData();
+      form2.append("upload", fichier, nomFichier);
+      await fetch(url, { method: "POST", body: form2, mode: "no-cors" });
+    } catch (e3) { throw new Error(detail); }
+    for (let essai = 0; essai < 8; essai++) {
+      await new Promise(r => setTimeout(r, 400));
+      const id = await retrouver().catch(() => null);
+      if (id) return id;
+    }
+    throw new Error(detail + " — pièce jointe introuvable après envoi");
   }
   if (!reponse.ok) {
     let detail = "";
