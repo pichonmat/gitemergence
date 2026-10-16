@@ -1,6 +1,6 @@
-// Widget Emergence — v0.96
-// Numéro de release : <majeure>.<build> (0.96 = release majeure 0, build 96).
-const VERSION_WIDGET = "0.96";
+// Widget Emergence — v0.97
+// Numéro de release : <majeure>.<build> (0.97 = release majeure 0, build 97).
+const VERSION_WIDGET = "0.97";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -5486,10 +5486,15 @@ function afficherPlanning() {
       (items.length ? items.map(r => {
         const d = nomDemandeParId2(r.ID2);
         const fait = !!r.Fait_le && r.RIDA !== "I";
+        const ligneDemande = lignesEmergence.find(x => x.id === d.id);
+        const porteurDemande = ligneDemande ? String(ligneDemande.Porteurs || "").trim() : "";
         return "<div class='planning-carte planning-type-" + escapeHtml(r.RIDA || "") + (fait ? " planning-fait" : "") + "' data-demande-id='" + (d.id || "") + "' title=\"" + escapeHtml((LIBELLES_TYPE_RIDA[r.RIDA] || "") + " — " + (d.titre || "") + (r.Porteur ? " — " + r.Porteur : "") + "\n" + (r.Description || "")) + "\">" +
           "<div class='planning-carte-tete'><span class='planning-carte-type'>" + escapeHtml(LIBELLES_TYPE_RIDA[r.RIDA] || r.RIDA || "—") + "</span>" + (fait ? "<span class='planning-carte-ok'>✓ fait</span>" : "") + "</div>" +
+          // 2e ligne : titre de la demande (petit, gras) suivi du porteur de la demande entre parenthèses ;
+          // dernière ligne : porteur de la ligne RIDA.
+          "<div class='planning-carte-titre'><b>" + escapeHtml(d.titre || "—") + "</b>" + (porteurDemande ? " <span class='planning-carte-porteur-demande'>(" + escapeHtml(porteurDemande) + ")</span>" : "") + "</div>" +
           "<div class='planning-carte-desc'>" + escapeHtml(r.Description || "(sans description)") + "</div>" +
-          "<div class='planning-carte-meta'><b>" + escapeHtml(d.titre || "—") + "</b>" + (r.Porteur ? " · " + escapeHtml(r.Porteur) : "") + "</div></div>";
+          (r.Porteur ? "<div class='planning-carte-porteur'>" + escapeHtml(r.Porteur) + "</div>" : "") + "</div>";
       }).join("") : "<div class='planning-vide'>—</div>") + "</div>";
   }
   grille.innerHTML = html;
