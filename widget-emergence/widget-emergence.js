@@ -1,6 +1,6 @@
-// Widget Emergence — v0.106
-// Numéro de release : <majeure>.<build> (0.106 = release majeure 0, build 106).
-const VERSION_WIDGET = "0.106";
+// Widget Emergence — v0.107
+// Numéro de release : <majeure>.<build> (0.107 = release majeure 0, build 107).
+const VERSION_WIDGET = "0.107";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -6023,77 +6023,19 @@ async function reduireImage(fichier) {
 // Envoi d'un fichier dans les pièces jointes du document : l'API des widgets Grist n'a pas de méthode
 // d'envoi, on passe par l'API REST avec un jeton d'accès en écriture (POST {baseUrl}/attachments,
 // champ multipart « upload »). Si le runtime fournit uploadAttachment, il est utilisé en priorité.
-// Identifiants des pièces jointes du document (table système), éventuellement pour un nom de fichier donné.
-async function idsAttachmentsExistants(nom) {
-  const t = await grist.docApi.fetchTable("_grist_Attachments");
-  const ids = t.id || [];
-  return ids.filter((id, i) => !nom || (t.fileName || [])[i] === nom);
-}
-
+// Envoi d'un fichier dans les pièces jointes du document. Les widgets n'ont plus de méthode d'envoi
+// (uploadAttachment a été retirée de l'API) et l'API REST refuse le jeton d'accès du widget (401) :
+// l'envoi n'est donc possible que si le runtime fournit une méthode « upload… ».
 async function televerserAttachment(fichier) {
-  if (typeof grist.docApi.uploadAttachment === "function") return await grist.docApi.uploadAttachment(fichier);
-  // L'API a pu changer de nom : toute méthode « upload… » exposée par grist ou grist.docApi est essayée.
   for (const objet of [grist.docApi, grist]) {
-    const nom = Object.keys(objet || {}).find(k => /upload|attach/i.test(k) && typeof objet[k] === "function");
+    const nom = Object.keys(objet || {}).find(k => /upload/i.test(k) && typeof objet[k] === "function");
     if (nom) {
       const r = await objet[nom](fichier);
       const id = Array.isArray(r) ? r[0] : (r && typeof r === "object" ? r.id : r);
       if (Number.isInteger(id)) return id;
     }
   }
-  const acces = await grist.docApi.getAccessToken({ readOnly: false });
-  const url = acces.baseUrl + "/attachments?auth=" + encodeURIComponent(acces.token);
-  const nomFichier = fichier.name || "image.png";
-  let idsAvant = []; try { idsAvant = await idsAttachmentsExistants(); } catch (e) { idsAvant = null; }
-  const form = new FormData();
-  form.append("upload", fichier, nomFichier);
-  let reponse;
-  try {
-    reponse = await fetch(url, { method: "POST", body: form });
-  } catch (e) {
-    // Réponse illisible depuis ce domaine (CORS) : la requête part quand même. On l'envoie en mode
-    // « no-cors » (réponse opaque), puis on retrouve la pièce jointe créée dans _grist_Attachments.
-    let cible = acces.baseUrl; try { cible = new URL(acces.baseUrl).origin; } catch (e2) { /* garde baseUrl */ }
-    const detail = e.message + " [cible : " + cible + ", page : " + location.origin + "]";
-    const retrouver = async () => {
-      if (!idsAvant) throw new Error("table des pièces jointes illisible");
-      const nouveaux = (await idsAttachmentsExistants(nomFichier)).filter(id => !idsAvant.includes(id));
-      return nouveaux.length ? Math.max(...nouveaux) : null;
-    };
-    try {
-      // La requête a peut-être abouti malgré l'erreur de lecture : pas de renvoi (doublon) dans ce cas.
-      await new Promise(r => setTimeout(r, 400));
-      const dejaLa = await retrouver();
-      if (dejaLa) return dejaLa;
-      const form2 = new FormData();
-      form2.append("upload", fichier, nomFichier);
-      await fetch(url, { method: "POST", body: form2, mode: "no-cors" });
-    } catch (e3) { throw new Error(detail); }
-    let diag = "";
-    for (let essai = 0; essai < 8; essai++) {
-      await new Promise(r => setTimeout(r, 500));
-      try {
-        const id = await retrouver();
-        if (id) return id;
-      } catch (e4) { diag = "lecture de _grist_Attachments impossible : " + e4.message; }
-    }
-    if (!diag) {
-      try {
-        const t = await grist.docApi.fetchTable("_grist_Attachments");
-        diag = "_grist_Attachments lisible, " + (t.id || []).length + " ligne(s), dernier id " + Math.max(0, ...(t.id || [])) + ", noms : " + (t.fileName || []).slice(-3).join(" / ") + " ; recherché : " + nomFichier;
-      } catch (e5) { diag = "lecture de _grist_Attachments impossible : " + e5.message; }
-    }
-    throw new Error(detail + " — pièce jointe introuvable après envoi (" + diag + ")");
-  }
-  if (!reponse.ok) {
-    let detail = "";
-    try { detail = (await reponse.text()).slice(0, 200); } catch (e) { /* ignore */ }
-    throw new Error("HTTP " + reponse.status + (detail ? " — " + detail : ""));
-  }
-  const ids = await reponse.json();
-  const id = Array.isArray(ids) ? ids[0] : (ids && ids.id);
-  if (!Number.isInteger(id)) throw new Error("Réponse inattendue de Grist : " + JSON.stringify(ids).slice(0, 100));
-  return id;
+  throw new Error("Grist n'autorise pas l'envoi de fichiers depuis un widget sur cette instance");
 }
 
 function fichierVersDataUrl(fichier) {
@@ -6121,9 +6063,25 @@ async function ajouterImageDansChamp(textarea, fichier, ligneId, msgEl) {
       pjToutes = tableVersLignes(await grist.docApi.fetchTable(TABLE_PJ));
     } catch (e) { console.error("Enregistrement de l'image dans Emergence_PJ impossible :", e); }
   } catch (e) {
-    // Pas de repli en base64 (cellule alourdie) : l'erreur est affichée telle quelle.
+    // Pas de base64 automatique (cellule alourdie) : on l'explique et on le propose.
     console.error("Envoi de l'image impossible :", e);
-    if (msgEl) { msgEl.textContent = "Image non ajoutée — envoi impossible : " + e.message; msgEl.className = "msg-sauvegarde erreur"; }
+    if (msgEl) {
+      msgEl.className = "msg-sauvegarde erreur";
+      msgEl.textContent = "Image non ajoutée — " + e.message + ". ";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = "Intégrer l'image dans le texte (base64)";
+      btn.addEventListener("click", async () => {
+        try {
+          const petite = await reduireImage(fichier);
+          textarea.focus();
+          insererTexteDansTextarea(textarea, "\n![image](" + await fichierVersDataUrl(petite) + ")\n");
+          textarea.dispatchEvent(new Event("input", { bubbles: true }));
+          msgEl.textContent = "";
+        } catch (e2) { msgEl.textContent = "Erreur : image non ajoutée (" + e2.message + ")"; }
+      });
+      msgEl.appendChild(btn);
+    }
     return;
   }
   textarea.focus();
