@@ -1,0 +1,22 @@
+<!-- Création de la table Emergence_Images — outil à usage unique (à ajouter temporairement dans Grist, accès complet, puis à retirer) -->
+<div class="conteneur">
+  <h1>Création de la table Emergence_Images</h1>
+  <p class="intro">
+    Crée la table qui stocke les images collées (Ctrl+V) dans les champs markdown du widget Émergence
+    (version 0.108 ou plus). Sans danger : si la table existe déjà, seules les colonnes manquantes sont ajoutées.
+  </p>
+  <div id="statut" class="statut">Lecture du document...</div>
+  <div class="actions"><button id="btn-creer" type="button" class="btn-principal" disabled>Créer / compléter la table</button></div>
+  <div id="resultat" class="statut"></div>
+</div>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; color: #222; margin: 0; }
+  .conteneur { padding: 12px 16px; max-width: 700px; }
+  h1 { font-size: 17px; margin: 0 0 8px; }
+  .intro { color: #555; margin: 0 0 12px; }
+  .statut { margin: 8px 0; color: #444; }
+  .statut.erreur { color: #b91c1c; font-weight: bold; }
+  .statut.ok { color: #15803d; font-weight: bold; }
+  .btn-principal { padding: 6px 14px; background: #2563eb; color: #fff; border: 0; border-radius: 4px; cursor: pointer; }
+  .btn-principal:disabled { background: #9ca3af; cursor: default; }
+</style>

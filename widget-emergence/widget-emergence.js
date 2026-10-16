@@ -1,12 +1,13 @@
-// Widget Emergence — v0.107
-// Numéro de release : <majeure>.<build> (0.107 = release majeure 0, build 107).
-const VERSION_WIDGET = "0.107";
+// Widget Emergence — v0.108
+// Numéro de release : <majeure>.<build> (0.108 = release majeure 0, build 108).
+const VERSION_WIDGET = "0.108";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
 const TABLE_PRINCIPALE = "Emergence";
 const TABLE_ACTEURS = "Emergence_Acteurs";
 const TABLE_PJ = "Emergence_PJ";
+const TABLE_IMAGES = "Emergence_Images"; // images collées (base64), créée par l'outil creation-table-images
 const TABLE_RIDA = "Emergence_Rida";
 
 // Colonne "Date de modification" de la table RIDA (DateTime, epoch en secondes). Horodatée par le
@@ -926,9 +927,12 @@ function markdownToHtml(texte) {
 
   // Images : ![texte](attachment:ID) = pièce jointe du document Grist (résolue après affichage, voir
   // resoudreImagesAttachments) ; ![texte](data:image/...;base64,...) = image intégrée au texte.
-  txt = txt.replace(/!\[([^\]]*)\]\((?:attachment:(\d+)|(data:image\/[a-z+.-]+;base64,[A-Za-z0-9+\/=]+))\)/g, (m, alt, att, data) =>
-    att ? "<img class='img-md' data-att='" + att + "' alt='" + alt.replace(/'/g, "&#39;") + "' title='Cliquer pour agrandir'>"
-        : "<img class='img-md' src='" + data + "' alt='" + alt.replace(/'/g, "&#39;") + "' title='Cliquer pour agrandir'>");
+  txt = txt.replace(/!\[([^\]]*)\]\((?:attachment:(\d+)|image:(\d+)|(data:image\/[a-z+.-]+;base64,[A-Za-z0-9+\/=]+))\)/g, (m, alt, att, imgId, data) => {
+    const a = alt.replace(/'/g, "&#39;");
+    if (att) return "<img class='img-md' data-att='" + att + "' alt='" + a + "' title='Cliquer pour agrandir'>";
+    if (imgId) return "<img class='img-md' data-img='" + imgId + "' alt='" + a + "' title='Cliquer pour agrandir'>"; // table Emergence_Images
+    return "<img class='img-md' src='" + data + "' alt='" + a + "' title='Cliquer pour agrandir'>";
+  });
   // Gras / italique / liens : appliqués globalement avant le découpage ligne par ligne
   txt = txt.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
   txt = txt.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<i>$1</i>");
@@ -5975,10 +5979,39 @@ async function urlAttachment(id, forcerJeton) {
   }
 }
 
+// Images de la table Emergence_Images : chargée une fois (mise en cache), rechargée si un id manque.
+let imagesCache = null;
+let imagesChargement = null;
+function chargerImagesTable(forcer) {
+  if (!forcer && imagesCache) return Promise.resolve(imagesCache);
+  if (imagesChargement) return imagesChargement;
+  imagesChargement = (async () => {
+    const t = await grist.docApi.fetchTable(TABLE_IMAGES);
+    const m = new Map();
+    (t.id || []).forEach((id, i) => m.set(id, (t.Donnees || [])[i]));
+    imagesCache = m;
+    return m;
+  })().finally(() => { imagesChargement = null; });
+  return imagesChargement;
+}
+
+async function resoudreImageTable(img) {
+  const id = Number(img.getAttribute("data-img"));
+  try {
+    let m = await chargerImagesTable(false);
+    if (!m.has(id)) m = await chargerImagesTable(true);
+    if (m.has(id) && m.get(id)) { img.src = m.get(id); return; }
+    img.alt = img.alt || "image introuvable"; img.title = "Image " + id + " introuvable dans " + TABLE_IMAGES;
+  } catch (e) {
+    img.title = "Table " + TABLE_IMAGES + " illisible : " + e.message;
+  }
+}
+
 async function resoudreImagesAttachments(racine) {
-  const imgs = (racine || document).querySelectorAll("img[data-att]:not([data-resolu])");
+  const imgs = (racine || document).querySelectorAll("img[data-att]:not([data-resolu]), img[data-img]:not([data-resolu])");
   for (const img of imgs) {
     img.setAttribute("data-resolu", "1");
+    if (img.hasAttribute("data-img")) { resoudreImageTable(img); continue; }
     const id = img.getAttribute("data-att");
     let reessaye = false;
     img.addEventListener("error", async () => {
@@ -6048,13 +6081,33 @@ function insererTexteDansTextarea(ta, texte) {
   ta.selectionStart = ta.selectionEnd = d + texte.length;
 }
 
+// Enregistre l'image (déjà réduite) dans la table Emergence_Images et renvoie l'id de la ligne.
+async function enregistrerImageDansTable(reduit, nom, ligneId) {
+  try {
+    const tables = await grist.docApi.listTables();
+    if (Array.isArray(tables) && !tables.includes(TABLE_IMAGES)) throw new Error("absente");
+  } catch (e) {
+    if (e.message === "absente") throw new Error("la table " + TABLE_IMAGES + " n'existe pas : lancez l'outil « Création de la table Emergence_Images »");
+  }
+  const dataUrl = await fichierVersDataUrl(reduit);
+  const r = await grist.docApi.applyUserActions([["AddRecord", TABLE_IMAGES, null, {
+    ID2: ligneId, Nom: nom, Type: reduit.type, Date_ajout: aujourdHuiEpoch(), Donnees: dataUrl
+  }]]);
+  const id = r && r.retValues && r.retValues[0];
+  if (!Number.isInteger(id)) throw new Error("identifiant de l'image non renvoyé par Grist");
+  if (imagesCache) imagesCache.set(id, dataUrl);
+  return id;
+}
+
 async function ajouterImageDansChamp(textarea, fichier, ligneId, msgEl) {
   const date = formaterDate(aujourdHuiEpoch());
   if (msgEl) { msgEl.textContent = "Envoi de l'image…"; msgEl.className = "msg-sauvegarde"; }
   const reduit = await reduireImage(fichier);
-  let texte;
+  const nom = reduit.name && reduit.name !== "image.png" ? reduit.name : "image-" + date + (reduit.type === "image/jpeg" ? ".jpg" : ".png");
+  let texte = null;
+  let erreur = null;
+  // 1) pièce jointe Grist (si le runtime offre encore une méthode d'envoi)
   try {
-    const nom = reduit.name && reduit.name !== "image.png" ? reduit.name : "image-" + date + (reduit.type === "image/jpeg" ? ".jpg" : ".png");
     const fichierNomme = reduit.name === nom ? reduit : new File([reduit], nom, { type: reduit.type });
     const attId = await televerserAttachment(fichierNomme);
     texte = "![image](attachment:" + attId + ")";
@@ -6062,12 +6115,19 @@ async function ajouterImageDansChamp(textarea, fichier, ligneId, msgEl) {
       await grist.docApi.applyUserActions([["AddRecord", TABLE_PJ, null, { Titre: "Image collée " + date, Lien: ["L", attId], ID2: ligneId }]]);
       pjToutes = tableVersLignes(await grist.docApi.fetchTable(TABLE_PJ));
     } catch (e) { console.error("Enregistrement de l'image dans Emergence_PJ impossible :", e); }
-  } catch (e) {
-    // Pas de base64 automatique (cellule alourdie) : on l'explique et on le propose.
-    console.error("Envoi de l'image impossible :", e);
+  } catch (e) { erreur = e; }
+  // 2) table Emergence_Images (image en base64 dans une table dédiée, lien image:ID dans le texte)
+  if (!texte) {
+    try {
+      const imgId = await enregistrerImageDansTable(reduit, nom, ligneId);
+      texte = "![image](image:" + imgId + ")";
+    } catch (e) { erreur = e; }
+  }
+  if (!texte) {
+    console.error("Envoi de l'image impossible :", erreur);
     if (msgEl) {
       msgEl.className = "msg-sauvegarde erreur";
-      msgEl.textContent = "Image non ajoutée — " + e.message + ". ";
+      msgEl.textContent = "Image non ajoutée — " + erreur.message + ". ";
       const btn = document.createElement("button");
       btn.type = "button";
       btn.textContent = "Intégrer l'image dans le texte (base64)";

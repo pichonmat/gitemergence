@@ -8,6 +8,7 @@ Généré automatiquement le 22/09/2026 09:29:33
 - [Emergence_Acteurs](#table-emergence-acteurs)
 - [Emergence_PJ](#table-emergence-pj)
 - [Emergence_Rida](#table-emergence-rida)
+- [Emergence_Images](#table-emergence-images)
 
 ## Table `Emergence`
 
@@ -87,3 +88,16 @@ Généré automatiquement le 22/09/2026 09:29:33
 | `Pour` | Pour | `Any` | Oui | `if $ID2: return $ID2.Organisation` |
 | `ID3` | ID | `Any` | Oui | `if $ID2: return str($ID2.id)` |
 | `A` | A | `Any` | Oui | `if $ID2: return $ID2.Typologie_de_la_demande` |
+
+## Table `Emergence_Images`
+
+Images collées (Ctrl+V) dans les champs markdown du widget (v0.108+). Créée par l'outil `creation-table-images`.
+Le texte contient `![image](image:ID)` où ID est l'id de la ligne.
+
+| Colonne (colId) | Libellé | Type | Formule | Détails |
+|---|---|---|---|---|
+| `ID2` | ID | `Ref:Emergence` | Non | → Référence vers `Emergence` |
+| `Nom` | Nom | `Text` | Non |  |
+| `Type` | Type | `Text` | Non | type MIME (image/jpeg, image/png) |
+| `Date_ajout` | Date d'ajout | `Date` | Non |  |
+| `Donnees` | Données (base64) | `Text` | Non | data URL de l'image réduite (1600 px max) |
