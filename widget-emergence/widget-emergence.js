@@ -1,6 +1,6 @@
-// Widget Emergence — v0.103
-// Numéro de release : <majeure>.<build> (0.103 = release majeure 0, build 103).
-const VERSION_WIDGET = "0.103";
+// Widget Emergence — v0.104
+// Numéro de release : <majeure>.<build> (0.104 = release majeure 0, build 104).
+const VERSION_WIDGET = "0.104";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -6025,6 +6025,15 @@ async function reduireImage(fichier) {
 // champ multipart « upload »). Si le runtime fournit uploadAttachment, il est utilisé en priorité.
 async function televerserAttachment(fichier) {
   if (typeof grist.docApi.uploadAttachment === "function") return await grist.docApi.uploadAttachment(fichier);
+  // L'API a pu changer de nom : toute méthode « upload… » exposée par grist ou grist.docApi est essayée.
+  for (const objet of [grist.docApi, grist]) {
+    const nom = Object.keys(objet || {}).find(k => /upload|attach/i.test(k) && typeof objet[k] === "function");
+    if (nom) {
+      const r = await objet[nom](fichier);
+      const id = Array.isArray(r) ? r[0] : (r && typeof r === "object" ? r.id : r);
+      if (Number.isInteger(id)) return id;
+    }
+  }
   const acces = await grist.docApi.getAccessToken({ readOnly: false });
   const form = new FormData();
   form.append("upload", fichier, fichier.name || "image.png");
@@ -6034,7 +6043,7 @@ async function televerserAttachment(fichier) {
   } catch (e) {
     // Requête bloquée par le navigateur (CORS, URL injoignable, contenu mixte…) : on donne l'adresse visée.
     let cible = acces.baseUrl; try { cible = new URL(acces.baseUrl).origin; } catch (e2) { /* garde baseUrl */ }
-    let methodes = ""; try { methodes = Object.keys(grist.docApi || {}).join(","); } catch (e3) { /* ignore */ }
+    let methodes = ""; try { methodes = Object.keys(grist.docApi || {}).join(",") + " | grist : " + Object.keys(grist).join(","); } catch (e3) { /* ignore */ }
     throw new Error(e.message + " [cible : " + cible + "/attachments, page : " + location.origin + ", typeof uploadAttachment : " + typeof grist.docApi.uploadAttachment + ", docApi : " + methodes + "]");
   }
   if (!reponse.ok) {
