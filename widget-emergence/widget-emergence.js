@@ -1,6 +1,6 @@
-// Widget Emergence — v0.92
-// Numéro de release : <majeure>.<build> (0.92 = release majeure 0, build 92).
-const VERSION_WIDGET = "0.92";
+// Widget Emergence — v0.93
+// Numéro de release : <majeure>.<build> (0.93 = release majeure 0, build 93).
+const VERSION_WIDGET = "0.93";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -5649,6 +5649,111 @@ function exporterPdfReporting() {
   }
 }
 
+
+
+// ===================== Suggestions de titres pour les lignes RIDA =====================
+// Quand on commence à saisir la description d'une ligne RIDA (fiche ou onglet Rida), une liste de
+// titres types est proposée ; {sponsor} = sponsor de la demande, {date} = date du jour.
+const MODELES_TITRE_RIDA = [
+  "Réunion avec {sponsor} le {date}",
+  "Demande de prise de contact avec {sponsor}",
+  "Attribution d'un compte N8N à {sponsor}",
+  "Mail de communication envoyé à {sponsor}"
+];
+let popupSuggestionsRida = null; // { el, textarea, items, index }
+
+function sponsorPourLigneRida(ridaId) {
+  const r = ridaToutes.find(x => x.id === ridaId);
+  const demande = r ? lignesEmergence.find(l => l.id === idDepuisRef(r.ID2)) : null;
+  const ids = demande ? refListVersIds(demande.Sponsor) : [];
+  return ids.length ? nomActeurParId(Number(ids[0])) : "";
+}
+
+function resoudreModeleTitreRida(modele, sponsor) {
+  return modele.replace("{sponsor}", sponsor || "<Sponsor>").replace("{date}", formaterDate(aujourdHuiEpoch()));
+}
+
+function fermerSuggestionsRida() {
+  if (popupSuggestionsRida) { popupSuggestionsRida.el.remove(); popupSuggestionsRida = null; }
+}
+
+function suggestionsRidaPour(textarea, uniquementSiSaisie) {
+  const saisie = textarea.value.trim();
+  if (uniquementSiSaisie && !saisie) return [];
+  const conteneur = textarea.closest("[data-rida-id]");
+  const ridaId = conteneur ? parseInt(conteneur.getAttribute("data-rida-id"), 10) : NaN;
+  const sponsor = sponsorPourLigneRida(ridaId);
+  const q = normaliserTexteRecherche(saisie);
+  const candidats = MODELES_TITRE_RIDA.map(m => resoudreModeleTitreRida(m, sponsor));
+  if (!q) return candidats;
+  const debut = candidats.filter(c => normaliserTexteRecherche(c).startsWith(q));
+  const contient = candidats.filter(c => !debut.includes(c) && normaliserTexteRecherche(c).includes(q));
+  return debut.concat(contient).filter(c => normaliserTexteRecherche(c) !== q);
+}
+
+function afficherSuggestionsRida(textarea, uniquementSiSaisie) {
+  fermerSuggestionsRida();
+  const items = suggestionsRidaPour(textarea, uniquementSiSaisie);
+  if (!items.length) return;
+  const el = document.createElement("div");
+  el.className = "popup-suggestions-rida";
+  el.innerHTML = items.map((t, i) => "<div class='suggestion-rida' data-i='" + i + "'>" + escapeHtml(t) + "</div>").join("");
+  document.body.appendChild(el);
+  const rect = textarea.getBoundingClientRect();
+  el.style.top = (rect.bottom + 2) + "px";
+  el.style.left = rect.left + "px";
+  el.style.minWidth = Math.min(Math.max(rect.width, 280), window.innerWidth - 16) + "px";
+  popupSuggestionsRida = { el, textarea, items, index: -1, saisieOrigine: textarea.value };
+  // mousedown + preventDefault : le champ garde le focus (sinon la perte de focus enregistrerait la saisie partielle)
+  el.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    const cible = e.target.closest(".suggestion-rida");
+    if (cible) accepterSuggestionRida(parseInt(cible.getAttribute("data-i"), 10));
+  });
+}
+
+function accepterSuggestionRida(i) {
+  if (!popupSuggestionsRida) return;
+  const { textarea, items } = popupSuggestionsRida;
+  fermerSuggestionsRida();
+  textarea.value = items[i];
+  ajusterHauteurTextarea(textarea);
+  textarea.focus();
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+}
+
+function surlignerSuggestionRida() {
+  if (!popupSuggestionsRida) return;
+  [...popupSuggestionsRida.el.children].forEach((c, k) => c.classList.toggle("suggestion-active", k === popupSuggestionsRida.index));
+}
+
+(function initSuggestionsRida() {
+  const estChampTitre = (el) => el && el.matches && el.matches("textarea.rida-description, textarea.desc-action-textarea");
+  document.addEventListener("focusin", (e) => { if (estChampTitre(e.target)) afficherSuggestionsRida(e.target, false); });
+  document.addEventListener("input", (e) => { if (estChampTitre(e.target)) afficherSuggestionsRida(e.target, false); });
+  document.addEventListener("focusout", (e) => { if (estChampTitre(e.target)) setTimeout(fermerSuggestionsRida, 0); });
+  document.addEventListener("keydown", (e) => {
+    if (!popupSuggestionsRida || e.target !== popupSuggestionsRida.textarea) return;
+    const n = popupSuggestionsRida.items.length;
+    // ↑/↓ : le titre sélectionné est inséré dans le champ (la liste reste ouverte pour changer de choix) ;
+    // Entrée / Tab le valide, et on peut ensuite le compléter à la main. Échap restaure la saisie d'origine.
+    const choisir = (k) => {
+      popupSuggestionsRida.index = k;
+      popupSuggestionsRida.textarea.value = popupSuggestionsRida.items[k];
+      ajusterHauteurTextarea(popupSuggestionsRida.textarea);
+      const l = popupSuggestionsRida.textarea.value.length;
+      popupSuggestionsRida.textarea.setSelectionRange(l, l);
+      surlignerSuggestionRida();
+    };
+    if (e.key === "ArrowDown") { e.preventDefault(); choisir((popupSuggestionsRida.index + 1) % n); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); choisir((popupSuggestionsRida.index - 1 + n) % n); }
+    else if ((e.key === "Enter" || e.key === "Tab") && popupSuggestionsRida.index >= 0) { e.preventDefault(); accepterSuggestionRida(popupSuggestionsRida.index); }
+    else if (e.key === "Escape") {
+      if (popupSuggestionsRida.index >= 0) { e.stopPropagation(); popupSuggestionsRida.textarea.value = popupSuggestionsRida.saisieOrigine; ajusterHauteurTextarea(popupSuggestionsRida.textarea); }
+      fermerSuggestionsRida();
+    }
+  }, true);
+})();
 
 // ===================== Paramètres généraux + assistant IA (LLM) =====================
 // Configuration d'un LLM compatible API OpenAI (/chat/completions) : MirAI, Albert (DINUM) ou

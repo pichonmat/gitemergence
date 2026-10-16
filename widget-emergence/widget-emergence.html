@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.92 -->
+<!-- Widget Emergence — v0.93 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -384,6 +384,9 @@
   .tag-mode-contacts { background: #e6f7ee; color: #0a6b3e; border-color: #1f9d5f; }
   .tag-mode-contacts:hover { background: #d1f0e0; }
   .tag-mode-contacts.active { background: #1f9d5f; color: #fff; }
+  .popup-suggestions-rida { position: fixed; z-index: 3000; background: #fff; border: 1px solid #c7d2fe; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); padding: 3px; max-width: 90vw; }
+  .suggestion-rida { padding: 4px 10px; cursor: pointer; border-radius: 6px; font-size: calc(12px * var(--echelle-texte, 1)); }
+  .suggestion-rida:hover, .suggestion-rida.suggestion-active { background: #e8edfb; }
   .btn-parametres { margin-left: auto; border: 0; background: transparent; cursor: pointer; font-size: calc(15px * var(--echelle-texte, 1)); padding: 0 6px; line-height: 1; }
   .btn-parametres:hover { background: #e5e7eb; border-radius: 6px; }
   .cellule-liste-editable { cursor: text; }
