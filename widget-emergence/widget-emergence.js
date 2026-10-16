@@ -1,6 +1,6 @@
-// Widget Emergence — v0.93
-// Numéro de release : <majeure>.<build> (0.93 = release majeure 0, build 93).
-const VERSION_WIDGET = "0.93";
+// Widget Emergence — v0.94
+// Numéro de release : <majeure>.<build> (0.94 = release majeure 0, build 94).
+const VERSION_WIDGET = "0.94";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -5699,11 +5699,8 @@ function afficherSuggestionsRida(textarea, uniquementSiSaisie) {
   el.className = "popup-suggestions-rida";
   el.innerHTML = items.map((t, i) => "<div class='suggestion-rida' data-i='" + i + "'>" + escapeHtml(t) + "</div>").join("");
   document.body.appendChild(el);
-  const rect = textarea.getBoundingClientRect();
-  el.style.top = (rect.bottom + 2) + "px";
-  el.style.left = rect.left + "px";
-  el.style.minWidth = Math.min(Math.max(rect.width, 280), window.innerWidth - 16) + "px";
   popupSuggestionsRida = { el, textarea, items, index: -1, saisieOrigine: textarea.value };
+  positionnerSuggestionsRida();
   // mousedown + preventDefault : le champ garde le focus (sinon la perte de focus enregistrerait la saisie partielle)
   el.addEventListener("mousedown", (e) => {
     e.preventDefault();
@@ -5711,6 +5708,27 @@ function afficherSuggestionsRida(textarea, uniquementSiSaisie) {
     if (cible) accepterSuggestionRida(parseInt(cible.getAttribute("data-i"), 10));
   });
 }
+
+// Place la liste sous le champ, ou au-dessus s'il n'y a pas assez de place dessous ; elle reste
+// toujours entièrement dans la fenêtre visible (et défile en interne si elle est très haute).
+function positionnerSuggestionsRida() {
+  if (!popupSuggestionsRida) return;
+  const { el, textarea } = popupSuggestionsRida;
+  const rect = textarea.getBoundingClientRect();
+  const MARGE = 6, hauteurFenetre = window.innerHeight, largeurFenetre = window.innerWidth;
+  el.style.maxHeight = Math.max(80, hauteurFenetre - 2 * MARGE) + "px";
+  el.style.overflowY = "auto";
+  el.style.minWidth = Math.min(Math.max(rect.width, 280), largeurFenetre - 2 * MARGE) + "px";
+  const h = el.offsetHeight, l = el.offsetWidth;
+  const placeDessous = hauteurFenetre - rect.bottom - MARGE, placeDessus = rect.top - MARGE;
+  let top = (h <= placeDessous || placeDessous >= placeDessus) ? rect.bottom + 2 : rect.top - h - 2;
+  top = Math.min(Math.max(MARGE, top), Math.max(MARGE, hauteurFenetre - h - MARGE));
+  const left = Math.min(Math.max(MARGE, rect.left), Math.max(MARGE, largeurFenetre - l - MARGE));
+  el.style.top = top + "px";
+  el.style.left = left + "px";
+}
+window.addEventListener("resize", () => positionnerSuggestionsRida());
+window.addEventListener("scroll", () => positionnerSuggestionsRida(), true);
 
 function accepterSuggestionRida(i) {
   if (!popupSuggestionsRida) return;
