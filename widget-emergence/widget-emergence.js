@@ -1,6 +1,6 @@
-// Widget Emergence — v0.105
-// Numéro de release : <majeure>.<build> (0.105 = release majeure 0, build 105).
-const VERSION_WIDGET = "0.105";
+// Widget Emergence — v0.106
+// Numéro de release : <majeure>.<build> (0.106 = release majeure 0, build 106).
+const VERSION_WIDGET = "0.106";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -6069,12 +6069,21 @@ async function televerserAttachment(fichier) {
       form2.append("upload", fichier, nomFichier);
       await fetch(url, { method: "POST", body: form2, mode: "no-cors" });
     } catch (e3) { throw new Error(detail); }
+    let diag = "";
     for (let essai = 0; essai < 8; essai++) {
-      await new Promise(r => setTimeout(r, 400));
-      const id = await retrouver().catch(() => null);
-      if (id) return id;
+      await new Promise(r => setTimeout(r, 500));
+      try {
+        const id = await retrouver();
+        if (id) return id;
+      } catch (e4) { diag = "lecture de _grist_Attachments impossible : " + e4.message; }
     }
-    throw new Error(detail + " — pièce jointe introuvable après envoi");
+    if (!diag) {
+      try {
+        const t = await grist.docApi.fetchTable("_grist_Attachments");
+        diag = "_grist_Attachments lisible, " + (t.id || []).length + " ligne(s), dernier id " + Math.max(0, ...(t.id || [])) + ", noms : " + (t.fileName || []).slice(-3).join(" / ") + " ; recherché : " + nomFichier;
+      } catch (e5) { diag = "lecture de _grist_Attachments impossible : " + e5.message; }
+    }
+    throw new Error(detail + " — pièce jointe introuvable après envoi (" + diag + ")");
   }
   if (!reponse.ok) {
     let detail = "";
