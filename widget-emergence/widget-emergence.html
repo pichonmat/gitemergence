@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.110 -->
+<!-- Widget Emergence — v0.111 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -824,10 +824,11 @@
   .bandeau-compact .champ-personnes .pp-vide { display: none; }
   .bandeau-compact .champ-pp { width: 100%; align-items: flex-start; }
   .bandeau-compact .champ-pp .chips-conteneur { flex: 0 1 auto; } /* le « + » reste collé à la dernière partie prenante */
-  .bandeau-compact .champ-typologie { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+  .bandeau-compact .champ-typologie { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; margin-left: auto; } /* tout à droite de la ligne */
   .bandeau-compact .champ-typologie .chips-conteneur { margin: 0; flex-wrap: nowrap; }
   .chip-typologie .chip-texte { max-width: none; }
-  .chip-typologie { background: #fdf2e0; border-color: #f0d9a8; color: #8a5a00; padding-left: 8px; }
+  .chip-typologie { background: #dcfce7; border-color: #86efac; color: #166534; padding-left: 8px; }
+  .chip-typologie .chip-retirer { color: #4d8a64; }
   .popup-typologie { position: fixed; z-index: 3000; background: #fff; border: 1px solid #c8c8c8; border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.2); padding: 6px 8px; max-height: 60vh; overflow: auto; font-size: calc(13px * var(--echelle-texte, 1)); }
   .popup-typologie label { display: flex; align-items: center; gap: 6px; padding: 2px 0; white-space: nowrap; cursor: pointer; }
   .popup-typologie-note { color: #777; font-size: 0.85em; max-width: 280px; white-space: normal; margin-top: 4px; }

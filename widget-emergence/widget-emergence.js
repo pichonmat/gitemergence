@@ -1,6 +1,6 @@
-// Widget Emergence — v0.110
-// Numéro de release : <majeure>.<build> (0.110 = release majeure 0, build 110).
-const VERSION_WIDGET = "0.110";
+// Widget Emergence — v0.111
+// Numéro de release : <majeure>.<build> (0.111 = release majeure 0, build 111).
+const VERSION_WIDGET = "0.111";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -2806,13 +2806,13 @@ function afficherFiche(ligne) {
           <span class="champ-label">Sponsor</span>
           ${sponsorChampHtml}
         </div>
-        <div class="champ-editable-inline champ-typologie">
-          <span class="champ-label">Typologie</span>
-          ${typologieChampHtml}
-        </div>
         <div class="champ-editable-inline champ-personnes" data-libelle-ajout="+ Porteur">
           <span class="champ-label">Porteurs</span>
           ${porteursChampHtml}
+        </div>
+        <div class="champ-editable-inline champ-typologie">
+          <span class="champ-label">Typologie</span>
+          ${typologieChampHtml}
         </div>
       </div>
       <div class="bandeau-ligne bandeau-ligne-pp">
