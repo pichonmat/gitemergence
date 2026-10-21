@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.109 -->
+<!-- Widget Emergence — v0.110 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -215,7 +215,15 @@
       <input type="checkbox" id="param-journal-rida" style="margin-top:3px;">
       <span>Ajouter une ligne d'information au RIDA à chaque modification d'une demande (journal automatique)<br><span style="color:#777;font-size:0.85em;">Désactivé par défaut. Réglage propre à ce navigateur.</span></span>
     </label>
-    <div style="font-weight:700;margin:6px 0;">Assistant IA (LLM)</div>
+    <div style="font-weight:700;margin:10px 0 6px;">Typologies de la demande</div>
+    <div style="font-size:0.85em;color:#777;margin-bottom:6px;">Liste des choix de la colonne « Typologie de la demande » (partagée par tous les utilisateurs du document). Un renommage ou une suppression met aussi à jour les fiches concernées.</div>
+    <div id="param-typo-liste"></div>
+    <div style="margin:4px 0;">
+      <button type="button" id="param-typo-ajouter" class="btn-secondaire">+ Ajouter une typologie</button>
+      <button type="button" id="param-typo-enregistrer" class="btn-secondaire">💾 Enregistrer la liste</button>
+    </div>
+    <div class="modale-msg" id="param-typo-msg"></div>
+    <div style="font-weight:700;margin:10px 0 6px;">Assistant IA (LLM)</div>
     <div class="modale-champ"><label>Fournisseur</label>
       <select id="param-llm-fournisseur">
         <option value="mirai">MirAI</option>
@@ -815,7 +823,18 @@
   .bandeau-compact .champ-personnes .chips-conteneur { margin: 0; flex-wrap: wrap; }
   .bandeau-compact .champ-personnes .pp-vide { display: none; }
   .bandeau-compact .champ-pp { width: 100%; align-items: flex-start; }
-  .bandeau-compact .champ-pp .chips-conteneur { flex: 1 1 auto; }
+  .bandeau-compact .champ-pp .chips-conteneur { flex: 0 1 auto; } /* le « + » reste collé à la dernière partie prenante */
+  .bandeau-compact .champ-typologie { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+  .bandeau-compact .champ-typologie .chips-conteneur { margin: 0; flex-wrap: nowrap; }
+  .chip-typologie .chip-texte { max-width: none; }
+  .chip-typologie { background: #fdf2e0; border-color: #f0d9a8; color: #8a5a00; padding-left: 8px; }
+  .popup-typologie { position: fixed; z-index: 3000; background: #fff; border: 1px solid #c8c8c8; border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.2); padding: 6px 8px; max-height: 60vh; overflow: auto; font-size: calc(13px * var(--echelle-texte, 1)); }
+  .popup-typologie label { display: flex; align-items: center; gap: 6px; padding: 2px 0; white-space: nowrap; cursor: pointer; }
+  .popup-typologie-note { color: #777; font-size: 0.85em; max-width: 280px; white-space: normal; margin-top: 4px; }
+  .typo-ligne { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+  .typo-ligne input[type="text"] { flex: 1 1 auto; min-width: 0; }
+  .typo-ligne .typo-nb { color: #777; font-size: 0.85em; white-space: nowrap; min-width: 62px; text-align: right; }
+  .typo-ligne button { padding: 0 6px; cursor: pointer; }
   .bandeau-compact .ajout-pp-conteneur { margin: 0; flex: 1 1 260px; }
   .bandeau-compact .ajout-pp-conteneur.ajout-replie { display: none; }
   .btn-ajout-replie { border: 1px dashed #99a; background: transparent; color: #667; border-radius: 12px; padding: 1px 9px; font-size: calc(12px * var(--echelle-texte)); cursor: pointer; }

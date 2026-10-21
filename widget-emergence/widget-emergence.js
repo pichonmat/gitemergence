@@ -1,6 +1,6 @@
-// Widget Emergence — v0.109
-// Numéro de release : <majeure>.<build> (0.109 = release majeure 0, build 109).
-const VERSION_WIDGET = "0.109";
+// Widget Emergence — v0.110
+// Numéro de release : <majeure>.<build> (0.110 = release majeure 0, build 110).
+const VERSION_WIDGET = "0.110";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -517,6 +517,50 @@ const CHOIX_TYPOLOGIE = [
   "9 - Priorisation / traitement des mails"
 ];
 
+// --- Typologie de la demande : valeur unique (Choice) ou multiple (ChoiceList), liste de choix lue dans Grist ---
+const COLONNE_TYPOLOGIE = "Typologie_de_la_demande";
+const MAX_CAR_PUCE_TYPOLOGIE = 20;  // longueur max d'une puce dans le bandeau (texte complet au survol)
+const MAX_PUCES_TYPOLOGIE = 3;      // au-delà : puce « +N »
+let typologieMeta = null;           // { type, choices, options } lus dans _grist_Tables_column ; null si illisible
+
+function typologiesDeValeur(v) {
+  if (v === null || v === undefined || v === "") return [];
+  if (Array.isArray(v)) return v.filter((x, i) => !(i === 0 && x === "L") && x !== null && x !== "" && typeof x !== "object").map(String);
+  return [String(v)];
+}
+function typologiesDeLigne(ligne) { return typologiesDeValeur(ligne && ligne[COLONNE_TYPOLOGIE]); }
+function typologieMultiple() {
+  if (typologieMeta) return typologieMeta.type === "ChoiceList";
+  return lignesEmergence.some(l => Array.isArray(l[COLONNE_TYPOLOGIE]));
+}
+function choixTypologieActuels() {
+  return typologieMeta && typologieMeta.choices && typologieMeta.choices.length ? typologieMeta.choices.slice() : CHOIX_TYPOLOGIE.slice();
+}
+function valeurTypologiePourEcriture(liste) {
+  if (!liste.length) return null;
+  return typologieMultiple() ? ["L"].concat(liste) : liste[0];
+}
+function tronquerTexte(t, n) { t = String(t); return t.length > n ? t.slice(0, n - 1) + "…" : t; }
+
+async function chargerMetaTypologie() {
+  try {
+    const tables = await grist.docApi.fetchTable("_grist_Tables");
+    const iT = (tables.tableId || []).indexOf(TABLE_PRINCIPALE);
+    if (iT < 0) throw new Error("table " + TABLE_PRINCIPALE + " introuvable");
+    const tableRef = tables.id[iT];
+    const cols = await grist.docApi.fetchTable("_grist_Tables_column");
+    let idx = -1;
+    (cols.id || []).forEach((id, i) => { if (cols.parentId[i] === tableRef && cols.colId[i] === COLONNE_TYPOLOGIE) idx = i; });
+    if (idx < 0) throw new Error("colonne " + COLONNE_TYPOLOGIE + " introuvable");
+    let options = {};
+    try { options = JSON.parse(cols.widgetOptions[idx] || "{}") || {}; } catch (e) { options = {}; }
+    typologieMeta = { type: cols.type[idx], choices: Array.isArray(options.choices) ? options.choices.map(String) : null, options };
+  } catch (e) {
+    typologieMeta = null;
+    console.error("Lecture des choix de la typologie impossible (liste intégrée utilisée) :", e);
+  }
+}
+
 let largeursColonnes = {
   "Statut": 110,
   "Date_de_derniere_modification": 120,
@@ -750,6 +794,8 @@ async function chargerTablesAnnexes() {
     // était trop restrictif et empêchait de choisir la plupart des personnes).
     sponsorsCandidats = acteursTriesParNom.slice();
   } catch (e) { console.error("Erreur chargement acteurs :", e); }
+
+  await chargerMetaTypologie();
 
   try {
     let rida = await grist.docApi.fetchTable(TABLE_RIDA);
@@ -1294,7 +1340,7 @@ function appliquerFiltres(lignes) {
     if (textesRecherche && !ligneCorrespondALaRechercheGlobale(l, textesRecherche, motsRecherche)) return false;
     if (filtreStatutSelection.size > 0 && !filtreStatutSelection.has(l.Statut)) return false;
     if (filtrePrioriteSelection.size > 0 && !filtrePrioriteSelection.has(l.Priorite || "")) return false;
-    if (filtreTypologieSelection.size > 0 && !filtreTypologieSelection.has(l.Typologie_de_la_demande)) return false;
+    if (filtreTypologieSelection.size > 0 && !typologiesDeLigne(l).some(t => filtreTypologieSelection.has(t))) return false;
     if (filtreOrganisationSelection.size > 0 && !filtreOrganisationSelection.has(l.Organisation)) return false;
     if (filtreSponsorTexte) {
       if (normaliserTexteRecherche(nomActeurParId(l.Sponsor)).indexOf(normaliserTexteRecherche(filtreSponsorTexte)) === -1) return false;
@@ -1500,7 +1546,7 @@ function construireContenuPopupFiltreListeColonne(champ) {
     ).join("");
   }
   if (champ === "typologie") {
-    const valeurs = [...new Set(lignesEmergence.map(l => l.Typologie_de_la_demande).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const valeurs = [...new Set(lignesEmergence.flatMap(l => typologiesDeLigne(l)))].sort((a, b) => a.localeCompare(b));
     if (valeurs.length === 0) return "<span style='font-size:12px;color:#888;'>Aucune typologie</span>";
     return valeurs.map(v =>
       "<label><input type='checkbox' class='case-filtre-liste-typologie' value=\"" + escapeHtml(v) + "\"" +
@@ -1768,6 +1814,10 @@ function trierLignes(lignes) {
       vA = epochDerniereModifDemande(a.id);
       vB = epochDerniereModifDemande(b.id);
     }
+    if (colonneTri === COLONNE_TYPOLOGIE) {
+      vA = typologiesDeLigne(a).join(", ");
+      vB = typologiesDeLigne(b).join(", ");
+    }
     if (colonneTri === "Statut") {
       vA = rangStatut(a.Statut);
       vB = rangStatut(b.Statut);
@@ -1915,7 +1965,7 @@ function afficherListe() {
       "<td class='cellule-liste-editable' data-edit='porteur' title=\"" + escapeHtml(porteurTexte) + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (escapeHtml(porteurTexte) || "—") + "</span></td>" +
       "<td class='cellule-titre-objet cellule-liste-editable' data-edit='titre' title=\"" + escapeHtml(infobulleObjetDemande(ligne)) + "\"><span class='texte-cellule-edit'>" + escapeHtml(ligne.Titre || "—") + "</span></td>" +
       "<td class='cellule-ref-brm-editable' title=\"" + escapeHtml(refBrm(ligne)) + (cleRefBrm(ligne) ? " (cliquer pour modifier)" : "") + "\">" + (escapeHtml(refBrm(ligne)) || "—") + "</td>" +
-      "<td class='cellule-liste-editable' data-edit='typologie' title=\"" + escapeHtml(ligne.Typologie_de_la_demande || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (escapeHtml(ligne.Typologie_de_la_demande || "") || "—") + "</span></td>" +
+      "<td class='cellule-liste-editable' data-edit='typologie' title=\"" + escapeHtml(typologiesDeLigne(ligne).join(", ")) + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (escapeHtml(typologiesDeLigne(ligne).join(", ")) || "—") + "</span></td>" +
       "<td class='cellule-liste-editable' data-edit='pp' title=\"" + escapeHtml(partiesPrenantesTexte) + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (escapeHtml(partiesPrenantesTexte) || "—") + "</span></td>" +
       "<td>" + celluleRida + "</td>" +
       "</tr>";
@@ -1990,6 +2040,59 @@ function afficherListe() {
 // texte avec suggestions) ; Entrée / perte de focus / choix = enregistre, Échap = annule.
 // Statut et Ref BRM ont leur propre éditeur ; « Dernière modif » et « RIDA » sont calculées
 // (issues des lignes RIDA) et ne sont donc pas éditables ici.
+async function enregistrerTypologie(ligneId, liste) {
+  try {
+    await appliquerActions([["UpdateRecord", TABLE_PRINCIPALE, ligneId, { [COLONNE_TYPOLOGIE]: valeurTypologiePourEcriture(liste) }]]);
+    await rechargerEmergenceEtRafraichir(ligneId === ligneSelectionneeId ? ligneId : null);
+  } catch (err) {
+    alert("Erreur lors de l'enregistrement de la typologie : " + err.message);
+  }
+}
+
+function fermerPopupTypologie() {
+  const p = document.getElementById("popup-typologie");
+  if (p) p.remove();
+}
+
+// Popup de choix de la typologie (cases à cocher si la colonne est une Choice List, sinon choix unique).
+function ouvrirPopupTypologie(ancre, ligneId) {
+  fermerPopupTypologie();
+  const ligne = lignesEmergence.find(l => l.id === ligneId);
+  if (!ligne) return;
+  const multiple = typologieMultiple();
+  let selection = typologiesDeLigne(ligne);
+  const choix = choixTypologieActuels();
+  selection.forEach(t => { if (!choix.includes(t)) choix.push(t); });
+  const popup = document.createElement("div");
+  popup.id = "popup-typologie";
+  popup.className = "popup-typologie";
+  popup.innerHTML = choix.map(v =>
+    "<label><input type='" + (multiple ? "checkbox" : "radio") + "' name='typologie-popup' value=\"" + escapeHtml(v) + "\"" +
+    (selection.includes(v) ? " checked" : "") + ">" + escapeHtml(v) + "</label>").join("") +
+    (multiple ? "" : "<label><input type='radio' name='typologie-popup' value=''>—</label>" +
+      "<div class='popup-typologie-note'>Colonne à valeur unique : passez-la en « Choice List » dans Grist pour cumuler plusieurs typologies.</div>");
+  document.body.appendChild(popup);
+  const r = ancre.getBoundingClientRect();
+  const largeur = popup.offsetWidth, hauteur = popup.offsetHeight;
+  popup.style.left = Math.max(4, Math.min(r.left, window.innerWidth - largeur - 8)) + "px";
+  const dessous = r.bottom + 4;
+  popup.style.top = (dessous + hauteur > window.innerHeight - 8 ? Math.max(4, r.top - hauteur - 4) : dessous) + "px";
+  popup.addEventListener("change", async () => {
+    const cochees = [...popup.querySelectorAll("input:checked")].map(i => i.value).filter(Boolean);
+    selection = cochees;
+    if (!multiple) fermerPopupTypologie();
+    await enregistrerTypologie(ligneId, selection);
+  });
+  const fermer = (e) => {
+    if (e.type === "keydown" ? e.key === "Escape" : !popup.contains(e.target) && e.target !== ancre) {
+      fermerPopupTypologie();
+      document.removeEventListener("mousedown", fermer, true);
+      document.removeEventListener("keydown", fermer, true);
+    }
+  };
+  setTimeout(() => { document.addEventListener("mousedown", fermer, true); document.addEventListener("keydown", fermer, true); }, 0);
+}
+
 async function enregistrerChampListe(ligneId, champ, valeur) {
   try {
     await appliquerActions([["UpdateRecord", TABLE_PRINCIPALE, ligneId, { [champ]: valeur }]]);
@@ -2015,6 +2118,7 @@ function activerEditionCellulesListe(corps) {
       const ligne = lignesEmergence.find(l => l.id === ligneId);
       if (!ligne) return;
       if (type === "pp") { ouvrirPopupPartiesPrenantesListe(td, ligneId); return; }
+      if (type === "typologie") { ouvrirPopupTypologie(td, ligneId); return; }
       let champ, valeurInitiale, element;
       let termine = false;
       const finir = (valeurEnregistree, aChange) => {
@@ -2023,10 +2127,10 @@ function activerEditionCellulesListe(corps) {
         if (!aChange) { afficherListe(); return; }
         enregistrerChampListe(ligneId, champ, valeurEnregistree);
       };
-      if (type === "priorite" || type === "typologie") {
-        champ = type === "priorite" ? "Priorite" : "Typologie_de_la_demande";
+      if (type === "priorite") {
+        champ = "Priorite";
         valeurInitiale = ligne[champ] || "";
-        let choix = type === "priorite" ? CHOIX_PRIORITE.slice() : CHOIX_TYPOLOGIE.slice();
+        let choix = CHOIX_PRIORITE.slice();
         if (valeurInitiale && !choix.includes(valeurInitiale)) choix.push(valeurInitiale);
         element = document.createElement("select");
         element.className = "select-liste-edition";
@@ -2654,20 +2758,18 @@ function afficherFiche(ligne) {
     "</select>" +
     "<span class='msg-sauvegarde' id='msg-priorite'></span>";
 
-  // --- Select Typologie de la demande ---
-  let choixTypologie = CHOIX_TYPOLOGIE.slice();
-  if (ligne.Typologie_de_la_demande && !choixTypologie.includes(ligne.Typologie_de_la_demande)) {
-    choixTypologie = choixTypologie.concat([ligne.Typologie_de_la_demande]);
+  // --- Typologie de la demande (puces du bandeau, multi-sélection par popup) ---
+  const typologiesLigne = typologiesDeLigne(ligne);
+  let typologieChampHtml = "<span class='chips-conteneur chips-typologie'>" +
+    typologiesLigne.slice(0, MAX_PUCES_TYPOLOGIE).map(t =>
+      "<span class='chip chip-typologie' title=\"" + escapeHtml(t) + "\"><span class='chip-texte'>" + escapeHtml(tronquerTexte(t, MAX_CAR_PUCE_TYPOLOGIE)) + "</span>" +
+      "<button class='chip-retirer' type='button' data-typologie=\"" + escapeHtml(t) + "\" title='Retirer'>×</button></span>").join("");
+  if (typologiesLigne.length > MAX_PUCES_TYPOLOGIE) {
+    typologieChampHtml += "<span class='chip chip-typologie' title=\"" + escapeHtml(typologiesLigne.slice(MAX_PUCES_TYPOLOGIE).join(", ")) + "\"><span class='chip-texte'>+" +
+      (typologiesLigne.length - MAX_PUCES_TYPOLOGIE) + "</span></span>";
   }
-  const optionsTypologie = choixTypologie.map(v =>
-    "<option value=\"" + escapeHtml(v) + "\"" + (v === ligne.Typologie_de_la_demande ? " selected" : "") + ">" + escapeHtml(v) + "</option>"
-  ).join("");
-  const typologieSelectHtml =
-    "<select id='typologie-select'>" +
-    "<option value=''" + (!ligne.Typologie_de_la_demande ? " selected" : "") + ">—</option>" +
-    optionsTypologie +
-    "</select>" +
-    "<span class='msg-sauvegarde' id='msg-typologie'></span>";
+  typologieChampHtml += "</span><button type='button' id='btn-typologie' class='btn-ajout-replie" + (typologiesLigne.length ? "" : " champ-vide") + "' title='Choisir les typologies'>" +
+    (typologiesLigne.length ? "+" : "+ Typologie") + "</button><span class='msg-sauvegarde' id='msg-typologie'></span>";
 
   conteneur.innerHTML = `
     <div class="bandeau bandeau-compact">
@@ -2704,6 +2806,10 @@ function afficherFiche(ligne) {
           <span class="champ-label">Sponsor</span>
           ${sponsorChampHtml}
         </div>
+        <div class="champ-editable-inline champ-typologie">
+          <span class="champ-label">Typologie</span>
+          ${typologieChampHtml}
+        </div>
         <div class="champ-editable-inline champ-personnes" data-libelle-ajout="+ Porteur">
           <span class="champ-label">Porteurs</span>
           ${porteursChampHtml}
@@ -2732,10 +2838,6 @@ function afficherFiche(ligne) {
     </div>
     <div class="tab-panel ${ongletActif === 'rida' ? 'active' : ''}" data-panel="rida">${ridaContenu}</div>
     <div class="tab-panel ${ongletActif === 'general' ? 'active' : ''}" data-panel="general">
-      <div class="champ-editable-inline" style="margin-bottom:10px;">
-        <div class="champ-label">Typologie de la demande</div>
-        ${typologieSelectHtml}
-      </div>
       <div class="champ-editable">
         <div class="champ-label">Détail de la demande</div>
         ${champMarkdownHtml("detail", ligne.Detail_de_la_demande, "textarea-pleine-hauteur", "boite-pleine-hauteur")}
@@ -2945,12 +3047,12 @@ function afficherFiche(ligne) {
     sauverChampEmergence("Priorite", prioriteSelect.value || null, msgPriorite);
   });
 
-  // --- Édition de la Typologie de la demande (select, sauvegarde immédiate) ---
-  const typologieSelect = conteneur.querySelector("#typologie-select");
-  const msgTypologie = conteneur.querySelector("#msg-typologie");
-  typologieSelect.addEventListener("change", () => {
-    sauverChampEmergence("Typologie_de_la_demande", typologieSelect.value || null, msgTypologie);
-  });
+  // --- Édition de la Typologie de la demande (popup de choix multiple, retrait par ×) ---
+  conteneur.querySelector("#btn-typologie").addEventListener("click", (e) => ouvrirPopupTypologie(e.currentTarget, ligne.id));
+  conteneur.querySelectorAll(".chip-typologie .chip-retirer").forEach(b => b.addEventListener("click", () => {
+    const t = b.getAttribute("data-typologie");
+    enregistrerTypologie(ligne.id, typologiesDeLigne(ligne).filter(x => x !== t));
+  }));
 
   // --- Édition des dates de soumission et de clôture (sauvegarde immédiate au changement) ---
   const dateSoumissionInput = conteneur.querySelector("#date-soumission-input");
@@ -6272,7 +6374,112 @@ function ouvrirParametres() {
   document.getElementById("param-llm-prompt").value = cfg.prompt || PROMPT_SYNTHESE_DEFAUT;
   document.getElementById("param-llm-msg").textContent = "";
   mettreAJourLienCleLlm();
+  initialiserEditeurTypologies();
+  chargerMetaTypologie().then(initialiserEditeurTypologies);
   fond.style.display = "flex";
+}
+
+// --- Paramètres : éditeur de la liste des typologies (choix de la colonne Grist) ---
+let typoEdition = [];    // lignes en cours d'édition : { origine (nom actuel dans Grist ou null si nouveau), nom }
+let typoOriginales = []; // noms actuels dans Grist au moment de l'ouverture
+
+function nbFichesTypologie(valeur) {
+  return lignesEmergence.filter(l => typologiesDeLigne(l).includes(valeur)).length;
+}
+
+function rendreEditeurTypologies() {
+  const zone = document.getElementById("param-typo-liste");
+  if (!zone) return;
+  zone.innerHTML = "";
+  typoEdition.forEach((r, i) => {
+    const div = document.createElement("div");
+    div.className = "typo-ligne";
+    const nb = r.origine ? nbFichesTypologie(r.origine) : 0;
+    div.innerHTML = "<input type='text' value=\"" + escapeHtml(r.nom) + "\" placeholder='Nouvelle typologie'>" +
+      "<span class='typo-nb'>" + (r.origine ? nb + " fiche" + (nb > 1 ? "s" : "") : "nouvelle") + "</span>" +
+      "<button type='button' class='typo-haut' title='Monter'" + (i === 0 ? " disabled" : "") + ">↑</button>" +
+      "<button type='button' class='typo-bas' title='Descendre'" + (i === typoEdition.length - 1 ? " disabled" : "") + ">↓</button>" +
+      "<button type='button' class='typo-suppr' title='Supprimer'>🗑</button>";
+    div.querySelector("input").addEventListener("input", (e) => { r.nom = e.target.value; });
+    div.querySelector(".typo-haut").addEventListener("click", () => { typoEdition.splice(i - 1, 0, typoEdition.splice(i, 1)[0]); rendreEditeurTypologies(); });
+    div.querySelector(".typo-bas").addEventListener("click", () => { typoEdition.splice(i + 1, 0, typoEdition.splice(i, 1)[0]); rendreEditeurTypologies(); });
+    div.querySelector(".typo-suppr").addEventListener("click", () => { typoEdition.splice(i, 1); rendreEditeurTypologies(); });
+    zone.appendChild(div);
+  });
+}
+
+function initialiserEditeurTypologies() {
+  typoOriginales = choixTypologieActuels();
+  typoEdition = typoOriginales.map(n => ({ origine: n, nom: n }));
+  rendreEditeurTypologies();
+  const msg = document.getElementById("param-typo-msg");
+  const ok = !!typologieMeta;
+  document.getElementById("param-typo-ajouter").disabled = !ok;
+  document.getElementById("param-typo-enregistrer").disabled = !ok;
+  msg.className = ok ? "modale-msg" : "modale-msg erreur";
+  msg.textContent = ok ? "" : "Lecture des choix de la colonne impossible : liste intégrée affichée, modification indisponible.";
+}
+
+async function enregistrerListeTypologies() {
+  const msg = document.getElementById("param-typo-msg");
+  msg.className = "modale-msg";
+  const lignes = typoEdition.map(r => ({ origine: r.origine, nom: String(r.nom).trim() })).filter(r => r.nom);
+  const vus = new Set();
+  for (const r of lignes) {
+    const cle = normaliserTexteRecherche(r.nom);
+    if (vus.has(cle)) { msg.className = "modale-msg erreur"; msg.textContent = "Doublon : « " + r.nom + " »."; return; }
+    vus.add(cle);
+  }
+  if (!lignes.length) { msg.className = "modale-msg erreur"; msg.textContent = "La liste ne peut pas être vide."; return; }
+  const renommages = new Map(lignes.filter(r => r.origine && r.origine !== r.nom).map(r => [r.origine, r.nom]));
+  const conservees = new Set(lignes.map(r => r.origine).filter(Boolean));
+  const supprimees = typoOriginales.filter(o => !conservees.has(o));
+  const impactRen = [...renommages.keys()].filter(o => nbFichesTypologie(o) > 0);
+  const impactSup = supprimees.filter(o => nbFichesTypologie(o) > 0);
+  if (impactRen.length || impactSup.length) {
+    const lignesMsg = []
+      .concat(impactRen.map(o => "• « " + o + " » renommée en « " + renommages.get(o) + " » : " + nbFichesTypologie(o) + " fiche(s) mises à jour"))
+      .concat(impactSup.map(o => "• « " + o + " » supprimée : retirée de " + nbFichesTypologie(o) + " fiche(s)"));
+    if (!window.confirm("Cette modification met à jour des fiches :\n" + lignesMsg.join("\n") + "\n\nContinuer ?")) return;
+  }
+  msg.textContent = "Enregistrement…";
+  try {
+    const finals = lignes.map(r => r.nom);
+    // 1) choix de la colonne (widgetOptions) : on garde les autres réglages, on reporte les couleurs des renommées
+    const options = Object.assign({}, typologieMeta.options || {});
+    options.choices = finals;
+    if (options.choiceOptions && typeof options.choiceOptions === "object") {
+      const co = {};
+      Object.keys(options.choiceOptions).forEach(k => {
+        const nouveau = renommages.has(k) ? renommages.get(k) : k;
+        if (!supprimees.includes(k)) co[nouveau] = options.choiceOptions[k];
+      });
+      options.choiceOptions = co;
+    }
+    await grist.docApi.applyUserActions([["ModifyColumn", TABLE_PRINCIPALE, COLONNE_TYPOLOGIE, { widgetOptions: JSON.stringify(options) }]]);
+    // 2) fiches concernées (directement, sans horodater « Date de modification » de dizaines de fiches)
+    const actions = [];
+    lignesEmergence.forEach(l => {
+      const avant = typologiesDeLigne(l);
+      const apres = [...new Set(avant.filter(t => !supprimees.includes(t)).map(t => renommages.has(t) ? renommages.get(t) : t))];
+      if (avant.join("\u0001") !== apres.join("\u0001")) {
+        actions.push(["UpdateRecord", TABLE_PRINCIPALE, l.id, { [COLONNE_TYPOLOGIE]: valeurTypologiePourEcriture(apres) }]);
+      }
+    });
+    if (actions.length) await grist.docApi.applyUserActions(actions);
+    await chargerMetaTypologie();
+    await chargerTablePrincipale();
+    remplirOptionsFiltres();
+    afficherListe();
+    const courante = lignesEmergence.find(l => l.id === ligneSelectionneeId);
+    if (courante) afficherFiche(courante);
+    initialiserEditeurTypologies();
+    msg.className = "modale-msg";
+    msg.textContent = "Liste enregistrée" + (actions.length ? " (" + actions.length + " fiche(s) mises à jour)." : ".");
+  } catch (e) {
+    msg.className = "modale-msg erreur";
+    msg.textContent = "Échec de l'enregistrement : " + e.message;
+  }
 }
 
 function mettreAJourLienCleLlm() {
@@ -6328,6 +6535,13 @@ function lireFormulaireParametres() {
       msg.textContent = "Liste des modèles indisponible : " + e.message + " (vous pouvez saisir le modèle à la main).";
     }
   });
+  document.getElementById("param-typo-ajouter").addEventListener("click", () => {
+    typoEdition.push({ origine: null, nom: "" });
+    rendreEditeurTypologies();
+    const champs = document.querySelectorAll("#param-typo-liste input[type='text']");
+    if (champs.length) champs[champs.length - 1].focus();
+  });
+  document.getElementById("param-typo-enregistrer").addEventListener("click", enregistrerListeTypologies);
   document.getElementById("param-llm-prompt-defaut").addEventListener("click", () => {
     document.getElementById("param-llm-prompt").value = PROMPT_SYNTHESE_DEFAUT;
   });
