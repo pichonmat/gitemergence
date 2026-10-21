@@ -1,0 +1,44 @@
+<!-- Migration de la structure — outil à usage unique (à ajouter temporairement dans Grist, accès complet, puis à retirer) -->
+<div class="conteneur">
+  <h1>Migration de la structure <span id="version" class="version"></span></h1>
+  <p class="intro">
+    Compare la structure du document au modèle attendu par le widget Émergence (v0.110 ou plus) et propose de
+    créer ce qui manque. Rien n'est écrit tant que vous n'avez pas coché puis cliqué sur « Appliquer ».
+    <b>Faites une copie du document avant.</b> Aucune colonne ni donnée n'est supprimée.
+  </p>
+  <div id="statut" class="statut">Lecture de la structure...</div>
+  <div id="zone" style="display:none;">
+    <table class="tableau">
+      <thead><tr><th></th><th>Élément</th><th>Détail</th><th>État</th></tr></thead>
+      <tbody id="corps"></tbody>
+    </table>
+    <div id="alertes"></div>
+    <div class="actions">
+      <button id="btn-actualiser" type="button" class="btn-secondaire">↻ Actualiser</button>
+      <button id="btn-sauvegarde" type="button" class="btn-secondaire" style="display:none;">💾 Sauvegarde de la typologie (CSV)</button>
+      <button id="btn-appliquer" type="button" class="btn-principal">Appliquer la sélection</button>
+    </div>
+  </div>
+  <div id="resultat" class="statut"></div>
+</div>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; color: #222; margin: 0; }
+  .conteneur { padding: 12px 16px; max-width: 980px; }
+  h1 { font-size: 17px; margin: 0 0 8px; }
+  .version { font-weight: 400; color: #888; font-size: 12px; }
+  .intro { color: #555; margin: 0 0 12px; }
+  .statut { margin: 8px 0; color: #444; }
+  .statut.erreur { color: #b91c1c; font-weight: bold; }
+  .statut.ok { color: #15803d; font-weight: bold; }
+  .tableau { border-collapse: collapse; width: 100%; margin: 8px 0; }
+  .tableau th, .tableau td { border: 1px solid #ddd; padding: 4px 8px; text-align: left; vertical-align: top; }
+  .tableau th { background: #f3f4f6; }
+  .etat-ok { color: #15803d; }
+  .etat-a-faire { color: #b45309; font-weight: bold; }
+  .etat-alerte { color: #b91c1c; }
+  .alerte { background: #fef3c7; border: 1px solid #f59e0b; padding: 6px 10px; border-radius: 4px; margin: 6px 0; }
+  .actions { margin: 10px 0; display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-principal { padding: 6px 14px; background: #2563eb; color: #fff; border: 0; border-radius: 4px; cursor: pointer; }
+  .btn-principal:disabled { background: #9ca3af; cursor: default; }
+  .btn-secondaire { padding: 6px 12px; background: #fff; border: 1px solid #9ca3af; border-radius: 4px; cursor: pointer; }
+</style>
