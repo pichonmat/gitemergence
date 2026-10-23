@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.111 -->
+<!-- Widget Emergence — v0.112 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -6,6 +6,7 @@
   <button type="button" id="tag-activite" class="tag-mode tag-mode-activite">Activité</button>
   <button type="button" id="tag-planning" class="tag-mode tag-mode-planning">Planning</button>
   <button type="button" id="tag-reporting" class="tag-mode tag-mode-reporting">Reporting</button>
+  <button type="button" id="tag-ia" class="tag-mode tag-mode-ia">IA</button>
   <button type="button" id="btn-parametres" class="btn-parametres" title="Paramètres généraux">⚙️</button>
   <span id="utilisateur-connecte" class="utilisateur-connecte" style="display:none;"></span>
 </div>
@@ -170,6 +171,35 @@
   </div>
   <div id="reporting-synthese-zone" class="reporting-synthese" style="display:none;"></div>
   <div id="contenu-reporting" class="contenu-reporting"></div>
+</div>
+
+<div id="vue-ia" style="display:none;">
+  <div class="barre-ia">
+    <select id="ia-statut" title="Périmètre : statut"></select>
+    <select id="ia-typologie" title="Périmètre : typologie"></select>
+    <select id="ia-organisation" title="Périmètre : organisation"></select>
+    <label class="ia-date">Soumises du <input type="date" id="ia-du"></label>
+    <label class="ia-date">au <input type="date" id="ia-au"></label>
+    <button type="button" id="ia-reset" title="Réinitialiser le périmètre">✕ Réinitialiser</button>
+  </div>
+  <details class="ia-donnees">
+    <summary>Données envoyées à l'IA</summary>
+    <div id="ia-champs-liste" class="ia-champs-liste"></div>
+    <div class="ia-note">Toujours envoyés : titre, statut, priorité, organisation, typologie, dates et statistiques calculées. Les adresses mail ne sont jamais envoyées. Les images collées sont remplacées par « [image] ».</div>
+    <button type="button" id="ia-apercu" title="Afficher le texte exact envoyé au service IA">👁 Aperçu des données envoyées</button>
+    <div id="ia-apercu-zone" style="display:none;"><pre id="ia-apercu-texte" class="ia-apercu-texte"></pre></div>
+  </details>
+  <div id="ia-volume" class="ia-volume"></div>
+  <div id="ia-questions" class="ia-questions"></div>
+  <div id="ia-conversation" class="ia-conversation"></div>
+  <div class="ia-saisie">
+    <textarea id="ia-question" rows="2" placeholder="Posez une question sur le référentiel… (Ctrl+Entrée pour envoyer)"></textarea>
+    <div class="ia-saisie-boutons">
+      <button type="button" id="ia-envoyer" class="ia-envoyer">✨ Envoyer</button>
+      <button type="button" id="ia-effacer">Effacer la conversation</button>
+    </div>
+  </div>
+  <div id="ia-msg" class="ia-msg-erreur"></div>
 </div>
 
 <div id="vue-activite" style="display:none;">
@@ -465,6 +495,38 @@
   .planning-carte-sponsor { font-weight: 400; color: #6b7280; font-size: calc(8px * var(--echelle-texte)); }
   .planning-carte-porteur { color: #6b7280; font-size: calc(8px * var(--echelle-texte)); margin-top: 2px; }
   .planning-fait { opacity: 0.6; } .planning-fait .planning-carte-desc { text-decoration: line-through; }
+  /* --- Onglet IA --- */
+  .tag-mode-ia { background: #f3e8ff; color: #6b21a8; border-color: #a855f7; }
+  .tag-mode-ia:hover { background: #e9d5ff; }
+  .tag-mode-ia.active { background: #a855f7; color: #fff; }
+  #vue-ia { --echelle-texte: 1; }
+  .barre-ia { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 8px; }
+  .barre-ia select, .barre-ia button, .barre-ia input[type="date"], .ia-donnees button, .ia-saisie button, .ia-question-type, .ia-msg-actions button {
+    font-size: calc(12px * var(--echelle-texte, 1)); padding: 4px 10px; border: 1px solid #ccc; border-radius: 6px; background: #f5f5f5; cursor: pointer; font-family: inherit; }
+  .ia-date { font-size: calc(12px * var(--echelle-texte, 1)); color: #555; display: inline-flex; gap: 4px; align-items: center; }
+  .ia-donnees { margin: 0 0 6px; font-size: calc(12px * var(--echelle-texte, 1)); }
+  .ia-donnees summary { cursor: pointer; font-weight: 700; color: #6b21a8; }
+  .ia-champs-liste { display: flex; flex-direction: column; gap: 2px; margin: 6px 0; }
+  .ia-note { color: #777; margin: 4px 0 6px; }
+  .ia-apercu-texte { max-height: 260px; overflow: auto; background: #fafafa; border: 1px solid #ddd; border-radius: 6px; padding: 6px; white-space: pre-wrap; font-size: calc(11px * var(--echelle-texte, 1)); }
+  .ia-volume { font-size: calc(12px * var(--echelle-texte, 1)); color: #555; margin: 0 0 8px; }
+  .ia-volume-erreur { color: #b91c1c; font-weight: 700; }
+  .ia-questions { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+  .ia-question-type { background: #f5f3ff; border-color: #c4b5fd; color: #5b21b6; }
+  .ia-question-type:hover { background: #ede9fe; }
+  .ia-conversation { max-height: 55vh; overflow: auto; display: flex; flex-direction: column; gap: 8px; margin: 0 0 8px; }
+  .ia-msg { border-radius: 8px; padding: 8px 10px; font-size: calc(13px * var(--echelle-texte, 1)); max-width: 92%; }
+  .ia-msg-user { background: #ede9fe; align-self: flex-end; white-space: pre-wrap; }
+  .ia-msg-assistant { background: #fff; border: 1px solid #ddd; align-self: flex-start; }
+  .ia-msg-attente { color: #777; font-style: italic; align-self: flex-start; }
+  .ia-msg-actions { margin-top: 4px; text-align: right; }
+  .ia-ref { color: #5b21b6; font-weight: 700; text-decoration: none; border-bottom: 1px dotted #5b21b6; }
+  .ia-saisie { display: flex; gap: 8px; align-items: flex-end; }
+  .ia-saisie textarea { flex: 1 1 auto; font-family: inherit; font-size: calc(13px * var(--echelle-texte, 1)); padding: 6px; border: 1px solid #ccc; border-radius: 6px; resize: vertical; }
+  .ia-saisie-boutons { display: flex; flex-direction: column; gap: 4px; }
+  .ia-envoyer { background: #a855f7 !important; color: #fff; border-color: #a855f7 !important; }
+  .ia-envoyer:disabled { opacity: .5; cursor: default; }
+  .ia-msg-erreur { color: #b91c1c; margin-top: 6px; font-size: calc(12px * var(--echelle-texte, 1)); }
   .tag-mode-reporting { background: #e0f7f5; color: #0f5f5a; border-color: #14a39a; }
   .tag-mode-reporting:hover { background: #ccf0ed; }
   .tag-mode-reporting.active { background: #14a39a; color: #fff; }

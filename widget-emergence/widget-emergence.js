@@ -1,6 +1,6 @@
-// Widget Emergence — v0.111
-// Numéro de release : <majeure>.<build> (0.111 = release majeure 0, build 111).
-const VERSION_WIDGET = "0.111";
+// Widget Emergence — v0.112
+// Numéro de release : <majeure>.<build> (0.112 = release majeure 0, build 112).
+const VERSION_WIDGET = "0.112";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -4698,7 +4698,8 @@ function basculerVue(mode) {
     contacts: document.getElementById("vue-contacts"),
     activite: document.getElementById("vue-activite"),
     planning: document.getElementById("vue-planning"),
-    reporting: document.getElementById("vue-reporting")
+    reporting: document.getElementById("vue-reporting"),
+    ia: document.getElementById("vue-ia")
   };
   const tags = {
     demandes: document.getElementById("tag-demandes"),
@@ -4706,7 +4707,8 @@ function basculerVue(mode) {
     contacts: document.getElementById("tag-contacts"),
     activite: document.getElementById("tag-activite"),
     planning: document.getElementById("tag-planning"),
-    reporting: document.getElementById("tag-reporting")
+    reporting: document.getElementById("tag-reporting"),
+    ia: document.getElementById("tag-ia")
   };
 
   Object.keys(vues).forEach(cle => {
@@ -4727,6 +4729,8 @@ function basculerVue(mode) {
     afficherPlanning();
   } else if (mode === "reporting") {
     afficherReporting();
+  } else if (mode === "ia") {
+    afficherIa();
   }
 }
 
@@ -4736,6 +4740,7 @@ document.getElementById("tag-contacts").addEventListener("click", () => basculer
 document.getElementById("tag-activite").addEventListener("click", () => basculerVue("activite"));
 document.getElementById("tag-reporting").addEventListener("click", () => basculerVue("reporting"));
 document.getElementById("tag-planning").addEventListener("click", () => basculerVue("planning"));
+document.getElementById("tag-ia").addEventListener("click", () => basculerVue("ia"));
 
 // --- Onglet Activité : indicateurs et graphiques de synthèse ---
 
@@ -6900,3 +6905,282 @@ if (kanbanConteneur) {
   // Utilisateur connecté : e-mail affiché en haut à droite ; contact créé s'il n'existe pas encore.
   initialiserPorteurParDefaut();
 })();
+
+
+// ===================== Onglet IA : questions sur le référentiel =====================
+// Principe : le périmètre (filtres) et les champs cochés sont assemblés en un contexte texte (fiches +
+// statistiques calculées ici, jamais « comptées » par le LLM), envoyé avec la question au service IA configuré
+// (Paramètres généraux). Le LLM doit répondre uniquement à partir de ce contexte et citer les fiches [#id].
+const MAX_CARACTERES_IA = 400000;   // ≈ 110 000 jetons : au-delà, il faut réduire le périmètre
+const TRONQUE_CHAMP_IA = 1500;      // caractères conservés par champ de fiche
+const GROUPES_CHAMPS_IA = [
+  { cle: "personnes", libelle: "Personnes (sponsor, porteurs, parties prenantes — sans les mails)", champs: [] },
+  { cle: "objet", libelle: "Objet et détail de la demande", champs: ["Objet_de_la_demande", "Detail_de_la_demande"] },
+  { cle: "painpoints", libelle: "Problématique, causes racines, synthèse de l'irritant", champs: ["Problematique_transverse", "Causes_racines_de_l_irritant", "Synthese_reformulation_de_l_irritant_et_etat_de_son_traitement"] },
+  { cle: "solutions", libelle: "Pistes et solutions (piste de communs, périmètre d'impact, synthèse, orientation, politique publique)", champs: ["Piste_de_communs", "Perimetre_d_impact2", "Synthese_de_la_demande", "Orientation", "Politique_Publique_concernee"] },
+  { cle: "courante", libelle: "Main courante", champs: ["Main_courante"] },
+  { cle: "rida", libelle: "Lignes RIDA (informations, décisions, actions)", champs: [] }
+];
+const QUESTIONS_TYPES_IA = [
+  "Quels sont les pain points principaux remontés ?",
+  "Quelles solutions sont envisagées ?",
+  "Quels thèmes reviennent dans plusieurs organisations ?",
+  "Quelles demandes semblent bloquées ou en retard, et pourquoi ?",
+  "Quelles actions restent à faire, et pour qui ?"
+];
+const PROMPT_SYSTEME_IA =
+  "Tu es l'assistant du référentiel des demandes de l'équipe Émergence (ministère de l'Intérieur). " +
+  "Réponds en français, uniquement à partir des fiches et des statistiques fournies ci-dessous.\n" +
+  "Règles :\n" +
+  "- N'invente rien. Si une information n'est pas renseignée dans les fiches, écris « non renseigné ».\n" +
+  "- Cite les fiches qui appuient chaque affirmation sous la forme [#id] (exemples : [#12] ou [#12, #15]).\n" +
+  "- Pour tout comptage, utilise uniquement les STATISTIQUES fournies (calculées, ne recompte pas).\n" +
+  "- Indique en une phrase sur combien de fiches repose ta réponse.\n" +
+  "- Réponse structurée et concise (titres courts, puces) ; regroupe les thèmes similaires.";
+
+let iaChampsActifs = new Set(GROUPES_CHAMPS_IA.map(g => g.cle));
+let iaFiltres = { statut: "", typologie: "", organisation: "", du: "", au: "" };
+let iaMessages = [];     // { role: "user" | "assistant", content }
+let iaEnCours = false;
+let iaInitialise = false;
+
+function iaFichesDansPerimetre() {
+  const du = iaFiltres.du ? inputVersDateEpoch(iaFiltres.du) : null;
+  const au = iaFiltres.au ? inputVersDateEpoch(iaFiltres.au) : null;
+  return lignesEmergence.filter(l => {
+    if (iaFiltres.statut && l.Statut !== iaFiltres.statut) return false;
+    if (iaFiltres.typologie && !typologiesDeLigne(l).includes(iaFiltres.typologie)) return false;
+    if (iaFiltres.organisation && l.Organisation !== iaFiltres.organisation) return false;
+    if (du !== null && !(Number(l.Date_de_soumission) >= du)) return false;
+    if (au !== null && !(Number(l.Date_de_soumission) <= au)) return false;
+    return true;
+  });
+}
+
+// Texte d'un champ pour le LLM : une seule ligne, images retirées (le base64 ferait exploser le volume), tronqué.
+function iaTexteChamp(v) {
+  if (v === null || v === undefined) return "";
+  let t = Array.isArray(v) ? typologiesDeValeur(v).join(", ") : String(v);
+  t = t.replace(/!\[[^\]]*\]\([^)]*\)/g, "[image]").replace(/\s+/g, " ").trim();
+  return t.length > TRONQUE_CHAMP_IA ? t.slice(0, TRONQUE_CHAMP_IA) + " […tronqué]" : t;
+}
+
+function iaCompter(valeurs) {
+  const m = new Map();
+  valeurs.forEach(v => { const k = v || "(non renseigné)"; m.set(k, (m.get(k) || 0) + 1); });
+  return [...m.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+function iaStatistiques(fiches) {
+  const ids = new Set(fiches.map(f => f.id));
+  const rida = ridaToutes.filter(r => ids.has(idDepuisRef(r.ID2)) && !estLigneJournalAuto(r));
+  const ligne = (titre, paires, max) => "- " + titre + " : " + (paires.slice(0, max || 20).map(([k, n]) => k + " = " + n).join(" ; ") || "aucune");
+  const actions = rida.filter(r => r.RIDA === "A");
+  return [
+    "Nombre de fiches dans le périmètre : " + fiches.length,
+    ligne("Par statut", iaCompter(fiches.map(f => f.Statut))),
+    ligne("Par priorité", iaCompter(fiches.map(f => f.Priorite))),
+    ligne("Par typologie (une fiche peut en avoir plusieurs)", iaCompter(fiches.flatMap(f => typologiesDeLigne(f).length ? typologiesDeLigne(f) : [""]))),
+    ligne("Par organisation", iaCompter(fiches.map(f => f.Organisation)), 15),
+    "- Lignes RIDA (hors journal automatique) : " + rida.length + " (Informations " + rida.filter(r => r.RIDA === "I").length +
+      ", Décisions " + rida.filter(r => r.RIDA === "D").length + ", Actions " + actions.length +
+      " dont " + actions.filter(r => !r.Fait_le).length + " non terminées)"
+  ].join("\n");
+}
+
+// Construit le contexte envoyé au LLM. Renvoie { texte, nbFiches, nbCar }.
+function iaConstruireContexte(fiches) {
+  const actifs = iaChampsActifs;
+  const ridaParDemande = new Map();
+  if (actifs.has("rida")) ridaToutes.forEach(r => {
+    if (estLigneJournalAuto(r)) return;
+    const id = idDepuisRef(r.ID2);
+    if (!ridaParDemande.has(id)) ridaParDemande.set(id, []);
+    ridaParDemande.get(id).push(r);
+  });
+  const blocs = fiches.map(f => {
+    const l = [];
+    l.push("### Fiche #" + f.id + " — " + (iaTexteChamp(f.Titre) || "Sans titre"));
+    const meta = [
+      "Statut : " + (f.Statut || "—"), "Priorité : " + (f.Priorite || "—"), "Organisation : " + (f.Organisation || "—"),
+      "Typologie : " + (typologiesDeLigne(f).join(", ") || "—"),
+      "Soumise le : " + (formaterDate(f.Date_de_soumission) || "—"), "Clôturée le : " + (formaterDate(f.Date_de_cloture) || "—")
+    ];
+    l.push(meta.join(" | "));
+    if (actifs.has("personnes")) {
+      const pp = refListVersIds(f.Parties_prenantes_concernees).map(Number).filter(id => acteursParId[id]).map(id => nomActeurParId(id)).join(", ");
+      l.push("Sponsor : " + (nomActeur(f.Sponsor) || "—") + " | Porteurs : " + (iaTexteChamp(f.Porteurs) || "—") + " | Parties prenantes : " + (pp || "—"));
+    }
+    GROUPES_CHAMPS_IA.filter(g => actifs.has(g.cle)).forEach(g => g.champs.forEach(c => {
+      const t = iaTexteChamp(f[c]);
+      if (t) l.push(libelleChampJournal(c) + " : " + t);
+    }));
+    (ridaParDemande.get(f.id) || []).forEach(r => {
+      const d = iaTexteChamp(r.Description);
+      l.push("RIDA [" + (LIBELLES_TYPE_RIDA[r.RIDA] || r.RIDA || "?") + "]" + (r.Porteur ? " porteur : " + r.Porteur : "") +
+        (r.Pour_le ? " pour le " + formaterDate(r.Pour_le) : "") + (r.Fait_le ? " fait le " + formaterDate(r.Fait_le) : "") + (d ? " — " + d : ""));
+    });
+    return l.join("\n");
+  });
+  const texte = "PÉRIMÈTRE ET STATISTIQUES (calculées) :\n" + iaStatistiques(fiches) + "\n\nFICHES :\n" + blocs.join("\n\n");
+  return { texte, nbFiches: fiches.length, nbCar: texte.length };
+}
+
+function iaResumeFournisseur() {
+  const cfg = chargerConfigLlm();
+  let hote = cfg.url || "";
+  try { hote = new URL(cfg.url).host; } catch (e) { /* garde l'URL telle quelle */ }
+  return { hote, modele: cfg.modele || "" };
+}
+
+function iaMettreAJourVolume() {
+  const zone = document.getElementById("ia-volume");
+  if (!zone) return;
+  const fiches = iaFichesDansPerimetre();
+  const ctx = iaConstruireContexte(fiches);
+  const f = iaResumeFournisseur();
+  const trop = ctx.nbCar > MAX_CARACTERES_IA;
+  zone.className = "ia-volume" + (trop ? " ia-volume-erreur" : "");
+  zone.textContent = ctx.nbFiches + " fiche(s) · ≈ " + Math.round(ctx.nbCar / 1000) + " k caractères (~" + Math.round(ctx.nbCar / 3.5 / 1000) + " k jetons) · envoyé à " +
+    (f.hote || "(service non configuré)") + (f.modele ? " (" + f.modele + ")" : "") +
+    (trop ? " — trop volumineux : réduisez le périmètre ou décochez des champs." : "");
+  const btn = document.getElementById("ia-envoyer");
+  if (btn) btn.disabled = iaEnCours || trop || ctx.nbFiches === 0;
+  const aperçu = document.getElementById("ia-apercu-texte");
+  if (aperçu && document.getElementById("ia-apercu-zone").style.display !== "none") aperçu.textContent = ctx.texte;
+}
+
+function iaRemplirFiltres() {
+  const remplir = (id, valeurs, libelleTous) => {
+    const sel = document.getElementById(id);
+    const courant = sel.value;
+    sel.innerHTML = "<option value=''>" + libelleTous + "</option>" + valeurs.map(v => "<option value=\"" + escapeHtml(v) + "\">" + escapeHtml(v) + "</option>").join("");
+    sel.value = valeurs.includes(courant) ? courant : "";
+  };
+  const uniques = (f) => [...new Set(lignesEmergence.flatMap(f).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  remplir("ia-statut", uniques(l => [l.Statut]), "Tous les statuts");
+  remplir("ia-typologie", uniques(l => typologiesDeLigne(l)), "Toutes les typologies");
+  remplir("ia-organisation", uniques(l => [l.Organisation]), "Toutes les organisations");
+  iaFiltres.statut = document.getElementById("ia-statut").value;
+  iaFiltres.typologie = document.getElementById("ia-typologie").value;
+  iaFiltres.organisation = document.getElementById("ia-organisation").value;
+}
+
+function iaLierCitations(html) {
+  return html.replace(/\[((?:#\d+\s*[,;]?\s*)+)\]/g, (m, interieur) => "[" + interieur.replace(/#(\d+)/g, (m2, id) => {
+    const l = lignesEmergence.find(x => x.id === Number(id));
+    return l ? "<a href='#' class='ia-ref' data-id='" + id + "' title=\"" + escapeHtml(l.Titre || "Fiche " + id) + "\">#" + id + "</a>" : "#" + id;
+  }) + "]");
+}
+
+function iaRendreConversation() {
+  const zone = document.getElementById("ia-conversation");
+  if (!zone) return;
+  zone.innerHTML = "";
+  iaMessages.forEach((m, i) => {
+    const div = document.createElement("div");
+    div.className = "ia-msg ia-msg-" + m.role;
+    if (m.role === "user") div.textContent = m.content;
+    else {
+      div.innerHTML = iaLierCitations(markdownToHtml(m.content)) + "<div class='ia-msg-actions'><button type='button' class='ia-copier' data-i='" + i + "'>Copier</button></div>";
+    }
+    zone.appendChild(div);
+  });
+  if (iaEnCours) {
+    const att = document.createElement("div");
+    att.className = "ia-msg ia-msg-attente";
+    att.textContent = "Analyse du référentiel en cours…";
+    zone.appendChild(att);
+  }
+  zone.scrollTop = zone.scrollHeight;
+}
+
+async function iaPoserQuestion(question) {
+  const q = String(question || "").trim();
+  const msg = document.getElementById("ia-msg");
+  msg.textContent = "";
+  if (!q || iaEnCours) return;
+  if (!llmEstConfigure()) { msg.textContent = "Configurez d'abord l'assistant IA (⚙ Paramètres généraux)."; return; }
+  const fiches = iaFichesDansPerimetre();
+  const ctx = iaConstruireContexte(fiches);
+  if (!fiches.length) { msg.textContent = "Aucune fiche dans le périmètre choisi."; return; }
+  if (ctx.nbCar > MAX_CARACTERES_IA) { msg.textContent = "Périmètre trop volumineux : réduisez les filtres ou décochez des champs."; return; }
+  iaEnCours = true;
+  iaMessages.push({ role: "user", content: q });
+  document.getElementById("ia-question").value = "";
+  iaRendreConversation();
+  iaMettreAJourVolume();
+  try {
+    const cfg = chargerConfigLlm();
+    const historique = iaMessages.slice(0, -1).slice(-6).map(m => ({ role: m.role, content: m.content }));
+    const reponse = await appelerLlm([
+      { role: "system", content: PROMPT_SYSTEME_IA + "\n\n" + ctx.texte },
+      ...historique,
+      { role: "user", content: q }
+    ], cfg);
+    iaMessages.push({ role: "assistant", content: reponse });
+  } catch (e) {
+    console.error("Onglet IA :", e);
+    msg.textContent = "Erreur : " + e.message;
+    iaMessages.pop(); // la question reste à ressaisir
+    document.getElementById("ia-question").value = q;
+  } finally {
+    iaEnCours = false;
+    iaRendreConversation();
+    iaMettreAJourVolume();
+  }
+}
+
+function afficherIa() {
+  if (!iaInitialise) {
+    iaInitialise = true;
+    document.getElementById("ia-champs-liste").innerHTML = GROUPES_CHAMPS_IA.map(g =>
+      "<label><input type='checkbox' class='ia-champ' value='" + g.cle + "' checked> " + escapeHtml(g.libelle) + "</label>").join("");
+    document.getElementById("ia-questions").innerHTML = QUESTIONS_TYPES_IA.map((q, i) =>
+      "<button type='button' class='ia-question-type' data-i='" + i + "'>" + escapeHtml(q) + "</button>").join("");
+    document.getElementById("ia-champs-liste").addEventListener("change", (e) => {
+      if (!e.target.classList.contains("ia-champ")) return;
+      if (e.target.checked) iaChampsActifs.add(e.target.value); else iaChampsActifs.delete(e.target.value);
+      iaMettreAJourVolume();
+    });
+    ["ia-statut", "ia-typologie", "ia-organisation"].forEach(id => document.getElementById(id).addEventListener("change", () => {
+      iaFiltres = { ...iaFiltres, statut: document.getElementById("ia-statut").value, typologie: document.getElementById("ia-typologie").value, organisation: document.getElementById("ia-organisation").value };
+      iaMettreAJourVolume();
+    }));
+    ["ia-du", "ia-au"].forEach(id => document.getElementById(id).addEventListener("change", () => {
+      iaFiltres.du = document.getElementById("ia-du").value; iaFiltres.au = document.getElementById("ia-au").value;
+      iaMettreAJourVolume();
+    }));
+    document.getElementById("ia-reset").addEventListener("click", () => {
+      ["ia-statut", "ia-typologie", "ia-organisation", "ia-du", "ia-au"].forEach(id => { document.getElementById(id).value = ""; });
+      iaFiltres = { statut: "", typologie: "", organisation: "", du: "", au: "" };
+      iaMettreAJourVolume();
+    });
+    document.getElementById("ia-questions").addEventListener("click", (e) => {
+      const b = e.target.closest(".ia-question-type");
+      if (b) iaPoserQuestion(QUESTIONS_TYPES_IA[Number(b.getAttribute("data-i"))]);
+    });
+    document.getElementById("ia-envoyer").addEventListener("click", () => iaPoserQuestion(document.getElementById("ia-question").value));
+    document.getElementById("ia-question").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); iaPoserQuestion(e.target.value); }
+    });
+    document.getElementById("ia-effacer").addEventListener("click", () => { iaMessages = []; document.getElementById("ia-msg").textContent = ""; iaRendreConversation(); });
+    document.getElementById("ia-apercu").addEventListener("click", () => {
+      const z = document.getElementById("ia-apercu-zone");
+      z.style.display = z.style.display === "none" ? "block" : "none";
+      iaMettreAJourVolume();
+    });
+    document.getElementById("ia-conversation").addEventListener("click", (e) => {
+      const ref = e.target.closest(".ia-ref");
+      if (ref) { e.preventDefault(); basculerVue("demandes"); selectionnerLigne(Number(ref.getAttribute("data-id"))); return; }
+      const cp = e.target.closest(".ia-copier");
+      if (cp) {
+        const texte = (iaMessages[Number(cp.getAttribute("data-i"))] || {}).content || "";
+        if (navigator.clipboard) navigator.clipboard.writeText(texte).then(() => { cp.textContent = "Copié"; setTimeout(() => { cp.textContent = "Copier"; }, 1500); }).catch(() => {});
+      }
+    });
+  }
+  iaRemplirFiltres();
+  iaRendreConversation();
+  iaMettreAJourVolume();
+}
