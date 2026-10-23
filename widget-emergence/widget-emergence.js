@@ -1,6 +1,6 @@
-// Widget Emergence — v0.112
-// Numéro de release : <majeure>.<build> (0.112 = release majeure 0, build 112).
-const VERSION_WIDGET = "0.112";
+// Widget Emergence — v0.113
+// Numéro de release : <majeure>.<build> (0.113 = release majeure 0, build 113).
+const VERSION_WIDGET = "0.113";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -7184,3 +7184,129 @@ function afficherIa() {
   iaRendreConversation();
   iaMettreAJourVolume();
 }
+
+
+// ===================== Export Markdown de toute la base (pour un LLM externe) =====================
+// Un seul fichier .md structuré : consignes d'usage, statistiques, index des demandes, puis chaque fiche
+// (tous les champs renseignés + lignes RIDA), les lignes RIDA sans fiche et les acteurs. Pas de mails,
+// de téléphones ni d'images (remplacées par « [image] »).
+const CHAMPS_EXPORT_IGNORES = new Set(["id", "manualSort", "html_fiche", "Titre", "Date_de_modification"]);
+const CHAMPS_EXPORT_DATES = new Set(["Date_de_soumission", "Date_de_cloture"]);
+
+function exportTexteMarkdown(v) {
+  // Texte libre conservé tel quel (markdown de l'utilisateur), mais : images retirées, titres rétrogradés en gras
+  // (pour ne pas casser la hiérarchie du document), lignes vides multiples réduites.
+  return String(v)
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "[image]")
+    .replace(/^\s{0,3}#{1,6}\s+(.*)$/gm, "**$1**")
+    .replace(/\r\n?/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function exportValeurChamp(cle, v) {
+  if (v === null || v === undefined || v === "" || v === false) return "";
+  if (cle === "Sponsor") return refListVersIds(v).map(Number).filter(id => acteursParId[id]).map(ligneActeur).join(", ");
+  if (cle === "Parties_prenantes_concernees") return refListVersIds(v).map(Number).filter(id => acteursParId[id]).map(ligneActeur).join(", ");
+  if (CHAMPS_EXPORT_DATES.has(cle)) return typeof v === "number" ? formaterDate(v) : "";
+  if (Array.isArray(v)) return typologiesDeValeur(v).join(", ");
+  if (typeof v === "object") return "";
+  if (typeof v === "number") return /date|_le$/i.test(cle) ? formaterDate(v) : String(v);
+  return exportTexteMarkdown(v);
+}
+
+function exportLigneRida(r) {
+  const type = LIBELLES_TYPE_RIDA[r.RIDA] || r.RIDA || "?";
+  const d = r.Description ? exportTexteMarkdown(r.Description).replace(/\n+/g, " ") : "";
+  return "- **" + type + "**" + (r.Porteur ? " — porteur : " + r.Porteur : "") +
+    (r.Pour_le ? " — pour le " + formaterDate(r.Pour_le) : "") + (r.Fait_le ? " — fait le " + formaterDate(r.Fait_le) : "") +
+    (estLigneJournalAuto(r) ? " *(journal automatique)*" : "") + (d ? " : " + d : "");
+}
+
+function genererMarkdownBase() {
+  const fiches = lignesEmergence.slice().sort((a, b) => a.id - b.id);
+  const ids = new Set(fiches.map(f => f.id));
+  const ridaParFiche = new Map();
+  const orphelines = [];
+  ridaToutes.forEach(r => {
+    const id = idDepuisRef(r.ID2);
+    if (ids.has(id)) { if (!ridaParFiche.has(id)) ridaParFiche.set(id, []); ridaParFiche.get(id).push(r); }
+    else orphelines.push(r);
+  });
+  const cleDate = (r) => Number(r.Fait_le || r.Pour_le || 0);
+  const maintenant = new Date();
+  const L = [];
+  L.push("# Base documentaire Émergence — export du " + formaterDate(aujourdHuiEpoch()) + " " + String(maintenant.getHours()).padStart(2, "0") + ":" + String(maintenant.getMinutes()).padStart(2, "0"));
+  L.push("");
+  L.push("*Généré par le widget Émergence v" + VERSION_WIDGET + ". " + fiches.length + " demande(s), " + ridaToutes.length + " ligne(s) RIDA, " + Object.keys(acteursParId).length + " acteur(s).*");
+  L.push("");
+  L.push("## Consignes d'usage pour le LLM");
+  L.push("");
+  L.push("- Ce document est la base des demandes accompagnées par l'équipe Émergence (ministère de l'Intérieur). Réponds uniquement à partir de son contenu ; si une information n'y figure pas, indique « non renseigné ».");
+  L.push("- Chaque demande est identifiée par `#id` (section « Fiche #id »). Cite les fiches sous la forme [#id] pour appuyer tes affirmations.");
+  L.push("- RIDA = Information, Décision ou Action. Une action sans date « fait le » est non terminée. Les lignes « journal automatique » sont des traces de modification, sans contenu métier.");
+  L.push("- Les statistiques ci-dessous sont calculées : utilise-les pour les comptages plutôt que de recompter.");
+  L.push("- Les adresses mail, téléphones et images ne sont pas inclus (images remplacées par « [image] »).");
+  L.push("");
+  L.push("## Statistiques");
+  L.push("");
+  L.push(iaStatistiques(fiches));
+  L.push("");
+  L.push("## Index des demandes");
+  L.push("");
+  L.push("| # | Titre | Statut | Priorité | Typologie | Organisation | Soumise le |");
+  L.push("|---|---|---|---|---|---|---|");
+  const cellule = (t) => String(t || "—").replace(/\|/g, "\\|").replace(/\s+/g, " ");
+  fiches.forEach(f => L.push("| " + f.id + " | " + cellule(f.Titre) + " | " + cellule(f.Statut) + " | " + cellule(f.Priorite) + " | " +
+    cellule(typologiesDeLigne(f).join(", ")) + " | " + cellule(f.Organisation) + " | " + (formaterDate(f.Date_de_soumission) || "—") + " |"));
+  L.push("");
+  L.push("## Fiches");
+  fiches.forEach(f => {
+    L.push("");
+    L.push("### Fiche #" + f.id + " — " + (String(f.Titre || "Sans titre").replace(/\s+/g, " ")));
+    L.push("");
+    const simples = [], longs = [];
+    Object.keys(f).forEach(cle => {
+      if (CHAMPS_EXPORT_IGNORES.has(cle)) return;
+      const v = exportValeurChamp(cle, f[cle]);
+      if (!v) return;
+      (v.indexOf("\n") !== -1 || v.length > 160 ? longs : simples).push([libelleChampJournal(cle), v]);
+    });
+    if (f.Date_de_modification) simples.push(["Dernière modification", formaterDateHeure(f.Date_de_modification)]);
+    simples.forEach(([l, v]) => L.push("- **" + l + "** : " + v));
+    longs.forEach(([l, v]) => { L.push(""); L.push("**" + l + "** :"); L.push(""); L.push(v); });
+    const rida = (ridaParFiche.get(f.id) || []).slice().sort((a, b) => cleDate(a) - cleDate(b));
+    if (rida.length) {
+      L.push(""); L.push("**RIDA** :"); L.push("");
+      rida.forEach(r => L.push(exportLigneRida(r)));
+    }
+  });
+  if (orphelines.length) {
+    L.push(""); L.push("## Lignes RIDA sans fiche"); L.push("");
+    orphelines.forEach(r => L.push(exportLigneRida(r)));
+  }
+  L.push(""); L.push("## Acteurs"); L.push("");
+  Object.keys(acteursParId).map(Number).sort((a, b) => a - b).forEach(id => {
+    const a = acteursParId[id];
+    const detail = [a.Organisation, a.Role].filter(Boolean).join(" — ");
+    L.push("- " + (a.Nom_et_Prenom || "—") + (detail ? " (" + detail + ")" : ""));
+  });
+  return L.join("\n") + "\n";
+}
+
+function telechargerBaseMarkdown() {
+  const msg = document.getElementById("param-export-msg");
+  try {
+    const texte = genererMarkdownBase();
+    const d = new Date();
+    const nom = "base_emergence_" + d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0") + ".md";
+    telechargerBlob(new Blob([texte], { type: "text/markdown;charset=utf-8" }), nom);
+    msg.className = "modale-msg";
+    msg.textContent = nom + " téléchargé — " + lignesEmergence.length + " demande(s), " + Math.round(texte.length / 1000) + " k caractères (~" + Math.round(texte.length / 3.5 / 1000) + " k jetons).";
+  } catch (e) {
+    console.error("Export Markdown :", e);
+    msg.className = "modale-msg erreur";
+    msg.textContent = "Échec de l'export : " + e.message;
+  }
+}
+document.getElementById("param-export-md").addEventListener("click", telechargerBaseMarkdown);
