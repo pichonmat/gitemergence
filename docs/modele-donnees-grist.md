@@ -9,6 +9,7 @@ Généré automatiquement le 22/09/2026 09:29:33
 - [Emergence_PJ](#table-emergence-pj)
 - [Emergence_Rida](#table-emergence-rida)
 - [Emergence_Images](#table-emergence-images)
+- [Emergence_Templates](#table-emergence-templates)
 
 ## Table `Emergence`
 
@@ -101,3 +102,14 @@ Le texte contient `![image](image:ID)` où ID est l'id de la ligne.
 | `Type` | Type | `Text` | Non | type MIME (image/jpeg, image/png) |
 | `Date_ajout` | Date d'ajout | `Date` | Non |  |
 | `Donnees` | Données (base64) | `Text` | Non | data URL de l'image réduite (1600 px max) |
+
+## Table `Emergence_Templates`
+
+Modèle PowerPoint utilisé par l'icône « PPT » de la liste des demandes (v0.114). Le widget lit la **dernière pièce jointe** de la colonne `Fichier`
+(dernière ligne renseignée). Le fichier doit être un .pptx d'**une seule diapo** contenant les balises `<Organisation>`, `<objet de la demande>`,
+`<une ou deux dates clés>`, `<sponsors, porteurs, partie prenantes>`, `<synthèse de l'avancement en 3 phrases>` et `<type>`.
+
+| Colonne (colId) | Libellé | Type | Formule | Détails |
+|---|---|---|---|---|
+| `titre` | titre | `Text` | Non | libre (ex. « slide ») |
+| `Fichier` | Fichier | `Attachments` | Non | le modèle .pptx |

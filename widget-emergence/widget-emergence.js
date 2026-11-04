@@ -1,11 +1,12 @@
-// Widget Emergence — v0.113
-// Numéro de release : <majeure>.<build> (0.113 = release majeure 0, build 113).
-const VERSION_WIDGET = "0.113";
+// Widget Emergence — v0.114
+// Numéro de release : <majeure>.<build> (0.114 = release majeure 0, build 114).
+const VERSION_WIDGET = "0.114";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
 const TABLE_PRINCIPALE = "Emergence";
 const TABLE_ACTEURS = "Emergence_Acteurs";
+const TABLE_TEMPLATES = "Emergence_Templates"; // modèle(s) PowerPoint en pièce jointe (colonne Fichier)
 const TABLE_IMAGES = "Emergence_Images"; // images collées (base64), créée par l'outil creation-table-images
 const TABLE_RIDA = "Emergence_Rida";
 
@@ -562,6 +563,7 @@ async function chargerMetaTypologie() {
 }
 
 let largeursColonnes = {
+  "Ppt": 44,
   "Statut": 110,
   "Date_de_derniere_modification": 120,
   "Priorite": 84,
@@ -577,7 +579,7 @@ let largeursColonnes = {
 };
 
 const ORDRE_COLONNES = [
-  "Priorite", "Statut", "Date_de_derniere_modification", "Date_de_soumission", "Organisation", "Sponsor", "Porteurs",
+  "Ppt", "Priorite", "Statut", "Date_de_derniere_modification", "Date_de_soumission", "Organisation", "Sponsor", "Porteurs",
   "Titre", "Ref_BRM", "Typologie_de_la_demande", "Parties_prenantes_concernees", "Action_ouverte"
 ];
 
@@ -598,6 +600,7 @@ function cleRefBrm(ligne) {
 }
 
 const LIBELLES_COLONNES = {
+  "Ppt": "Icône PowerPoint",
   "Priorite": "Priorité",
   "Statut": "Statut",
   "Date_de_derniere_modification": "Dernière modification",
@@ -1915,7 +1918,7 @@ function afficherListe() {
   mettreAJourCompteurRechercheGlobale(lignesTriees.length);
 
   if (lignesTriees.length === 0) {
-    corps.innerHTML = "<tr><td colspan='12' class='chargement'>Aucune ligne trouvée.</td></tr>";
+    corps.innerHTML = "<tr><td colspan='13' class='chargement'>Aucune ligne trouvée.</td></tr>";
     return;
   }
   let html = "";
@@ -1956,6 +1959,7 @@ function afficherListe() {
       celluleRida = "<span style='color:#bbb;'>—</span>";
     }
     html += "<tr class='" + sel + "' data-id='" + ligne.id + "'>" +
+      "<td class='cellule-ppt'><button type='button' class='btn-ppt-ligne' title='Générer la diapo PowerPoint de cette fiche'>PPT</button></td>" +
       "<td class='cellule-priorite cellule-liste-editable' data-edit='priorite' title='Cliquer sur l\'icône pour modifier la priorité'><span class='texte-cellule-edit'>" + iconePriorite(ligne.Priorite) + "</span></td>" +
       "<td class='cellule-statut-modifiable' title='Cliquer pour changer le statut'>" + badgeStatut(ligne.Statut) + "</td>" +
       "<td class='cellule-derniere-modif' title='Dernière modification de la demande (fiche ou lignes RIDA)'>" + (formaterDerniereModifDemande(ligne.id) || "—") + "</td>" +
@@ -1971,6 +1975,12 @@ function afficherListe() {
       "</tr>";
   }
   corps.innerHTML = html;
+  corps.querySelectorAll(".btn-ppt-ligne").forEach(b => {
+    b.addEventListener("click", (e) => {
+      e.stopPropagation(); // ne change pas la fiche sélectionnée
+      ouvrirModalePpt(parseInt(b.closest("tr").getAttribute("data-id"), 10));
+    });
+  });
   corps.querySelectorAll("tr[data-id]").forEach(tr => {
     tr.addEventListener("click", () => {
       const id = parseInt(tr.getAttribute("data-id"), 10);
@@ -2355,6 +2365,7 @@ document.querySelectorAll("thead th").forEach(th => {
     if (e.target.classList.contains("poignee") || e.target.classList.contains("icone-filtre-action") ||
       e.target.classList.contains("icone-masquer-colonne") || th.dataset.enTrainDeRedimensionner === "1") return;
     const col = th.getAttribute("data-col");
+    if (th.hasAttribute("data-non-triable")) return;
     if (colonneTri === col) sensTri = sensTri === "asc" ? "desc" : "asc";
     else { colonneTri = col; sensTri = "asc"; }
     afficherListe();
@@ -7310,3 +7321,298 @@ function telechargerBaseMarkdown() {
   }
 }
 document.getElementById("param-export-md").addEventListener("click", telechargerBaseMarkdown);
+
+// ===================== Export PowerPoint d'une fiche (v0.114) =====================
+// Icône « PPT » à gauche de chaque ligne de la liste : ouvre une modale (aperçu simplifié, textes modifiables)
+// puis produit un .pptx d'une diapo à partir du modèle stocké en pièce jointe dans la table Emergence_Templates
+// (colonne Fichier). Le modèle contient des balises <Organisation>, <objet de la demande>, <une ou deux dates clés>,
+// <sponsors, porteurs, partie prenantes>, <synthèse de l'avancement en 3 phrases>, <type>, remplacées dans le XML de
+// la diapo. Pas de bibliothèque : lecture/écriture zip avec DecompressionStream / CompressionStream (navigateur).
+const PPT_DIM = { w: 12192000, h: 6858000 };
+const PPT_ZONES = { // positions EMU lues dans le modèle (x, y, largeur, hauteur)
+  org: [1879517, 316048, 5600000, 738472],
+  contexte: [1206497, 1995516, 4387366, 2200000],
+  dates: [6891138, 1935429, 4325549, 700000],
+  participants: [6893122, 3086076, 4169935, 1100000],
+  bilan: [1295397, 4974019, 9922008, 1000000],
+  type: [9690005, 6318914, 1672164, 448914]
+};
+let pptEtat = null; // { ligneId, valeurs, enCours }
+
+// ---------- Zip minimal ----------
+
+async function fluxVersOctets(flux) { return new Uint8Array(await new Response(flux).arrayBuffer()); }
+async function inflateBrut(u8) {
+  if (typeof DecompressionStream === "undefined") throw new Error("Ce navigateur ne sait pas décompresser un .pptx (DecompressionStream absent).");
+  return fluxVersOctets(new Blob([u8]).stream().pipeThrough(new DecompressionStream("deflate-raw")));
+}
+async function deflateBrut(u8) {
+  if (typeof CompressionStream === "undefined") throw new Error("Ce navigateur ne sait pas compresser un .pptx (CompressionStream absent).");
+  return fluxVersOctets(new Blob([u8]).stream().pipeThrough(new CompressionStream("deflate-raw")));
+}
+
+// Renvoie un tableau ordonné [{ nom, donnees: Uint8Array }]
+async function lireZip(octets) {
+  const u8 = octets instanceof Uint8Array ? octets : new Uint8Array(octets);
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  let eocd = -1;
+  for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65600); i--) { if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; } }
+  if (eocd < 0) throw new Error("Le fichier n'est pas un zip/pptx valide.");
+  const nb = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  const dec = new TextDecoder();
+  const res = [];
+  for (let k = 0; k < nb; k++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) throw new Error("Zip corrompu (répertoire central).");
+    const methode = dv.getUint16(p + 10, true), tailleC = dv.getUint32(p + 20, true);
+    const ln = dv.getUint16(p + 28, true), le = dv.getUint16(p + 30, true), lc = dv.getUint16(p + 32, true);
+    const decal = dv.getUint32(p + 42, true);
+    const nom = dec.decode(u8.subarray(p + 46, p + 46 + ln));
+    const ln2 = dv.getUint16(decal + 26, true), le2 = dv.getUint16(decal + 28, true);
+    const brut = u8.subarray(decal + 30 + ln2 + le2, decal + 30 + ln2 + le2 + tailleC);
+    if (!nom.endsWith("/")) res.push({ nom, donnees: methode === 0 ? brut.slice() : await inflateBrut(brut) });
+    p += 46 + ln + le + lc;
+  }
+  return res;
+}
+
+async function ecrireZip(entrees) {
+  const enc = new TextEncoder();
+  const morceaux = [], central = [];
+  let decal = 0;
+  const u16 = (v) => [v & 255, (v >>> 8) & 255], u32 = (v) => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+  for (const e of entrees) {
+    const nom = enc.encode(e.nom), crc = crc32(e.donnees);
+    const comp = await deflateBrut(e.donnees);
+    const entete = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(8), ...u16(0), ...u16(0x21),
+      ...u32(crc), ...u32(comp.length), ...u32(e.donnees.length), ...u16(nom.length), ...u16(0)]);
+    morceaux.push(entete, nom, comp);
+    central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(8), ...u16(0), ...u16(0x21),
+      ...u32(crc), ...u32(comp.length), ...u32(e.donnees.length), ...u16(nom.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0),
+      ...u32(0), ...u32(decal)]), nom);
+    decal += entete.length + nom.length + comp.length;
+  }
+  const tailleCentral = central.reduce((s, m) => s + m.length, 0);
+  const fin = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(entrees.length), ...u16(entrees.length),
+    ...u32(tailleCentral), ...u32(decal), ...u16(0)]);
+  return new Blob([...morceaux, ...central, fin], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
+}
+
+// ---------- Modèle dans la table Emergence_Templates ----------
+let pptTemplateCache = null; // entrées zip du modèle
+async function chargerTemplatePptx(forcer) {
+  if (pptTemplateCache && !forcer) return pptTemplateCache;
+  let t;
+  try { t = await grist.docApi.fetchTable(TABLE_TEMPLATES); }
+  catch (e) { throw new Error("Table « " + TABLE_TEMPLATES + " » introuvable ou illisible (" + (e.message || e) + ")."); }
+  const cleFichier = Object.keys(t).find(k => k.toLowerCase() === "fichier");
+  if (!cleFichier) throw new Error("La table " + TABLE_TEMPLATES + " n'a pas de colonne « Fichier ».");
+  // dernière ligne ayant une pièce jointe (la dernière pièce jointe de la cellule)
+  let idPj = null;
+  (t.id || []).forEach((id, i) => {
+    const v = t[cleFichier][i];
+    const ids = Array.isArray(v) ? v.filter(x => typeof x === "number") : [];
+    if (ids.length) idPj = ids[ids.length - 1];
+  });
+  if (!idPj) throw new Error("Aucun fichier dans la colonne Fichier de " + TABLE_TEMPLATES + ".");
+  let octets;
+  try {
+    let r = await fetch(await urlAttachment(idPj, false));
+    if (!r.ok) r = await fetch(await urlAttachment(idPj, true));
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    octets = await r.arrayBuffer();
+  } catch (e) {
+    throw new Error("Téléchargement du modèle impossible (" + (e.message || e) + ").");
+  }
+  const entrees = await lireZip(octets);
+  const slides = entrees.filter(e => /^ppt\/slides\/slide\d+\.xml$/.test(e.nom));
+  const dec = new TextDecoder();
+  const cible = slides.filter(s => dec.decode(s.donnees).includes("&lt;Organisation&gt;"));
+  if (slides.length !== 1 || cible.length !== 1) {
+    throw new Error("Le modèle doit être un .pptx d'une seule diapo contenant la balise <Organisation> (trouvé : " + slides.length + " diapo(s), " + cible.length + " avec la balise).");
+  }
+  pptTemplateCache = entrees;
+  return entrees;
+}
+
+// ---------- Remplissage du XML de la diapo ----------
+const NS_A = "http://schemas.openxmlformats.org/drawingml/2006/main";
+function remplirSlideXml(xml, v) {
+  const doc = new DOMParser().parseFromString(xml, "application/xml");
+  if (doc.getElementsByTagName("parsererror").length) throw new Error("XML de la diapo illisible.");
+  const sz = (txt, grand) => String(txt || "").length > (grand ? 28 : 9999) ? (String(txt).length > 40 ? 2200 : 2800) : null;
+  const regles = [
+    { test: t => t === "<Organisation>", lignes: [v.org], taille: sz(v.org, true) },
+    { test: t => t === "<objet de la demande>", lignes: v.contexte, taille: 1600 },
+    { test: t => t === "<une ou deux dates clés>", lignes: v.dates, taille: 1400 },
+    { test: t => t.startsWith("<sponsors"), lignes: v.participants, taille: 1400 },
+    { test: t => t.startsWith("<synthèse"), lignes: v.bilan, taille: 1600 },
+    { test: t => t === "<type>", lignes: [v.type] }
+  ];
+  const paragraphes = Array.from(doc.getElementsByTagNameNS(NS_A, "p"));
+  for (const p of paragraphes) {
+    const runs = Array.from(p.getElementsByTagNameNS(NS_A, "r"));
+    if (!runs.length) continue;
+    const texte = runs.map(r => (r.getElementsByTagNameNS(NS_A, "t")[0] || {}).textContent || "").join("").replace(/\s+/g, " ").trim();
+    const regle = regles.find(r => r.test(texte.replace("’", "'")) || r.test(texte));
+    if (!regle) continue;
+    let lignes = (regle.lignes || []).map(s => String(s == null ? "" : s)).filter(s => s.length);
+    if (!lignes.length) lignes = [""];
+    runs.slice(1).forEach(r => r.parentNode.removeChild(r));
+    const run = runs[0];
+    if (regle.taille) run.getElementsByTagNameNS(NS_A, "rPr")[0].setAttribute("sz", String(regle.taille));
+    const gabarit = p.cloneNode(true);
+    const poser = (para, txt) => { para.getElementsByTagNameNS(NS_A, "t")[0].textContent = txt; };
+    poser(p, lignes[0]);
+    let precedent = p;
+    for (let i = 1; i < lignes.length; i++) {
+      const c = gabarit.cloneNode(true);
+      poser(c, lignes[i]);
+      precedent.parentNode.insertBefore(c, precedent.nextSibling);
+      precedent = c;
+    }
+  }
+  return new XMLSerializer().serializeToString(doc);
+}
+
+async function genererPptx(valeurs) {
+  const entrees = await chargerTemplatePptx(false);
+  const dec = new TextDecoder(), enc = new TextEncoder();
+  const sortie = entrees.map(e => /^ppt\/slides\/slide\d+\.xml$/.test(e.nom)
+    ? { nom: e.nom, donnees: enc.encode(remplirSlideXml(dec.decode(e.donnees), valeurs)) } : e);
+  sortie.sort((a, b) => (a.nom === "[Content_Types].xml" ? -1 : b.nom === "[Content_Types].xml" ? 1 : 0));
+  return ecrireZip(sortie);
+}
+
+// ---------- Contenu issu de la fiche ----------
+function pptTronquer(s, n) {
+  s = String(s || "").replace(/\s+/g, " ").trim();
+  return s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…" : s;
+}
+function pptLignesRida(ligne) {
+  return ridaToutes.filter(r => idDepuisRef(r.ID2) === ligne.id && !estLigneJournalAuto(r))
+    .sort((a, b) => Number(a.Pour_le || a.Fait_le || 0) - Number(b.Pour_le || b.Fait_le || 0));
+}
+function pptParticipants(ligne) {
+  const L = [];
+  const sp = nomActeur(ligne.Sponsor); if (sp) L.push("Sponsor : " + sp);
+  if (ligne.Porteurs) L.push("Porteur : " + ligne.Porteurs);
+  const pp = nomActeur(ligne.Parties_prenantes_concernees); if (pp) L.push("Parties prenantes : " + pp);
+  return L.map(l => pptTronquer(l, 90)).slice(0, 4);
+}
+function pptContenuBrut(ligne) {
+  const dates = [];
+  if (ligne.Date_de_soumission) dates.push(formaterDate(ligne.Date_de_soumission) + " : demande initiale");
+  if (ligne.Date_de_cloture) dates.push(formaterDate(ligne.Date_de_cloture) + " : clôture");
+  const objet = pptTronquer(exportTexteMarkdown(ligne.Objet_de_la_demande || ligne.Detail_de_la_demande || ""), 450);
+  const bilan = pptTronquer(exportTexteMarkdown(ligne.Synthese_de_la_demande || ligne.Synthese_reformulation_de_l_irritant_et_etat_de_son_traitement || ""), 380);
+  return {
+    org: ligne.Organisation || "",
+    contexte: objet ? [objet] : [],
+    dates: dates.slice(0, 2),
+    participants: pptParticipants(ligne),
+    bilan: bilan ? [bilan] : [],
+    type: typologiesDeLigne(ligne)[0] || ""
+  };
+}
+function pptContexteLlm(ligne) {
+  const L = [];
+  const add = (k, v) => { const t = exportTexteMarkdown(v == null ? "" : v); if (t) L.push(k + " : " + pptTronquer(t, 2500)); };
+  add("Organisation", ligne.Organisation); add("Titre", ligne.Titre); add("Statut", ligne.Statut);
+  add("Objet de la demande", ligne.Objet_de_la_demande); add("Détail de la demande", ligne.Detail_de_la_demande);
+  add("Synthèse de la demande", ligne.Synthese_de_la_demande);
+  add("Synthèse de l'irritant et état de son traitement", ligne.Synthese_reformulation_de_l_irritant_et_etat_de_son_traitement);
+  add("Main courante", ligne.Main_courante);
+  if (ligne.Date_de_soumission) L.push("Date de soumission : " + formaterDate(ligne.Date_de_soumission));
+  if (ligne.Date_de_cloture) L.push("Date de clôture : " + formaterDate(ligne.Date_de_cloture));
+  const rida = pptLignesRida(ligne).slice(-12).map(exportLigneRida);
+  if (rida.length) L.push("Lignes RIDA :\n" + rida.join("\n"));
+  return L.join("\n");
+}
+const PROMPT_PPT = "Tu prépares une diapo de synthèse pour une direction du ministère de l'Intérieur. À partir de la fiche fournie, réponds UNIQUEMENT par un objet JSON " +
+  "{\"contexte\": string, \"dates\": [string, string], \"bilan\": string} en français. contexte : l'objet et l'objectif de la demande, 2 à 3 phrases, 380 caractères maximum. " +
+  "dates : 1 ou 2 dates clés au format « JJ/MM/AAAA : événement » (60 caractères maximum chacune), uniquement si elles figurent dans la fiche. " +
+  "bilan : synthèse de l'avancement en 3 phrases maximum, 350 caractères maximum. N'invente rien ; pas de markdown.";
+async function pptCondenserParIa(ligne) {
+  const rep = await appelerLlm([{ role: "system", content: PROMPT_PPT }, { role: "user", content: pptContexteLlm(ligne) }]);
+  const m = rep.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error("Réponse de l'IA non exploitable.");
+  const j = JSON.parse(m[0]);
+  return {
+    contexte: j.contexte ? [pptTronquer(j.contexte, 450)] : null,
+    dates: Array.isArray(j.dates) ? j.dates.filter(Boolean).slice(0, 2).map(d => pptTronquer(d, 70)) : null,
+    bilan: j.bilan ? [pptTronquer(j.bilan, 420)] : null
+  };
+}
+
+// ---------- Modale ----------
+function pptPct(z) { return "left:" + (z[0] / PPT_DIM.w * 100) + "%;top:" + (z[1] / PPT_DIM.h * 100) + "%;width:" + (z[2] / PPT_DIM.w * 100) + "%;height:" + (z[3] / PPT_DIM.h * 100) + "%;"; }
+function pptRendreScene(v) {
+  const sc = document.getElementById("ppt-scene");
+  const carte = (x, y, w, h) => "<div class='ppt-carte' style='" + pptPct([x, y, w, h]) + "'></div>";
+  const titre = (txt, x, y) => "<div class='ppt-titre-zone' style='left:" + (x / PPT_DIM.w * 100) + "%;top:" + (y / PPT_DIM.h * 100) + "%'>" + txt + "</div>";
+  const zone = (cle, cls) => "<div class='ppt-texte " + (cls || "") + "' contenteditable='true' data-ppt='" + cle + "' style='" + pptPct(PPT_ZONES[cle]) + "'></div>";
+  sc.innerHTML = "<div class='ppt-bande'></div>" +
+    carte(931329, 1340514, 5164664, 2942163) + carte(6347431, 1340514, 5164664, 2942163) + carte(1020231, 4439534, 10491865, 1572480) +
+    titre("Contexte et objectifs", 1206496, 1514970) + titre("Dates clés", 6838498, 1514970) + titre("Participants", 6829623, 2657968) + titre("Bilan / Observations", 1298637, 4526456) +
+    zone("org", "ppt-org") + zone("contexte") + zone("dates") + zone("participants") + zone("bilan") +
+    "<div class='ppt-type' contenteditable='true' data-ppt='type' style='" + pptPct(PPT_ZONES.type) + "'></div>" +
+    "<div class='ppt-pied'>Direction de la Transformation numérique</div>";
+  pptPoserValeurs(v);
+}
+function pptPoserValeurs(v) {
+  document.querySelectorAll("#ppt-scene [data-ppt]").forEach(el => {
+    const val = v[el.getAttribute("data-ppt")];
+    el.textContent = Array.isArray(val) ? val.join("\n") : (val || "");
+  });
+}
+function pptLireValeurs() {
+  const lire = (cle) => { const el = document.querySelector("#ppt-scene [data-ppt='" + cle + "']"); return el ? String(el.innerText !== undefined ? el.innerText : el.textContent).replace(/\u00a0/g, " ") : ""; };
+  const lignes = (cle) => lire(cle).split(/\n+/).map(s => s.trim()).filter(Boolean);
+  return { org: lire("org").replace(/\s+/g, " ").trim(), contexte: lignes("contexte"), dates: lignes("dates"),
+    participants: lignes("participants"), bilan: lignes("bilan"), type: lire("type").trim() };
+}
+function pptMessage(t, ok) { const m = document.getElementById("ppt-msg"); m.textContent = t || ""; m.style.color = ok ? "#2b7a3d" : "#b03030"; }
+
+async function pptLancerIa() {
+  const ligne = lignesEmergence.find(l => l.id === pptEtat.ligneId);
+  if (!ligne || pptEtat.enCours) return;
+  if (!llmEstConfigure()) { pptMessage("Assistant IA non configuré (Paramètres généraux) : textes bruts conservés."); return; }
+  pptEtat.enCours = true;
+  pptMessage("Condensation par l'IA en cours…", true);
+  try {
+    const r = await pptCondenserParIa(ligne);
+    const v = pptLireValeurs();
+    if (r.contexte) v.contexte = r.contexte;
+    if (r.dates && r.dates.length) v.dates = r.dates;
+    if (r.bilan) v.bilan = r.bilan;
+    pptPoserValeurs(v);
+    pptMessage("Textes condensés par l'IA — à relire avant de télécharger.", true);
+  } catch (e) {
+    pptMessage("Condensation IA impossible : " + (e.message || e) + " (textes bruts conservés).");
+  } finally { pptEtat.enCours = false; }
+}
+
+function ouvrirModalePpt(ligneId) {
+  const ligne = lignesEmergence.find(l => l.id === ligneId);
+  if (!ligne) return;
+  pptEtat = { ligneId, enCours: false };
+  document.getElementById("ppt-sous-titre").textContent = (ligne.Organisation ? ligne.Organisation + " — " : "") + (ligne.Titre || "demande " + ligne.id);
+  pptRendreScene(pptContenuBrut(ligne));
+  pptMessage("");
+  document.getElementById("modale-ppt-fond").style.display = "flex";
+  chargerTemplatePptx(false).catch(e => pptMessage("Modèle : " + (e.message || e)));
+  pptLancerIa();
+}
+document.getElementById("ppt-fermer").addEventListener("click", () => { document.getElementById("modale-ppt-fond").style.display = "none"; });
+document.getElementById("ppt-regenerer").addEventListener("click", pptLancerIa);
+document.getElementById("ppt-telecharger").addEventListener("click", async () => {
+  try {
+    pptMessage("Génération du fichier…", true);
+    const ligne = lignesEmergence.find(l => l.id === pptEtat.ligneId) || {};
+    const blob = await genererPptx(pptLireValeurs());
+    const nom = "Emergence_" + String(ligne.Organisation || ("demande_" + pptEtat.ligneId)).replace(/[^\w\-]+/g, "_").slice(0, 40) + ".pptx";
+    telechargerBlob(blob, nom);
+    pptMessage("Fichier " + nom + " téléchargé.", true);
+  } catch (e) { pptMessage("Génération impossible : " + (e.message || e)); }
+});

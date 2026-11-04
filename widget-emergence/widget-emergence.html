@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.113 -->
+<!-- Widget Emergence — v0.114 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -34,6 +34,7 @@
       <table id="table-liste">
         <thead>
           <tr>
+            <th data-col="Ppt" data-non-triable="1" title="Générer la diapo PowerPoint de la fiche"><span class="poignee"></span></th>
             <th data-col="Priorite" data-filtre-champ="priorite" title="Priorité"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Prio. <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Statut" data-filtre-champ="statut"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Statut <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Date_de_derniere_modification" data-filtre-champ="derniere-modif" title="Dernière modification de la demande (fiche ou ligne RIDA)"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Modifié le <span class="fleche"></span><span class="poignee"></span></th>
@@ -1213,4 +1214,30 @@
   .btn-taille-texte { cursor: pointer; border: 1px solid #c7cdd6; background: #f3f4f6; border-radius: 4px; padding: 1px 7px; font-weight: 700; }
   .btn-taille-texte:hover:not(:disabled) { background: #e5e7eb; }
   .btn-taille-texte:disabled { opacity: 0.35; cursor: default; }
+
+  .btn-ppt-ligne { cursor: pointer; border: 1px solid #c8472b; background: #fff; color: #c8472b; border-radius: 4px; font-size: 10px; font-weight: 800; padding: 1px 4px; line-height: 1.3; }
+  .btn-ppt-ligne:hover { background: #c8472b; color: #fff; }
+  .ppt-scene { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #fff; border: 1px solid #ccd; overflow: hidden; font-family: Marianne, Arial, sans-serif; container-type: inline-size; }
+  .ppt-scene .ppt-bande { position: absolute; left: 2.2%; right: 0; top: 17.8%; bottom: 3.8%; background: #f1f2f7; }
+  .ppt-scene .ppt-carte { position: absolute; background: #f4f6fb; border-radius: 3.5cqw; }
+  .ppt-scene .ppt-titre-zone { position: absolute; color: #ff6699; font-weight: 700; font-size: 2.6cqw; white-space: nowrap; }
+  .ppt-scene .ppt-texte { position: absolute; color: #1a1b9d; font-size: 2.2cqw; line-height: 1.25; white-space: pre-wrap; overflow: hidden; outline: none; border: 1px dashed transparent; }
+  .ppt-scene .ppt-texte:focus, .ppt-scene .ppt-texte:hover { border-color: #ff6699; }
+  .ppt-scene .ppt-org { color: #ff6699; font-weight: 700; text-decoration: underline; font-size: 4.2cqw; white-space: nowrap; }
+  .ppt-scene .ppt-type { position: absolute; background: #e2efda; border: 1px solid #b6d7a8; border-radius: 1cqw; color: #00b050; font-weight: 700; font-size: 2.2cqw; display: flex; align-items: center; justify-content: center; }
+  .ppt-scene .ppt-pied { position: absolute; left: 2%; bottom: 0.5%; font-size: 1.5cqw; color: #000; }
 </style>
+
+<div class="modale-fond" id="modale-ppt-fond" style="display:none;">
+  <div class="modale-boite" style="max-width:900px;width:94%;max-height:94vh;overflow:auto;">
+    <div class="modale-titre">📊 Diapo PowerPoint <span id="ppt-sous-titre" style="font-weight:400;color:#888;font-size:0.8em;"></span></div>
+    <div style="font-size:0.85em;color:#777;margin-bottom:6px;">Aperçu simplifié (sans logos). Cliquez dans un texte pour le corriger avant de télécharger : le fichier .pptx reprend le modèle de la table <b>Emergence_Templates</b>.</div>
+    <div class="ppt-scene" id="ppt-scene"></div>
+    <div class="modale-msg" id="ppt-msg" style="margin-top:6px;"></div>
+    <div class="modale-actions">
+      <button type="button" id="ppt-regenerer" class="btn-secondaire">✨ Condenser par IA</button>
+      <button type="button" id="ppt-telecharger" class="btn-principal">⬇️ Télécharger .pptx</button>
+      <button type="button" id="ppt-fermer" class="btn-secondaire">Fermer</button>
+    </div>
+  </div>
+</div>
