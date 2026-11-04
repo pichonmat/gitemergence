@@ -1,6 +1,6 @@
-// Widget Emergence — v0.114
-// Numéro de release : <majeure>.<build> (0.114 = release majeure 0, build 114).
-const VERSION_WIDGET = "0.114";
+// Widget Emergence — v0.115
+// Numéro de release : <majeure>.<build> (0.115 = release majeure 0, build 115).
+const VERSION_WIDGET = "0.115";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -7322,7 +7322,7 @@ function telechargerBaseMarkdown() {
 }
 document.getElementById("param-export-md").addEventListener("click", telechargerBaseMarkdown);
 
-// ===================== Export PowerPoint d'une fiche (v0.114) =====================
+// ===================== Export PowerPoint d'une fiche (v0.115) =====================
 // Icône « PPT » à gauche de chaque ligne de la liste : ouvre une modale (aperçu simplifié, textes modifiables)
 // puis produit un .pptx d'une diapo à partir du modèle stocké en pièce jointe dans la table Emergence_Templates
 // (colonne Fichier). Le modèle contient des balises <Organisation>, <objet de la demande>, <une ou deux dates clés>,
@@ -7435,6 +7435,21 @@ async function chargerTemplatePptx(forcer) {
   return entrees;
 }
 
+// ---------- Ajustement de la taille du texte (réduit pour tenir dans la zone) ----------
+// Estimation : largeur moyenne d'un caractère ≈ 0,5 × corps ; interligne 1,2. Corps de base → plancher 8 pt.
+function pptTailleAjustee(lignes, cle, base) {
+  const z = PPT_ZONES[cle];
+  const largeur = z[2] - 182880, hauteur = z[3] - 91440; // marges internes
+  const txt = (lignes || []).filter(Boolean);
+  for (let pt = base / 100; pt >= 8; pt -= 0.5) {
+    const cpl = Math.max(1, Math.floor(largeur / (pt * 12700 * 0.5)));
+    const nb = txt.reduce((s, l) => s + Math.max(1, Math.ceil(String(l).length / cpl)), 0);
+    if (nb * pt * 12700 * 1.2 <= hauteur) return Math.round(pt * 100);
+  }
+  return 800;
+}
+const PPT_TAILLE_BASE = { contexte: 1800, dates: 1800, participants: 1800, bilan: 1800 };
+
 // ---------- Remplissage du XML de la diapo ----------
 const NS_A = "http://schemas.openxmlformats.org/drawingml/2006/main";
 function remplirSlideXml(xml, v) {
@@ -7443,10 +7458,10 @@ function remplirSlideXml(xml, v) {
   const sz = (txt, grand) => String(txt || "").length > (grand ? 28 : 9999) ? (String(txt).length > 40 ? 2200 : 2800) : null;
   const regles = [
     { test: t => t === "<Organisation>", lignes: [v.org], taille: sz(v.org, true) },
-    { test: t => t === "<objet de la demande>", lignes: v.contexte, taille: 1600 },
-    { test: t => t === "<une ou deux dates clés>", lignes: v.dates, taille: 1400 },
-    { test: t => t.startsWith("<sponsors"), lignes: v.participants, taille: 1400 },
-    { test: t => t.startsWith("<synthèse"), lignes: v.bilan, taille: 1600 },
+    { test: t => t === "<objet de la demande>", lignes: v.contexte, taille: pptTailleAjustee(v.contexte, "contexte", PPT_TAILLE_BASE.contexte) },
+    { test: t => t === "<une ou deux dates clés>", lignes: v.dates, taille: pptTailleAjustee(v.dates, "dates", PPT_TAILLE_BASE.dates) },
+    { test: t => t.startsWith("<sponsors"), lignes: v.participants, taille: pptTailleAjustee(v.participants, "participants", PPT_TAILLE_BASE.participants) },
+    { test: t => t.startsWith("<synthèse"), lignes: v.bilan, taille: pptTailleAjustee(v.bilan, "bilan", PPT_TAILLE_BASE.bilan) },
     { test: t => t === "<type>", lignes: [v.type] }
   ];
   const paragraphes = Array.from(doc.getElementsByTagNameNS(NS_A, "p"));
@@ -7498,20 +7513,21 @@ function pptParticipants(ligne) {
   const sp = nomActeur(ligne.Sponsor); if (sp) L.push("Sponsor : " + sp);
   if (ligne.Porteurs) L.push("Porteur : " + ligne.Porteurs);
   const pp = nomActeur(ligne.Parties_prenantes_concernees); if (pp) L.push("Parties prenantes : " + pp);
-  return L.map(l => pptTronquer(l, 90)).slice(0, 4);
+  return L;
 }
 function pptContenuBrut(ligne) {
   const dates = [];
   if (ligne.Date_de_soumission) dates.push(formaterDate(ligne.Date_de_soumission) + " : demande initiale");
   if (ligne.Date_de_cloture) dates.push(formaterDate(ligne.Date_de_cloture) + " : clôture");
-  const objet = pptTronquer(exportTexteMarkdown(ligne.Objet_de_la_demande || ligne.Detail_de_la_demande || ""), 450);
-  const bilan = pptTronquer(exportTexteMarkdown(ligne.Synthese_de_la_demande || ligne.Synthese_reformulation_de_l_irritant_et_etat_de_son_traitement || ""), 380);
+  const lignesTexte = (v) => exportTexteMarkdown(v || "").split(/\n+/).map(s => s.trim()).filter(Boolean);
+  const objet = lignesTexte(ligne.Objet_de_la_demande).concat(lignesTexte(ligne.Detail_de_la_demande));
+  const bilan = lignesTexte(ligne.Synthese_de_la_demande || ligne.Synthese_reformulation_de_l_irritant_et_etat_de_son_traitement);
   return {
     org: ligne.Organisation || "",
-    contexte: objet ? [objet] : [],
+    contexte: objet,
     dates: dates.slice(0, 2),
     participants: pptParticipants(ligne),
-    bilan: bilan ? [bilan] : [],
+    bilan: bilan,
     type: typologiesDeLigne(ligne)[0] || ""
   };
 }
@@ -7562,8 +7578,13 @@ function pptRendreScene(v) {
 }
 function pptPoserValeurs(v) {
   document.querySelectorAll("#ppt-scene [data-ppt]").forEach(el => {
-    const val = v[el.getAttribute("data-ppt")];
+    const cle = el.getAttribute("data-ppt");
+    const val = v[cle];
     el.textContent = Array.isArray(val) ? val.join("\n") : (val || "");
+    if (PPT_TAILLE_BASE[cle]) { // même ajustement que dans le .pptx (corps en pt → % de la largeur de diapo 13,33 in)
+      const pt = pptTailleAjustee(Array.isArray(val) ? val : String(val || "").split("\n"), cle, PPT_TAILLE_BASE[cle]) / 100;
+      el.style.fontSize = (pt / 960 * 100) + "cqw";
+    }
   });
 }
 function pptLireValeurs() {
@@ -7572,6 +7593,14 @@ function pptLireValeurs() {
   return { org: lire("org").replace(/\s+/g, " ").trim(), contexte: lignes("contexte"), dates: lignes("dates"),
     participants: lignes("participants"), bilan: lignes("bilan"), type: lire("type").trim() };
 }
+document.getElementById("ppt-scene").addEventListener("input", () => {
+  if (!pptEtat) return;
+  const v = pptLireValeurs();
+  Object.keys(PPT_TAILLE_BASE).forEach(cle => {
+    const el = document.querySelector("#ppt-scene [data-ppt='" + cle + "']");
+    el.style.fontSize = (pptTailleAjustee(v[cle], cle, PPT_TAILLE_BASE[cle]) / 100 / 960 * 100) + "cqw";
+  });
+});
 function pptMessage(t, ok) { const m = document.getElementById("ppt-msg"); m.textContent = t || ""; m.style.color = ok ? "#2b7a3d" : "#b03030"; }
 
 async function pptLancerIa() {
@@ -7602,7 +7631,6 @@ function ouvrirModalePpt(ligneId) {
   pptMessage("");
   document.getElementById("modale-ppt-fond").style.display = "flex";
   chargerTemplatePptx(false).catch(e => pptMessage("Modèle : " + (e.message || e)));
-  pptLancerIa();
 }
 document.getElementById("ppt-fermer").addEventListener("click", () => { document.getElementById("modale-ppt-fond").style.display = "none"; });
 document.getElementById("ppt-regenerer").addEventListener("click", pptLancerIa);
