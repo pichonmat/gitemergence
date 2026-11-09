@@ -1,6 +1,6 @@
-// Widget Emergence — v0.118
-// Numéro de release : <majeure>.<build> (0.118 = release majeure 0, build 118).
-const VERSION_WIDGET = "0.118";
+// Widget Emergence — v0.119
+// Numéro de release : <majeure>.<build> (0.119 = release majeure 0, build 119).
+const VERSION_WIDGET = "0.119";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -6430,8 +6430,9 @@ function ouvrirParametres() {
   mettreAJourLienCleLlm();
   initialiserEditeurTypologies();
   initialiserEditeurPhrases();
+  initialiserEditeurQuestionsIa();
   chargerMetaTypologie().then(initialiserEditeurTypologies);
-  chargerParametres().then(() => { initialiserEditeurTags(); initialiserEditeurPhrases(); });
+  chargerParametres().then(() => { initialiserEditeurTags(); initialiserEditeurPhrases(); initialiserEditeurQuestionsIa(); afficherQuestionsTypesIa(); });
   fond.style.display = "flex";
 }
 
@@ -6972,13 +6973,24 @@ const GROUPES_CHAMPS_IA = [
   { cle: "courante", libelle: "Main courante", champs: ["Main_courante"] },
   { cle: "rida", libelle: "Lignes RIDA (informations, décisions, actions)", champs: [] }
 ];
-const QUESTIONS_TYPES_IA = [
+const QUESTIONS_TYPES_IA_DEFAUT = [
   "Quels sont les pain points principaux remontés ?",
   "Quelles solutions sont envisagées ?",
   "Quels thèmes reviennent dans plusieurs organisations ?",
   "Quelles demandes semblent bloquées ou en retard, et pourquoi ?",
   "Quelles actions restent à faire, et pour qui ?"
 ];
+// Questions types : liste partagée de la table Emergence_Parametres (clé « questions_ia »), sinon liste d'origine.
+function questionsTypesIa() {
+  const l = lireParametreJson(PARAM_QUESTIONS_IA, null);
+  return Array.isArray(l) ? l.map(String).filter(s => s.trim()) : QUESTIONS_TYPES_IA_DEFAUT.slice();
+}
+function afficherQuestionsTypesIa() {
+  const zone = document.getElementById("ia-questions");
+  if (!zone) return;
+  zone.innerHTML = questionsTypesIa().map((q, i) =>
+    "<button type='button' class='ia-question-type' data-i='" + i + "'>" + escapeHtml(q) + "</button>").join("");
+}
 const PROMPT_SYSTEME_IA =
   "Tu es l'assistant du référentiel des demandes de l'équipe Émergence (ministère de l'Intérieur). " +
   "Réponds en français, uniquement à partir des fiches et des statistiques fournies ci-dessous.\n" +
@@ -7187,8 +7199,7 @@ function afficherIa() {
     iaInitialise = true;
     document.getElementById("ia-champs-liste").innerHTML = GROUPES_CHAMPS_IA.map(g =>
       "<label><input type='checkbox' class='ia-champ' value='" + g.cle + "' checked> " + escapeHtml(g.libelle) + "</label>").join("");
-    document.getElementById("ia-questions").innerHTML = QUESTIONS_TYPES_IA.map((q, i) =>
-      "<button type='button' class='ia-question-type' data-i='" + i + "'>" + escapeHtml(q) + "</button>").join("");
+    afficherQuestionsTypesIa();
     document.getElementById("ia-champs-liste").addEventListener("change", (e) => {
       if (!e.target.classList.contains("ia-champ")) return;
       if (e.target.checked) iaChampsActifs.add(e.target.value); else iaChampsActifs.delete(e.target.value);
@@ -7209,7 +7220,7 @@ function afficherIa() {
     });
     document.getElementById("ia-questions").addEventListener("click", (e) => {
       const b = e.target.closest(".ia-question-type");
-      if (b) iaPoserQuestion(QUESTIONS_TYPES_IA[Number(b.getAttribute("data-i"))]);
+      if (b) iaPoserQuestion(questionsTypesIa()[Number(b.getAttribute("data-i"))]);
     });
     document.getElementById("ia-envoyer").addEventListener("click", () => iaPoserQuestion(document.getElementById("ia-question").value));
     document.getElementById("ia-question").addEventListener("keydown", (e) => {
@@ -7362,7 +7373,7 @@ function telechargerBaseMarkdown() {
 }
 document.getElementById("param-export-md").addEventListener("click", telechargerBaseMarkdown);
 
-// ===================== Export PowerPoint d'une fiche (v0.118) =====================
+// ===================== Export PowerPoint d'une fiche (v0.119) =====================
 // Icône « PPT » à gauche de chaque ligne de la liste : ouvre une modale (aperçu simplifié, textes modifiables)
 // puis produit un .pptx d'une diapo à partir du modèle stocké en pièce jointe dans la table Emergence_Templates
 // (colonne Fichier). Le modèle contient des balises <Organisation>, <objet de la demande>, <une ou deux dates clés>,
@@ -7685,13 +7696,14 @@ document.getElementById("ppt-telecharger").addEventListener("click", async () =>
   } catch (e) { pptMessage("Génération impossible : " + (e.message || e)); }
 });
 
-// ===================== Tags (v0.118) : colonne Emergence.Tag + liste des tags dans Emergence_Parametres =====================
+// ===================== Tags (v0.119) : colonne Emergence.Tag + liste des tags dans Emergence_Parametres =====================
 // Table Emergence_Parametres (Cle, Valeur, Description) : paramètres applicatifs partagés. Clé « tags » : liste JSON des tags.
 // Colonne Emergence.Tag : Choice List (créée par l'outil de migration de structure).
 const TABLE_PARAMETRES = "Emergence_Parametres";
 const COLONNE_TAG = "Tag";
 const PARAM_TAGS = "tags";
 const PARAM_PHRASES_RIDA = "phrases_rida";
+const PARAM_QUESTIONS_IA = "questions_ia";
 let parametres = {};          // { cle: { id, valeur(texte), description } }
 let parametresDisponibles = false; // la table Emergence_Parametres existe et a été lue
 
@@ -7843,7 +7855,7 @@ async function enregistrerListeTags() {
 document.getElementById("param-tag-ajouter").addEventListener("click", () => { tagEdition.push({ origine: null, nom: "" }); rendreEditeurTags(); });
 document.getElementById("param-tag-enregistrer").addEventListener("click", enregistrerListeTags);
 
-// --- Paramètres : onglets (v0.118) ---
+// --- Paramètres : onglets (v0.119) ---
 function afficherOngletParametres(nom) {
   document.querySelectorAll("#param-onglets .param-onglet-btn").forEach(b => b.classList.toggle("actif", b.getAttribute("data-onglet") === nom));
   document.querySelectorAll("#modale-parametres-fond .param-onglet-panneau").forEach(p => { p.style.display = p.getAttribute("data-onglet") === nom ? "" : "none"; });
@@ -7897,3 +7909,48 @@ async function enregistrerListePhrases() {
 document.getElementById("param-phr-ajouter").addEventListener("click", () => { phrEdition.push({ texte: "" }); rendreEditeurPhrases(); });
 document.getElementById("param-phr-enregistrer").addEventListener("click", enregistrerListePhrases);
 document.getElementById("param-phr-defaut").addEventListener("click", () => { phrEdition = MODELES_TITRE_RIDA_DEFAUT.map(t => ({ texte: t })); rendreEditeurPhrases(); document.getElementById("param-phr-msg").textContent = "Phrases d'origine rétablies : cliquez sur « Enregistrer les phrases » pour les appliquer."; });
+
+// --- Paramètres : éditeur des questions types de l'onglet IA (Emergence_Parametres, clé questions_ia) ---
+let qiaEdition = [];
+function rendreEditeurQuestionsIa() {
+  const zone = document.getElementById("param-qia-liste");
+  zone.innerHTML = "";
+  qiaEdition.forEach((r, i) => {
+    const div = document.createElement("div");
+    div.className = "typo-ligne";
+    div.innerHTML = "<input type='text' value=\"" + escapeHtml(r.texte) + "\" placeholder='Ex. Quels sont les pain points principaux remontés ?' style='flex:1;'>" +
+      "<button type='button' class='typo-haut' title='Monter'" + (i === 0 ? " disabled" : "") + ">↑</button>" +
+      "<button type='button' class='typo-bas' title='Descendre'" + (i === qiaEdition.length - 1 ? " disabled" : "") + ">↓</button>" +
+      "<button type='button' class='typo-suppr' title='Supprimer'>🗑</button>";
+    div.querySelector("input").addEventListener("input", (e) => { r.texte = e.target.value; });
+    div.querySelector(".typo-haut").addEventListener("click", () => { qiaEdition.splice(i - 1, 0, qiaEdition.splice(i, 1)[0]); rendreEditeurQuestionsIa(); });
+    div.querySelector(".typo-bas").addEventListener("click", () => { qiaEdition.splice(i + 1, 0, qiaEdition.splice(i, 1)[0]); rendreEditeurQuestionsIa(); });
+    div.querySelector(".typo-suppr").addEventListener("click", () => { qiaEdition.splice(i, 1); rendreEditeurQuestionsIa(); });
+    zone.appendChild(div);
+  });
+}
+function initialiserEditeurQuestionsIa() {
+  qiaEdition = questionsTypesIa().map(t => ({ texte: t }));
+  rendreEditeurQuestionsIa();
+  const msg = document.getElementById("param-qia-msg");
+  const ok = parametresDisponibles;
+  document.getElementById("param-qia-ajouter").disabled = !ok;
+  document.getElementById("param-qia-enregistrer").disabled = !ok;
+  msg.className = ok ? "modale-msg" : "modale-msg erreur";
+  msg.textContent = ok ? "" : "Table « " + TABLE_PARAMETRES + " » absente : lancez l'outil de migration de structure (questions d'origine affichées).";
+}
+async function enregistrerQuestionsIa() {
+  const msg = document.getElementById("param-qia-msg");
+  const liste = qiaEdition.map(r => String(r.texte).trim()).filter(Boolean);
+  if (new Set(liste.map(normaliserTexteRecherche)).size !== liste.length) { msg.className = "modale-msg erreur"; msg.textContent = "Doublon dans la liste."; return; }
+  msg.className = "modale-msg"; msg.textContent = "Enregistrement…";
+  try {
+    await ecrireParametreJson(PARAM_QUESTIONS_IA, liste, "Questions types proposées dans l'onglet IA (JSON)");
+    afficherQuestionsTypesIa();
+    initialiserEditeurQuestionsIa();
+    msg.textContent = "Questions enregistrées (" + liste.length + ").";
+  } catch (e) { msg.className = "modale-msg erreur"; msg.textContent = "Échec de l'enregistrement : " + e.message; }
+}
+document.getElementById("param-qia-ajouter").addEventListener("click", () => { qiaEdition.push({ texte: "" }); rendreEditeurQuestionsIa(); });
+document.getElementById("param-qia-enregistrer").addEventListener("click", enregistrerQuestionsIa);
+document.getElementById("param-qia-defaut").addEventListener("click", () => { qiaEdition = QUESTIONS_TYPES_IA_DEFAUT.map(t => ({ texte: t })); rendreEditeurQuestionsIa(); document.getElementById("param-qia-msg").textContent = "Questions d'origine rétablies : cliquez sur « Enregistrer les questions » pour les appliquer."; });

@@ -127,5 +127,6 @@ Paramètres applicatifs partagés du widget (v0.116+), une ligne par paramètre.
 
 Clés utilisées : `tags` — liste JSON des tags proposés (ex. `["Urgent","Ministre"]`), éditée dans ⚙ Paramètres généraux → Demandes → Tags.
 `phrases_rida` — liste JSON des phrases types proposées à la saisie de la description d'une ligne RIDA (`{sponsor}` et `{date}` sont remplacés), éditée dans ⚙ Paramètres généraux → RIDA. Sans cette clé, les 4 phrases d'origine du widget sont utilisées.
+`questions_ia` — liste JSON des questions types proposées dans l'onglet IA, éditée dans ⚙ Paramètres généraux → Assistant IA. Sans cette clé, les 5 questions d'origine sont utilisées.
 
 Colonne ajoutée à `Emergence` : `Tag` (`ChoiceList`) — tags de la demande, choisis dans la liste `tags` ci-dessus.
