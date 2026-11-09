@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.117 -->
+<!-- Widget Emergence — v0.118 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -240,9 +240,16 @@
 
 <!-- Modale : créer un nouvel acteur -->
 <div class="modale-fond" id="modale-parametres-fond" style="display:none;">
-  <div class="modale-boite" style="max-width:560px;width:92%;max-height:90vh;overflow:auto;">
+  <div class="modale-boite" style="max-width:680px;width:92%;max-height:90vh;overflow:auto;">
     <div class="modale-titre">⚙️ Paramètres généraux <span style="font-weight:400;color:#888;font-size:0.8em;">Émergence <span id="param-version"></span></span></div>
-    <div style="font-weight:700;margin:6px 0;">Général</div>
+    <div class="param-onglets" id="param-onglets">
+      <button type="button" class="param-onglet-btn actif" data-onglet="general">Général</button>
+      <button type="button" class="param-onglet-btn" data-onglet="demandes">Demandes</button>
+      <button type="button" class="param-onglet-btn" data-onglet="rida">RIDA</button>
+      <button type="button" class="param-onglet-btn" data-onglet="ia">Assistant IA</button>
+    </div>
+    <div class="param-onglet-panneau" data-onglet="general">
+    <div style="font-weight:700;margin:6px 0;">Journal</div>
     <label class="planning-chk" style="display:flex;align-items:flex-start;gap:6px;margin-bottom:10px;" title="Désactivé par défaut. La date de dernière modification de la demande est de toute façon enregistrée dans la colonne « Date de modification » de la table Emergence.">
       <input type="checkbox" id="param-journal-rida" style="margin-top:3px;">
       <span>Ajouter une ligne d'information au RIDA à chaque modification d'une demande (journal automatique)<br><span style="color:#777;font-size:0.85em;">Désactivé par défaut. Réglage propre à ce navigateur.</span></span>
@@ -251,6 +258,8 @@
     <div style="font-size:0.85em;color:#777;margin-bottom:6px;">Télécharge <b>toute</b> la base (demandes avec tous leurs champs, lignes RIDA, acteurs) dans un seul fichier Markdown structuré, à fournir à un LLM externe. Les noms de personnes sont inclus ; les mails, téléphones et images ne le sont pas. N'utilisez qu'un service habilité pour ces données.</div>
     <button type="button" id="param-export-md" class="btn-secondaire">⬇️ Télécharger la base (.md)</button>
     <div class="modale-msg" id="param-export-msg"></div>
+    </div>
+    <div class="param-onglet-panneau" data-onglet="demandes" style="display:none;">
     <div style="font-weight:700;margin:10px 0 6px;">Typologies de la demande</div>
     <div style="font-size:0.85em;color:#777;margin-bottom:6px;">Liste des choix de la colonne « Typologie de la demande » (partagée par tous les utilisateurs du document). Un renommage ou une suppression met aussi à jour les fiches concernées.</div>
     <div id="param-typo-liste"></div>
@@ -267,6 +276,19 @@
       <button type="button" id="param-tag-enregistrer" class="btn-secondaire">💾 Enregistrer les tags</button>
     </div>
     <div class="modale-msg" id="param-tag-msg"></div>
+    </div>
+    <div class="param-onglet-panneau" data-onglet="rida" style="display:none;">
+    <div style="font-weight:700;margin:6px 0;">Phrases types de la description RIDA</div>
+    <div style="font-size:0.85em;color:#777;margin-bottom:6px;">Titres proposés quand on commence à saisir la description d'une ligne RIDA. <b>{sponsor}</b> est remplacé par le sponsor de la demande et <b>{date}</b> par la date du jour. Liste stockée dans la table <b>Emergence_Parametres</b> (clé « phrases_rida »), partagée par tous les utilisateurs.</div>
+    <div id="param-phr-liste"></div>
+    <div style="margin:4px 0;">
+      <button type="button" id="param-phr-ajouter" class="btn-secondaire">+ Ajouter une phrase</button>
+      <button type="button" id="param-phr-enregistrer" class="btn-secondaire">💾 Enregistrer les phrases</button>
+      <button type="button" id="param-phr-defaut" class="btn-secondaire" title="Remet les phrases d'origine (sans enregistrer)">Rétablir les phrases d'origine</button>
+    </div>
+    <div class="modale-msg" id="param-phr-msg"></div>
+    </div>
+    <div class="param-onglet-panneau" data-onglet="ia" style="display:none;">
     <div style="font-weight:700;margin:10px 0 6px;">Assistant IA (LLM)</div>
     <div class="modale-champ"><label>Fournisseur</label>
       <select id="param-llm-fournisseur">
@@ -290,8 +312,11 @@
       <textarea id="param-llm-prompt" rows="6" style="width:100%;box-sizing:border-box;"></textarea></div>
     <div style="font-size:0.8em;color:#777;margin:4px 0;">Ces réglages (dont la clé) sont enregistrés uniquement dans votre navigateur, pas dans le document Grist. La synthèse envoie au service choisi les titres, statuts, sponsors, porteurs et descriptions des lignes RIDA de la semaine : n'utilisez qu'un service habilité pour ces données.</div>
     <div class="modale-msg" id="param-llm-msg"></div>
-    <div class="modale-actions">
+    <div style="margin:4px 0;">
       <button type="button" id="param-llm-tester" class="btn-secondaire">Tester la connexion</button>
+    </div>
+    </div>
+    <div class="modale-actions">
       <button type="button" id="param-annuler" class="btn-secondaire">Fermer</button>
       <button type="button" id="param-enregistrer">Appliquer</button>
     </div>
@@ -1237,6 +1262,11 @@
   .ppt-scene .ppt-pied { position: absolute; left: 2%; bottom: 0.5%; font-size: 1.5cqw; color: #000; }
   .chip-tag { background: #e6ecff; border-color: #b7c4f0; color: #26408b; }
   .champ-tag { display: inline-flex; align-items: center; gap: 4px; }
+  .param-onglets { display: flex; gap: 2px; border-bottom: 2px solid #e1e1e8; margin: 6px 0 10px; position: sticky; top: -1px; background: #fff; z-index: 2; }
+  .param-onglet-btn { border: 0; background: transparent; padding: 6px 12px; cursor: pointer; font: inherit; font-weight: 600; color: #666; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+  .param-onglet-btn:hover { color: #222; }
+  .param-onglet-btn.actif { color: #c8472b; border-bottom-color: #c8472b; }
+  .param-onglet-btn.alerte::after { content: " •"; color: #c8472b; }
 </style>
 
 <div class="modale-fond" id="modale-ppt-fond" style="display:none;">

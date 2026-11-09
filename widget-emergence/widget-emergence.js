@@ -1,6 +1,6 @@
-// Widget Emergence — v0.117
-// Numéro de release : <majeure>.<build> (0.117 = release majeure 0, build 117).
-const VERSION_WIDGET = "0.117";
+// Widget Emergence — v0.118
+// Numéro de release : <majeure>.<build> (0.118 = release majeure 0, build 118).
+const VERSION_WIDGET = "0.118";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -6197,13 +6197,19 @@ function brancherCollageImage(textarea, ligneId, msgEl) {
 // ===================== Suggestions de titres pour les lignes RIDA =====================
 // Quand on commence à saisir la description d'une ligne RIDA (fiche ou onglet Rida), une liste de
 // titres types est proposée ; {sponsor} = sponsor de la demande, {date} = date du jour.
-const MODELES_TITRE_RIDA = [
+const MODELES_TITRE_RIDA_DEFAUT = [
   "Réunion avec {sponsor} le {date}",
   "Demande de prise de contact avec {sponsor}",
   "Attribution d'un compte N8N à {sponsor}",
   "Mail de communication envoyé à {sponsor}"
 ];
 let popupSuggestionsRida = null; // { el, textarea, items, index }
+
+// Phrases types : liste partagée de la table Emergence_Parametres (clé « phrases_rida »), sinon liste d'origine.
+function modelesTitreRida() {
+  const l = lireParametreJson(PARAM_PHRASES_RIDA, null);
+  return Array.isArray(l) ? l.map(String).filter(s => s.trim()) : MODELES_TITRE_RIDA_DEFAUT.slice();
+}
 
 function sponsorPourLigneRida(ridaId) {
   const r = ridaToutes.find(x => x.id === ridaId);
@@ -6227,7 +6233,7 @@ function suggestionsRidaPour(textarea, uniquementSiSaisie) {
   const ridaId = conteneur ? parseInt(conteneur.getAttribute("data-rida-id"), 10) : NaN;
   const sponsor = sponsorPourLigneRida(ridaId);
   const q = normaliserTexteRecherche(saisie);
-  const candidats = MODELES_TITRE_RIDA.map(m => resoudreModeleTitreRida(m, sponsor));
+  const candidats = modelesTitreRida().map(m => resoudreModeleTitreRida(m, sponsor));
   if (!q) return candidats;
   const debut = candidats.filter(c => normaliserTexteRecherche(c).startsWith(q));
   const contient = candidats.filter(c => !debut.includes(c) && normaliserTexteRecherche(c).includes(q));
@@ -6423,8 +6429,9 @@ function ouvrirParametres() {
   document.getElementById("param-llm-msg").textContent = "";
   mettreAJourLienCleLlm();
   initialiserEditeurTypologies();
+  initialiserEditeurPhrases();
   chargerMetaTypologie().then(initialiserEditeurTypologies);
-  chargerParametres().then(initialiserEditeurTags);
+  chargerParametres().then(() => { initialiserEditeurTags(); initialiserEditeurPhrases(); });
   fond.style.display = "flex";
 }
 
@@ -7355,7 +7362,7 @@ function telechargerBaseMarkdown() {
 }
 document.getElementById("param-export-md").addEventListener("click", telechargerBaseMarkdown);
 
-// ===================== Export PowerPoint d'une fiche (v0.117) =====================
+// ===================== Export PowerPoint d'une fiche (v0.118) =====================
 // Icône « PPT » à gauche de chaque ligne de la liste : ouvre une modale (aperçu simplifié, textes modifiables)
 // puis produit un .pptx d'une diapo à partir du modèle stocké en pièce jointe dans la table Emergence_Templates
 // (colonne Fichier). Le modèle contient des balises <Organisation>, <objet de la demande>, <une ou deux dates clés>,
@@ -7678,12 +7685,13 @@ document.getElementById("ppt-telecharger").addEventListener("click", async () =>
   } catch (e) { pptMessage("Génération impossible : " + (e.message || e)); }
 });
 
-// ===================== Tags (v0.117) : colonne Emergence.Tag + liste des tags dans Emergence_Parametres =====================
+// ===================== Tags (v0.118) : colonne Emergence.Tag + liste des tags dans Emergence_Parametres =====================
 // Table Emergence_Parametres (Cle, Valeur, Description) : paramètres applicatifs partagés. Clé « tags » : liste JSON des tags.
 // Colonne Emergence.Tag : Choice List (créée par l'outil de migration de structure).
 const TABLE_PARAMETRES = "Emergence_Parametres";
 const COLONNE_TAG = "Tag";
 const PARAM_TAGS = "tags";
+const PARAM_PHRASES_RIDA = "phrases_rida";
 let parametres = {};          // { cle: { id, valeur(texte), description } }
 let parametresDisponibles = false; // la table Emergence_Parametres existe et a été lue
 
@@ -7834,3 +7842,58 @@ async function enregistrerListeTags() {
 }
 document.getElementById("param-tag-ajouter").addEventListener("click", () => { tagEdition.push({ origine: null, nom: "" }); rendreEditeurTags(); });
 document.getElementById("param-tag-enregistrer").addEventListener("click", enregistrerListeTags);
+
+// --- Paramètres : onglets (v0.118) ---
+function afficherOngletParametres(nom) {
+  document.querySelectorAll("#param-onglets .param-onglet-btn").forEach(b => b.classList.toggle("actif", b.getAttribute("data-onglet") === nom));
+  document.querySelectorAll("#modale-parametres-fond .param-onglet-panneau").forEach(p => { p.style.display = p.getAttribute("data-onglet") === nom ? "" : "none"; });
+}
+document.getElementById("param-onglets").addEventListener("click", (e) => {
+  const b = e.target.closest(".param-onglet-btn");
+  if (b) afficherOngletParametres(b.getAttribute("data-onglet"));
+});
+
+// --- Paramètres : éditeur des phrases types de la description RIDA (Emergence_Parametres, clé phrases_rida) ---
+let phrEdition = []; // textes en cours d'édition
+function rendreEditeurPhrases() {
+  const zone = document.getElementById("param-phr-liste");
+  zone.innerHTML = "";
+  phrEdition.forEach((r, i) => {
+    const div = document.createElement("div");
+    div.className = "typo-ligne";
+    div.innerHTML = "<input type='text' value=\"" + escapeHtml(r.texte) + "\" placeholder='Ex. Réunion avec {sponsor} le {date}' style='flex:1;'>" +
+      "<button type='button' class='typo-haut' title='Monter'" + (i === 0 ? " disabled" : "") + ">↑</button>" +
+      "<button type='button' class='typo-bas' title='Descendre'" + (i === phrEdition.length - 1 ? " disabled" : "") + ">↓</button>" +
+      "<button type='button' class='typo-suppr' title='Supprimer'>🗑</button>";
+    div.querySelector("input").addEventListener("input", (e) => { r.texte = e.target.value; });
+    div.querySelector(".typo-haut").addEventListener("click", () => { phrEdition.splice(i - 1, 0, phrEdition.splice(i, 1)[0]); rendreEditeurPhrases(); });
+    div.querySelector(".typo-bas").addEventListener("click", () => { phrEdition.splice(i + 1, 0, phrEdition.splice(i, 1)[0]); rendreEditeurPhrases(); });
+    div.querySelector(".typo-suppr").addEventListener("click", () => { phrEdition.splice(i, 1); rendreEditeurPhrases(); });
+    zone.appendChild(div);
+  });
+}
+function initialiserEditeurPhrases() {
+  phrEdition = modelesTitreRida().map(t => ({ texte: t }));
+  rendreEditeurPhrases();
+  const msg = document.getElementById("param-phr-msg");
+  const ok = parametresDisponibles;
+  document.getElementById("param-phr-ajouter").disabled = !ok;
+  document.getElementById("param-phr-enregistrer").disabled = !ok;
+  msg.className = ok ? "modale-msg" : "modale-msg erreur";
+  msg.textContent = ok ? "" : "Table « " + TABLE_PARAMETRES + " » absente : lancez l'outil de migration de structure (phrases d'origine affichées).";
+  document.querySelector("#param-onglets [data-onglet='rida']").classList.toggle("alerte", !ok);
+}
+async function enregistrerListePhrases() {
+  const msg = document.getElementById("param-phr-msg");
+  const liste = phrEdition.map(r => String(r.texte).trim()).filter(Boolean);
+  if (new Set(liste.map(normaliserTexteRecherche)).size !== liste.length) { msg.className = "modale-msg erreur"; msg.textContent = "Doublon dans la liste."; return; }
+  msg.className = "modale-msg"; msg.textContent = "Enregistrement…";
+  try {
+    await ecrireParametreJson(PARAM_PHRASES_RIDA, liste, "Phrases types proposées pour la description des lignes RIDA (JSON ; {sponsor}, {date})");
+    initialiserEditeurPhrases();
+    msg.textContent = "Phrases enregistrées (" + liste.length + ").";
+  } catch (e) { msg.className = "modale-msg erreur"; msg.textContent = "Échec de l'enregistrement : " + e.message; }
+}
+document.getElementById("param-phr-ajouter").addEventListener("click", () => { phrEdition.push({ texte: "" }); rendreEditeurPhrases(); });
+document.getElementById("param-phr-enregistrer").addEventListener("click", enregistrerListePhrases);
+document.getElementById("param-phr-defaut").addEventListener("click", () => { phrEdition = MODELES_TITRE_RIDA_DEFAUT.map(t => ({ texte: t })); rendreEditeurPhrases(); document.getElementById("param-phr-msg").textContent = "Phrases d'origine rétablies : cliquez sur « Enregistrer les phrases » pour les appliquer."; });
