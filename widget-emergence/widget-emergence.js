@@ -1,6 +1,6 @@
-// Widget Emergence — v0.116
-// Numéro de release : <majeure>.<build> (0.116 = release majeure 0, build 116).
-const VERSION_WIDGET = "0.116";
+// Widget Emergence — v0.117
+// Numéro de release : <majeure>.<build> (0.117 = release majeure 0, build 117).
+const VERSION_WIDGET = "0.117";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -10,7 +10,7 @@ const TABLE_TEMPLATES = "Emergence_Templates"; // modèle(s) PowerPoint en pièc
 const TABLE_IMAGES = "Emergence_Images"; // images collées (base64), créée par l'outil creation-table-images
 const TABLE_RIDA = "Emergence_Rida";
 
-// Colonne "Date de modification" de la table RIDA (DateTime, epoch en secondes). Horodatée par le
+// Colonne "Date de modification" de la table RIDA (Date, epoch en secondes, jamais d'heure). Horodatée par le
 // widget à chaque écriture sur une ligne RIDA ; créée automatiquement dans Grist si absente.
 const COLONNE_DATE_MODIF_RIDA = "Date_de_modification";
 let colonneDateModifRidaDisponible = false;
@@ -64,7 +64,7 @@ function brancherBoutonsTailleTexte(popup) {
 }
 
 // Date affichée (et utilisée pour le tri) quand une ligne RIDA n'a encore jamais été horodatée.
-const DATE_MODIF_RIDA_PAR_DEFAUT = Math.floor(new Date(2026, 8, 30).getTime() / 1000); // 30/09/2026
+const DATE_MODIF_RIDA_PAR_DEFAUT = Math.floor(Date.UTC(2026, 8, 30) / 1000); // 30/09/2026
 function formaterDateModifRida(r) {
   return (r.__dateModifParDefaut || !r[COLONNE_DATE_MODIF_RIDA]) ? formaterDate(DATE_MODIF_RIDA_PAR_DEFAUT) : formaterDateHeure(r[COLONNE_DATE_MODIF_RIDA]);
 }
@@ -73,7 +73,7 @@ appliquerEchelleTexte(); // applique tout de suite la taille de texte mémorisé
 // Point d'entrée unique pour toute écriture vers Grist : si l'action ajoute/modifie une ligne
 // RIDA, on y joint la date/heure de modification (sans effet si la colonne n'existe pas).
 function horodaterActionsRida(actions) {
-  const maintenant = Math.floor(Date.now() / 1000);
+  const maintenant = epochDateDuJour();
   actions.forEach(a => {
     if (Array.isArray(a) && a[1] === TABLE_RIDA && (a[0] === "AddRecord" || a[0] === "UpdateRecord") && a[3] && typeof a[3] === "object") {
       if (colonneDateModifRidaDisponible) a[3][COLONNE_DATE_MODIF_RIDA] = maintenant;
@@ -115,7 +115,7 @@ function colonneAbsenteDansErreur(err) {
 
 const COLONNES_OPTIONNELLES = {
   [COLONNE_DATE_MODIF_RIDA]: {
-    table: TABLE_RIDA, type: "DateTime:Europe/Paris", label: "Date de modification",
+    table: TABLE_RIDA, type: "Date", label: "Date de modification",
     desactiver() { colonneDateModifRidaDisponible = false; dateModifRidaRefusee = true; },
     reactiver() { colonneDateModifRidaDisponible = true; dateModifRidaRefusee = false; },
     estActive() { return colonneDateModifRidaDisponible; }
@@ -170,7 +170,7 @@ let dateModifEmergenceRefusee = false; // Grist a refusé l'écriture (ex. colon
 
 function horodaterActionsEmergence(actions) {
   if (!colonneDateModifEmergenceDisponible) return actions;
-  const maintenant = Math.floor(Date.now() / 1000);
+  const maintenant = epochDateDuJour();
   const demandesTouchees = new Set();
   const demandesDejaHorodatees = new Set();
   actions.forEach(a => {
@@ -813,11 +813,11 @@ async function chargerTablesAnnexes() {
   } catch (e) { console.error("Erreur chargement RIDA :", e); }
 }
 
-// Crée la colonne "Date de modification" (DateTime) dans la table RIDA si elle n'existe pas.
+// Crée la colonne "Date de modification" (Date) dans la table RIDA si elle n'existe pas.
 async function creerColonneDateModifRida() {
-  // Colonne simple (DateTime), horodatée par le widget à chaque écriture RIDA. Pas de formule
+  // Colonne simple (Date), horodatée par le widget à chaque écriture RIDA. Pas de formule
   // déclencheur : plus fragile côté Grist (voir appliquerActions).
-  const infos = { type: "DateTime:Europe/Paris", label: "Date de modification", isFormula: false };
+  const infos = { type: "Date", label: "Date de modification", isFormula: false };
   try {
     await grist.docApi.applyUserActions([["AddColumn", TABLE_RIDA, COLONNE_DATE_MODIF_RIDA, infos]]);
     return true;
@@ -1121,10 +1121,15 @@ function formaterDate(valeur) {
 }
 
 // Convertit un timestamp epoch (secondes) en valeur pour <input type="date"> (YYYY-MM-DD), en UTC
+// Les dates de modification sont des dates (jamais d'heure) : on n'affiche que le jour.
 function formaterDateHeure(valeur) {
   if (!valeur || typeof valeur !== "number") return "";
-  const d = new Date(valeur * 1000);
-  return formaterDate(valeur) + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  return formaterDate(valeur);
+}
+// Date du jour au format des colonnes Date de Grist (epoch en secondes, minuit UTC du jour local).
+function epochDateDuJour() {
+  const d = new Date();
+  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 1000);
 }
 function dateEpochVersInput(valeur) {
   if (!valeur || typeof valeur !== "number") return "";
@@ -1259,7 +1264,7 @@ function valeurVersTexteRecherche(cle, valeur) {
     return ids.map(ligneActeur).join(" ");
   }
   if (typeof valeur === "number") {
-    return /date|_le$/i.test(cle) ? formaterDate(valeur) + " " + formaterDateHeure(valeur) : String(valeur);
+    return /date|_le$/i.test(cle) ? formaterDate(valeur) : String(valeur);
   }
   if (Array.isArray(valeur)) return valeur.filter(v => v !== "L" && v !== null && typeof v !== "object").join(" ");
   if (typeof valeur === "object") return "";
@@ -3882,7 +3887,7 @@ function nomDemandeParId2(valeurId2) {
 function classeUrgenceAction(r) {
   if (r.Fait_le) return "";
   if (!r.Pour_le || typeof r.Pour_le !== "number") return "";
-  const maintenant = Math.floor(Date.now() / 1000);
+  const maintenant = epochDateDuJour();
   const uneSemaine = 7 * 24 * 3600;
   if (r.Pour_le < maintenant) return "action-retard";
   if (r.Pour_le <= maintenant + uneSemaine) return "action-proche";
@@ -7350,7 +7355,7 @@ function telechargerBaseMarkdown() {
 }
 document.getElementById("param-export-md").addEventListener("click", telechargerBaseMarkdown);
 
-// ===================== Export PowerPoint d'une fiche (v0.116) =====================
+// ===================== Export PowerPoint d'une fiche (v0.117) =====================
 // Icône « PPT » à gauche de chaque ligne de la liste : ouvre une modale (aperçu simplifié, textes modifiables)
 // puis produit un .pptx d'une diapo à partir du modèle stocké en pièce jointe dans la table Emergence_Templates
 // (colonne Fichier). Le modèle contient des balises <Organisation>, <objet de la demande>, <une ou deux dates clés>,
@@ -7673,7 +7678,7 @@ document.getElementById("ppt-telecharger").addEventListener("click", async () =>
   } catch (e) { pptMessage("Génération impossible : " + (e.message || e)); }
 });
 
-// ===================== Tags (v0.116) : colonne Emergence.Tag + liste des tags dans Emergence_Parametres =====================
+// ===================== Tags (v0.117) : colonne Emergence.Tag + liste des tags dans Emergence_Parametres =====================
 // Table Emergence_Parametres (Cle, Valeur, Description) : paramètres applicatifs partagés. Clé « tags » : liste JSON des tags.
 // Colonne Emergence.Tag : Choice List (créée par l'outil de migration de structure).
 const TABLE_PARAMETRES = "Emergence_Parametres";
