@@ -1,6 +1,6 @@
-// Widget Emergence — v0.115
-// Numéro de release : <majeure>.<build> (0.115 = release majeure 0, build 115).
-const VERSION_WIDGET = "0.115";
+// Widget Emergence — v0.116
+// Numéro de release : <majeure>.<build> (0.116 = release majeure 0, build 116).
+const VERSION_WIDGET = "0.116";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -574,13 +574,14 @@ let largeursColonnes = {
   "Titre": 230,
   "Ref_BRM": 110,
   "Typologie_de_la_demande": 150,
+  "Tag": 130,
   "Parties_prenantes_concernees": 200,
   "Action_ouverte": 110
 };
 
 const ORDRE_COLONNES = [
   "Ppt", "Priorite", "Statut", "Date_de_derniere_modification", "Date_de_soumission", "Organisation", "Sponsor", "Porteurs",
-  "Titre", "Ref_BRM", "Typologie_de_la_demande", "Parties_prenantes_concernees", "Action_ouverte"
+  "Titre", "Ref_BRM", "Typologie_de_la_demande", "Tag", "Parties_prenantes_concernees", "Action_ouverte"
 ];
 
 // Référence BRM (colonne texte facultative de la table Emergence, libellé « Ref BRM ») : lue sous
@@ -611,6 +612,7 @@ const LIBELLES_COLONNES = {
   "Titre": "Titre",
   "Ref_BRM": "Ref BRM",
   "Typologie_de_la_demande": "Typologie de la demande",
+  "Tag": "Tag",
   "Parties_prenantes_concernees": "Parties prenantes",
   "Action_ouverte": "RIDA"
 };
@@ -799,6 +801,7 @@ async function chargerTablesAnnexes() {
   } catch (e) { console.error("Erreur chargement acteurs :", e); }
 
   await chargerMetaTypologie();
+  await chargerParametres();
 
   try {
     let rida = await grist.docApi.fetchTable(TABLE_RIDA);
@@ -1821,6 +1824,10 @@ function trierLignes(lignes) {
       vA = typologiesDeLigne(a).join(", ");
       vB = typologiesDeLigne(b).join(", ");
     }
+    if (colonneTri === COLONNE_TAG) {
+      vA = tagsDeLigne(a).join(", ");
+      vB = tagsDeLigne(b).join(", ");
+    }
     if (colonneTri === "Statut") {
       vA = rangStatut(a.Statut);
       vB = rangStatut(b.Statut);
@@ -1918,7 +1925,7 @@ function afficherListe() {
   mettreAJourCompteurRechercheGlobale(lignesTriees.length);
 
   if (lignesTriees.length === 0) {
-    corps.innerHTML = "<tr><td colspan='13' class='chargement'>Aucune ligne trouvée.</td></tr>";
+    corps.innerHTML = "<tr><td colspan='14' class='chargement'>Aucune ligne trouvée.</td></tr>";
     return;
   }
   let html = "";
@@ -1970,6 +1977,7 @@ function afficherListe() {
       "<td class='cellule-titre-objet cellule-liste-editable' data-edit='titre' title=\"" + escapeHtml(infobulleObjetDemande(ligne)) + "\"><span class='texte-cellule-edit'>" + escapeHtml(ligne.Titre || "—") + "</span></td>" +
       "<td class='cellule-ref-brm-editable' title=\"" + escapeHtml(refBrm(ligne)) + (cleRefBrm(ligne) ? " (cliquer pour modifier)" : "") + "\">" + (escapeHtml(refBrm(ligne)) || "—") + "</td>" +
       "<td class='cellule-liste-editable' data-edit='typologie' title=\"" + escapeHtml(typologiesDeLigne(ligne).join(", ")) + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (escapeHtml(typologiesDeLigne(ligne).join(", ")) || "—") + "</span></td>" +
+      "<td class='cellule-liste-editable' data-edit='tag' title=\"" + escapeHtml(tagsDeLigne(ligne).join(", ")) + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (escapeHtml(tagsDeLigne(ligne).join(", ")) || "—") + "</span></td>" +
       "<td class='cellule-liste-editable' data-edit='pp' title=\"" + escapeHtml(partiesPrenantesTexte) + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (escapeHtml(partiesPrenantesTexte) || "—") + "</span></td>" +
       "<td>" + celluleRida + "</td>" +
       "</tr>";
@@ -2129,6 +2137,7 @@ function activerEditionCellulesListe(corps) {
       if (!ligne) return;
       if (type === "pp") { ouvrirPopupPartiesPrenantesListe(td, ligneId); return; }
       if (type === "typologie") { ouvrirPopupTypologie(td, ligneId); return; }
+      if (type === "tag") { ouvrirPopupTags(td, ligneId); return; }
       let champ, valeurInitiale, element;
       let termine = false;
       const finir = (valeurEnregistree, aChange) => {
@@ -2782,6 +2791,13 @@ function afficherFiche(ligne) {
   typologieChampHtml += "</span><button type='button' id='btn-typologie' class='btn-ajout-replie" + (typologiesLigne.length ? "" : " champ-vide") + "' title='Choisir les typologies'>" +
     (typologiesLigne.length ? "+" : "+ Typologie") + "</button><span class='msg-sauvegarde' id='msg-typologie'></span>";
 
+  const tagsLigne = tagsDeLigne(ligne);
+  const tagChampHtml = "<span class='chips-conteneur chips-tag'>" +
+    tagsLigne.map(t => "<span class='chip chip-tag' title=\"" + escapeHtml(t) + "\"><span class='chip-texte'>" + escapeHtml(tronquerTexte(t, MAX_CAR_PUCE_TYPOLOGIE)) + "</span>" +
+      "<button class='chip-retirer' type='button' data-tag=\"" + escapeHtml(t) + "\" title='Retirer'>×</button></span>").join("") +
+    "</span><button type='button' id='btn-tag' class='btn-ajout-replie" + (tagsLigne.length ? "" : " champ-vide") + "' title='Choisir les tags'>" +
+    (tagsLigne.length ? "+" : "+ Tag") + "</button>";
+
   conteneur.innerHTML = `
     <div class="bandeau bandeau-compact">
       <div class="bandeau-ligne bandeau-ligne-titre">
@@ -2820,6 +2836,10 @@ function afficherFiche(ligne) {
         <div class="champ-editable-inline champ-personnes" data-libelle-ajout="+ Porteur">
           <span class="champ-label">Porteurs</span>
           ${porteursChampHtml}
+        </div>
+        <div class="champ-editable-inline champ-tag">
+          <span class="champ-label">Tag</span>
+          ${tagChampHtml}
         </div>
         <div class="champ-editable-inline champ-typologie">
           <span class="champ-label">Typologie</span>
@@ -3063,6 +3083,13 @@ function afficherFiche(ligne) {
   conteneur.querySelectorAll(".chip-typologie .chip-retirer").forEach(b => b.addEventListener("click", () => {
     const t = b.getAttribute("data-typologie");
     enregistrerTypologie(ligne.id, typologiesDeLigne(ligne).filter(x => x !== t));
+  }));
+
+  // --- Édition des Tags (liste gérée dans les paramètres, retrait par ×) ---
+  conteneur.querySelector("#btn-tag").addEventListener("click", (e) => ouvrirPopupTags(e.currentTarget, ligne.id));
+  conteneur.querySelectorAll(".chip-tag .chip-retirer").forEach(b => b.addEventListener("click", () => {
+    const t = b.getAttribute("data-tag");
+    enregistrerTags(ligne.id, tagsDeLigne(ligne).filter(x => x !== t));
   }));
 
   // --- Édition des dates de soumission et de clôture (sauvegarde immédiate au changement) ---
@@ -6392,6 +6419,7 @@ function ouvrirParametres() {
   mettreAJourLienCleLlm();
   initialiserEditeurTypologies();
   chargerMetaTypologie().then(initialiserEditeurTypologies);
+  chargerParametres().then(initialiserEditeurTags);
   fond.style.display = "flex";
 }
 
@@ -7322,7 +7350,7 @@ function telechargerBaseMarkdown() {
 }
 document.getElementById("param-export-md").addEventListener("click", telechargerBaseMarkdown);
 
-// ===================== Export PowerPoint d'une fiche (v0.115) =====================
+// ===================== Export PowerPoint d'une fiche (v0.116) =====================
 // Icône « PPT » à gauche de chaque ligne de la liste : ouvre une modale (aperçu simplifié, textes modifiables)
 // puis produit un .pptx d'une diapo à partir du modèle stocké en pièce jointe dans la table Emergence_Templates
 // (colonne Fichier). Le modèle contient des balises <Organisation>, <objet de la demande>, <une ou deux dates clés>,
@@ -7644,3 +7672,160 @@ document.getElementById("ppt-telecharger").addEventListener("click", async () =>
     pptMessage("Fichier " + nom + " téléchargé.", true);
   } catch (e) { pptMessage("Génération impossible : " + (e.message || e)); }
 });
+
+// ===================== Tags (v0.116) : colonne Emergence.Tag + liste des tags dans Emergence_Parametres =====================
+// Table Emergence_Parametres (Cle, Valeur, Description) : paramètres applicatifs partagés. Clé « tags » : liste JSON des tags.
+// Colonne Emergence.Tag : Choice List (créée par l'outil de migration de structure).
+const TABLE_PARAMETRES = "Emergence_Parametres";
+const COLONNE_TAG = "Tag";
+const PARAM_TAGS = "tags";
+let parametres = {};          // { cle: { id, valeur(texte), description } }
+let parametresDisponibles = false; // la table Emergence_Parametres existe et a été lue
+
+async function chargerParametres() {
+  try {
+    const t = await grist.docApi.fetchTable(TABLE_PARAMETRES);
+    const cle = (n) => Object.keys(t).find(k => k.toLowerCase() === n.toLowerCase());
+    const cC = cle("Cle"), cV = cle("Valeur"), cD = cle("Description");
+    if (!cC || !cV) throw new Error("colonnes Cle / Valeur absentes");
+    parametres = {};
+    (t.id || []).forEach((id, i) => { if (t[cC][i]) parametres[String(t[cC][i])] = { id, valeur: t[cV][i] == null ? "" : String(t[cV][i]), description: cD ? t[cD][i] : "" }; });
+    parametresDisponibles = true;
+  } catch (e) {
+    parametres = {}; parametresDisponibles = false;
+    console.error("Table " + TABLE_PARAMETRES + " illisible (lancer la migration de structure) :", e);
+  }
+}
+function lireParametreJson(cle, defaut) {
+  const p = parametres[cle];
+  if (!p || !p.valeur) return defaut;
+  try { const v = JSON.parse(p.valeur); return v == null ? defaut : v; } catch (e) { return defaut; }
+}
+async function ecrireParametreJson(cle, valeur, description) {
+  const texte = JSON.stringify(valeur);
+  const p = parametres[cle];
+  const action = p ? ["UpdateRecord", TABLE_PARAMETRES, p.id, { Valeur: texte }]
+    : ["AddRecord", TABLE_PARAMETRES, null, { Cle: cle, Valeur: texte, Description: description || "" }];
+  await grist.docApi.applyUserActions([action]);
+  await chargerParametres();
+}
+
+function tagsDeLigne(ligne) { return typologiesDeValeur(ligne && ligne[COLONNE_TAG]); }
+function colonneTagPresente() { return lignesEmergence.length === 0 ? true : COLONNE_TAG in lignesEmergence[0]; }
+function listeTagsDefinis() { const l = lireParametreJson(PARAM_TAGS, []); return Array.isArray(l) ? l.map(String) : []; }
+async function enregistrerTags(ligneId, liste) {
+  if (!colonneTagPresente()) { alert("La colonne « Tag » n'existe pas dans la table Emergence : lancez d'abord l'outil de migration de structure."); return; }
+  try {
+    await appliquerActions([["UpdateRecord", TABLE_PRINCIPALE, ligneId, { [COLONNE_TAG]: liste.length ? ["L"].concat(liste) : null }]]);
+    await rechargerEmergenceEtRafraichir(ligneId === ligneSelectionneeId ? ligneId : null);
+  } catch (err) { alert("Erreur lors de l'enregistrement des tags : " + err.message); }
+}
+function fermerPopupTags() { const p = document.getElementById("popup-tag"); if (p) p.remove(); }
+function ouvrirPopupTags(ancre, ligneId) {
+  fermerPopupTags(); fermerPopupTypologie();
+  const ligne = lignesEmergence.find(l => l.id === ligneId);
+  if (!ligne) return;
+  let selection = tagsDeLigne(ligne);
+  const choix = listeTagsDefinis();
+  selection.forEach(t => { if (!choix.includes(t)) choix.push(t); });
+  const popup = document.createElement("div");
+  popup.id = "popup-tag"; popup.className = "popup-typologie";
+  popup.innerHTML = choix.length
+    ? choix.map(v => "<label><input type='checkbox' value=\"" + escapeHtml(v) + "\"" + (selection.includes(v) ? " checked" : "") + ">" + escapeHtml(v) + "</label>").join("")
+    : "<div class='popup-typologie-note'>Aucun tag défini : ajoutez-en dans ⚙ Paramètres généraux → Tags.</div>";
+  document.body.appendChild(popup);
+  const r = ancre.getBoundingClientRect(), largeur = popup.offsetWidth, hauteur = popup.offsetHeight;
+  popup.style.left = Math.max(4, Math.min(r.left, window.innerWidth - largeur - 8)) + "px";
+  const dessous = r.bottom + 4;
+  popup.style.top = (dessous + hauteur > window.innerHeight - 8 ? Math.max(4, r.top - hauteur - 4) : dessous) + "px";
+  popup.addEventListener("change", async () => {
+    selection = [...popup.querySelectorAll("input:checked")].map(i => i.value);
+    await enregistrerTags(ligneId, selection);
+  });
+  const fermer = (e) => {
+    if (e.type === "keydown" ? e.key === "Escape" : !popup.contains(e.target) && e.target !== ancre) {
+      fermerPopupTags();
+      document.removeEventListener("mousedown", fermer, true);
+      document.removeEventListener("keydown", fermer, true);
+    }
+  };
+  setTimeout(() => { document.addEventListener("mousedown", fermer, true); document.addEventListener("keydown", fermer, true); }, 0);
+}
+
+// --- Paramètres : éditeur de la liste des tags ---
+let tagEdition = [];    // { origine (nom actuel ou null si nouveau), nom }
+let tagOriginaux = [];
+function nbFichesTag(v) { return lignesEmergence.filter(l => tagsDeLigne(l).includes(v)).length; }
+function rendreEditeurTags() {
+  const zone = document.getElementById("param-tag-liste");
+  if (!zone) return;
+  zone.innerHTML = "";
+  tagEdition.forEach((r, i) => {
+    const div = document.createElement("div");
+    div.className = "typo-ligne";
+    const nb = r.origine ? nbFichesTag(r.origine) : 0;
+    div.innerHTML = "<input type='text' value=\"" + escapeHtml(r.nom) + "\" placeholder='Nouveau tag'>" +
+      "<span class='typo-nb'>" + (r.origine ? nb + " fiche" + (nb > 1 ? "s" : "") : "nouveau") + "</span>" +
+      "<button type='button' class='typo-haut' title='Monter'" + (i === 0 ? " disabled" : "") + ">↑</button>" +
+      "<button type='button' class='typo-bas' title='Descendre'" + (i === tagEdition.length - 1 ? " disabled" : "") + ">↓</button>" +
+      "<button type='button' class='typo-suppr' title='Supprimer'>🗑</button>";
+    div.querySelector("input").addEventListener("input", (e) => { r.nom = e.target.value; });
+    div.querySelector(".typo-haut").addEventListener("click", () => { tagEdition.splice(i - 1, 0, tagEdition.splice(i, 1)[0]); rendreEditeurTags(); });
+    div.querySelector(".typo-bas").addEventListener("click", () => { tagEdition.splice(i + 1, 0, tagEdition.splice(i, 1)[0]); rendreEditeurTags(); });
+    div.querySelector(".typo-suppr").addEventListener("click", () => { tagEdition.splice(i, 1); rendreEditeurTags(); });
+    zone.appendChild(div);
+  });
+}
+function initialiserEditeurTags() {
+  tagOriginaux = listeTagsDefinis();
+  tagEdition = tagOriginaux.map(n => ({ origine: n, nom: n }));
+  rendreEditeurTags();
+  const msg = document.getElementById("param-tag-msg");
+  const ok = parametresDisponibles && colonneTagPresente();
+  document.getElementById("param-tag-ajouter").disabled = !ok;
+  document.getElementById("param-tag-enregistrer").disabled = !ok;
+  msg.className = ok ? "modale-msg" : "modale-msg erreur";
+  msg.textContent = ok ? "" : (!parametresDisponibles ? "Table « " + TABLE_PARAMETRES + " » absente : lancez l'outil de migration de structure."
+    : "Colonne « Tag » absente de la table Emergence : lancez l'outil de migration de structure.");
+}
+async function enregistrerListeTags() {
+  const msg = document.getElementById("param-tag-msg");
+  msg.className = "modale-msg";
+  const lignes = tagEdition.map(r => ({ origine: r.origine, nom: String(r.nom).trim() })).filter(r => r.nom);
+  const vus = new Set();
+  for (const r of lignes) {
+    const cle = normaliserTexteRecherche(r.nom);
+    if (vus.has(cle)) { msg.className = "modale-msg erreur"; msg.textContent = "Doublon : « " + r.nom + " »."; return; }
+    vus.add(cle);
+  }
+  const renommages = new Map(lignes.filter(r => r.origine && r.origine !== r.nom).map(r => [r.origine, r.nom]));
+  const conserves = new Set(lignes.map(r => r.origine).filter(Boolean));
+  const supprimes = tagOriginaux.filter(o => !conserves.has(o));
+  const impactRen = [...renommages.keys()].filter(o => nbFichesTag(o) > 0);
+  const impactSup = supprimes.filter(o => nbFichesTag(o) > 0);
+  if (impactRen.length || impactSup.length) {
+    const L = impactRen.map(o => "• « " + o + " » renommé en « " + renommages.get(o) + " » : " + nbFichesTag(o) + " fiche(s) mises à jour")
+      .concat(impactSup.map(o => "• « " + o + " » supprimé : retiré de " + nbFichesTag(o) + " fiche(s)"));
+    if (!window.confirm("Cette modification met à jour des fiches :\n" + L.join("\n") + "\n\nContinuer ?")) return;
+  }
+  msg.textContent = "Enregistrement…";
+  try {
+    await ecrireParametreJson(PARAM_TAGS, lignes.map(r => r.nom), "Liste des tags proposés pour les demandes (JSON)");
+    const actions = [];
+    lignesEmergence.forEach(l => {
+      const avant = tagsDeLigne(l);
+      const apres = [...new Set(avant.filter(t => !supprimes.includes(t)).map(t => renommages.has(t) ? renommages.get(t) : t))];
+      if (avant.join("\u0001") !== apres.join("\u0001")) actions.push(["UpdateRecord", TABLE_PRINCIPALE, l.id, { [COLONNE_TAG]: apres.length ? ["L"].concat(apres) : null }]);
+    });
+    if (actions.length) await grist.docApi.applyUserActions(actions);
+    await chargerTablePrincipale();
+    afficherListe();
+    const courante = lignesEmergence.find(l => l.id === ligneSelectionneeId);
+    if (courante) afficherFiche(courante);
+    initialiserEditeurTags();
+    msg.className = "modale-msg";
+    msg.textContent = "Liste enregistrée" + (actions.length ? " (" + actions.length + " fiche(s) mises à jour)." : ".");
+  } catch (e) { msg.className = "modale-msg erreur"; msg.textContent = "Échec de l'enregistrement : " + e.message; }
+}
+document.getElementById("param-tag-ajouter").addEventListener("click", () => { tagEdition.push({ origine: null, nom: "" }); rendreEditeurTags(); });
+document.getElementById("param-tag-enregistrer").addEventListener("click", enregistrerListeTags);

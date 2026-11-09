@@ -1,7 +1,7 @@
-// Migration de la structure — v1
+// Migration de la structure — v2
 // Outil à usage unique : widget personnalisé (accès complet) à ajouter temporairement dans Grist.
 // Compare le document au modèle attendu par le widget Émergence et crée ce qui manque. Ne supprime rien.
-const VERSION_OUTIL = "1";
+const VERSION_OUTIL = "2";
 grist.ready({ requiredAccess: 'full' });
 
 // Modèle attendu. creer:true = la table est créée si elle manque ; sinon elle doit déjà exister.
@@ -12,7 +12,8 @@ const STRUCTURE = [
     ["Main_courante", "Text"], ["Organisation", "Text"], ["Sponsor", "Ref:Emergence_Acteurs"],
     ["Parties_prenantes_concernees", "RefList:Emergence_Acteurs"], ["Porteurs", "Choice"], ["Statut", "Choice"],
     ["Priorite", "Choice"], ["Date_de_soumission", "Date"], ["Date_de_cloture", "Date"],
-    ["Date_de_modification", "DateTime:Europe/Paris", "Date de modification"]
+    ["Date_de_modification", "DateTime:Europe/Paris", "Date de modification"],
+    ["Tag", "ChoiceList", "Tag"]
   ] },
   { table: "Emergence_Acteurs", colonnes: [
     ["Nom_et_Prenom", "Text"], ["Organisation", "Text"], ["mail", "Text"], ["Role", "Text"]
@@ -24,6 +25,12 @@ const STRUCTURE = [
   { table: "Emergence_Images", creer: true, colonnes: [
     ["ID2", "Ref:Emergence", "ID"], ["Nom", "Text"], ["Type", "Text"], ["Date_ajout", "Date", "Date d'ajout"],
     ["Donnees", "Text", "Données (base64)"]
+  ] },
+  { table: "Emergence_Parametres", creer: true, colonnes: [
+    ["Cle", "Text", "Clé"], ["Valeur", "Text"], ["Description", "Text"]
+  ] },
+  { table: "Emergence_Templates", creer: true, colonnes: [
+    ["titre", "Text"], ["Fichier", "Attachments"]
   ] },
   { table: "Emergence_Session", creer: true, colonnes: [["Email", "Text", "Email", "user.Email"]] }
 ];

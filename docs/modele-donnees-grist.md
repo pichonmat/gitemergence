@@ -10,6 +10,7 @@ Généré automatiquement le 22/09/2026 09:29:33
 - [Emergence_Rida](#table-emergence-rida)
 - [Emergence_Images](#table-emergence-images)
 - [Emergence_Templates](#table-emergence-templates)
+- [Emergence_Parametres](#table-emergence-parametres)
 
 ## Table `Emergence`
 
@@ -113,3 +114,17 @@ Modèle PowerPoint utilisé par l'icône « PPT » de la liste des demandes (v0.
 |---|---|---|---|---|
 | `titre` | titre | `Text` | Non | libre (ex. « slide ») |
 | `Fichier` | Fichier | `Attachments` | Non | le modèle .pptx |
+
+## Table `Emergence_Parametres`
+
+Paramètres applicatifs partagés du widget (v0.116+), une ligne par paramètre. Créée par l'outil de migration de structure (v2).
+
+| Colonne (colId) | Libellé | Type | Formule | Détails |
+|---|---|---|---|---|
+| `Cle` | Clé | `Text` | Non | identifiant du paramètre |
+| `Valeur` | Valeur | `Text` | Non | valeur au format JSON |
+| `Description` | Description | `Text` | Non |  |
+
+Clés utilisées : `tags` — liste JSON des tags proposés (ex. `["Urgent","Ministre"]`), éditée dans ⚙ Paramètres généraux → Tags.
+
+Colonne ajoutée à `Emergence` : `Tag` (`ChoiceList`) — tags de la demande, choisis dans la liste `tags` ci-dessus.
