@@ -1,6 +1,6 @@
-// Widget Emergence — v0.120
-// Numéro de release : <majeure>.<build> (0.120 = release majeure 0, build 120).
-const VERSION_WIDGET = "0.120";
+// Widget Emergence — v0.121
+// Numéro de release : <majeure>.<build> (0.121 = release majeure 0, build 121).
+const VERSION_WIDGET = "0.121";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -7412,7 +7412,7 @@ function telechargerBaseMarkdown() {
 }
 document.getElementById("param-export-md").addEventListener("click", telechargerBaseMarkdown);
 
-// ===================== Export PowerPoint d'une fiche (v0.120) =====================
+// ===================== Export PowerPoint d'une fiche (v0.114) =====================
 // Icône « PPT » à gauche de chaque ligne de la liste : ouvre une modale (aperçu simplifié, textes modifiables)
 // puis produit un .pptx d'une diapo à partir du modèle stocké en pièce jointe dans la table Emergence_Templates
 // (colonne Fichier). Le modèle contient des balises <Organisation>, <objet de la demande>, <une ou deux dates clés>,
@@ -7738,7 +7738,7 @@ document.getElementById("ppt-telecharger").addEventListener("click", async () =>
   } catch (e) { pptMessage("Génération impossible : " + (e.message || e)); }
 });
 
-// ===================== Tags (v0.120) : colonne Emergence.Tag + liste des tags dans Emergence_Parametres =====================
+// ===================== Tags (v0.116) : colonne Emergence.Tag + liste des tags dans Emergence_Parametres =====================
 // Table Emergence_Parametres (Cle, Valeur, Description) : paramètres applicatifs partagés. Clé « tags » : liste JSON des tags.
 // Colonne Emergence.Tag : Choice List (créée par l'outil de migration de structure).
 const TABLE_PARAMETRES = "Emergence_Parametres";
@@ -7897,7 +7897,7 @@ async function enregistrerListeTags() {
 document.getElementById("param-tag-ajouter").addEventListener("click", () => { tagEdition.push({ origine: null, nom: "" }); rendreEditeurTags(); });
 document.getElementById("param-tag-enregistrer").addEventListener("click", enregistrerListeTags);
 
-// --- Paramètres : onglets (v0.120) ---
+// --- Paramètres : onglets (v0.118) ---
 function afficherOngletParametres(nom) {
   document.querySelectorAll("#param-onglets .param-onglet-btn").forEach(b => b.classList.toggle("actif", b.getAttribute("data-onglet") === nom));
   document.querySelectorAll("#modale-parametres-fond .param-onglet-panneau").forEach(p => { p.style.display = p.getAttribute("data-onglet") === nom ? "" : "none"; });
@@ -8215,6 +8215,30 @@ function genererFriseRidaHtml(ligne, ridaLies) {
     "<div class='frise-jalon frise-" + x.cls + " " + (i % 2 ? "frise-bas" : "frise-haut") + "' style='left:" + pct(x.t) + "%;' title=\"" + escapeHtml(x.lib + " — " + formaterDate(x.t) + (x.info || "")) + "\">" +
     "<div class='frise-label'>" + escapeHtml(x.lib) + "<br><span>" + formaterDate(x.t) + "</span></div><div class='frise-point'></div></div>").join("");
   const progression = cloture ? 100 : pct(Math.min(aujourdhui, fin));
+  // Points « jours d'action » : un petit point par jour comportant au moins une ligne RIDA
+  const parJour = new Map();
+  ridaLies.filter(x => !estLigneJournalAuto(x)).forEach(x => {
+    const t = Number(x.Fait_le || x.Pour_le); if (!t) return;
+    const j = Math.floor(t / 86400) * 86400;
+    if (!parJour.has(j)) parJour.set(j, []);
+    parJour.get(j).push(x);
+  });
+  const joursJalons = new Set(jalons.map(x => Math.floor(x.t / 86400) * 86400));
+  const pointsAction = [...parJour.entries()].filter(([j]) => j >= debut - 86399 && j <= fin).sort((a, b) => a[0] - b[0]);
+  const petitsPoints = pointsAction.filter(([j]) => !joursJalons.has(j)).map(([j, lignes]) => {
+    const resume = lignes.map(x => (x.RIDA ? x.RIDA + " : " : "") + String(x.Description || "").replace(/\s+/g, " ").slice(0, 80)).join("\n");
+    return "<div class='frise-jour' style='left:" + pct(j) + "%;' title=\"" + escapeHtml(formaterDate(j) + " — " + lignes.length + " action(s)\n" + resume) + "\"></div>";
+  }).join("");
+  // Délais (jours ouvrés) entre points consécutifs : jalons + jours d'action
+  const tousTemps = [...new Set([...joursJalons, ...pointsAction.map(([j]) => j)])].sort((a, b) => a - b);
+  let delais = "";
+  for (let i = 1; i < tousTemps.length; i++) {
+    const a = tousTemps[i - 1], b = tousTemps[i];
+    const largeur = pct(b) - pct(a);
+    const n = joursOuvresEntre(a, b);
+    if (n == null || largeur < 4) continue;
+    delais += "<div class='frise-delai' style='left:" + (pct(a) + largeur / 2) + "%;' title=\"" + n + " jour(s) ouvré(s) entre le " + formaterDate(a) + " et le " + formaterDate(b) + "\">" + n + " j</div>";
+  }
   return "<div class='frise' title=\"Chronologie de la demande, de la date d'entrée " + (cloture ? "à la clôture" : "à aujourd'hui") + "\">" +
-    "<div class='frise-piste'><div class='frise-progres' style='width:" + progression + "%;'></div>" + marques + "</div></div>";
+    "<div class='frise-piste'><div class='frise-progres' style='width:" + progression + "%;'></div>" + delais + petitsPoints + marques + "</div></div>";
 }
