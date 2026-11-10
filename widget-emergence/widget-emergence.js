@@ -1,6 +1,6 @@
-// Widget Emergence — v0.123
-// Numéro de release : <majeure>.<build> (0.123 = release majeure 0, build 123).
-const VERSION_WIDGET = "0.123";
+// Widget Emergence — v0.124
+// Numéro de release : <majeure>.<build> (0.124 = release majeure 0, build 124).
+const VERSION_WIDGET = "0.124";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -2629,6 +2629,7 @@ function genererLigneRidaEditable(r) {
   return "<tr data-rida-id='" + r.id + "'>" +
     "<td><select class='rida-input' data-field='RIDA'>" + optionsRidaTypeHtml(r.RIDA) + "</select></td>" +
     "<td>" + genererCelluleRidaPorteurHtml(r) + "</td>" +
+    "<td class='rida-impliques'>" + boutonParticipantsRidaHtml(r) + "</td>" +
     "<td><div class='champ-avec-effacer'>" +
     "<input type='date' class='rida-input' data-field='Pour_le' value=\"" + dateEpochVersInput(r.Pour_le) + "\">" +
     "<button type='button' class='btn-effacer-date-rida' data-field='Pour_le' title='Effacer la date'>✕</button>" +
@@ -2679,13 +2680,13 @@ function genererCelluleRidaPorteurHtml(r) {
   );
   return (
     "<div class='chips-conteneur chip-champ-unique chip-champ-compact'>" + interieur + "</div>" +
-    ajoutHtml + boutonParticipantsRidaHtml(r)
+    ajoutHtml
   );
 }
 
 // Largeurs (px) des colonnes du tableau RIDA de la fiche ; "Description" prend le reste.
 const CLE_STOCKAGE_LARGEURS_RIDA_FICHE = "emergence_largeurs_rida_fiche";
-const LARGEURS_RIDA_FICHE_DEFAUT = { RIDA: 80, Porteur: 150, Pour_le: 140, Fait_le: 140, Date_de_modification: 120 };
+const LARGEURS_RIDA_FICHE_DEFAUT = { RIDA: 80, Porteur: 150, Impliques: 90, Pour_le: 140, Fait_le: 140, Date_de_modification: 120 };
 let largeursRidaFiche = Object.assign({}, LARGEURS_RIDA_FICHE_DEFAUT);
 try {
   const brut = window.localStorage.getItem(CLE_STOCKAGE_LARGEURS_RIDA_FICHE);
@@ -2714,8 +2715,9 @@ function genererTableauRidaEditable(ridaLies) {
 
   return (
     "<table class='tableau-fiche tableau-rida-editable'>" +
-    "<colgroup>" + col("RIDA") + col("Porteur") + col("Pour_le") + col("Fait_le") + col("Date_de_modification") + "<col><col style='width:60px;'></colgroup>" +
+    "<colgroup>" + col("RIDA") + col("Porteur") + col("Impliques") + col("Pour_le") + col("Fait_le") + col("Date_de_modification") + "<col><col style='width:60px;'></colgroup>" +
     "<thead><tr><th data-col-rida-w='RIDA'>RIDA" + poignee + "</th><th data-col-rida-w='Porteur'>Porteur" + poignee + "</th>" +
+    "<th data-col-rida-w='Impliques' title='Personnes impliquées par la ligne'>Impliqués" + poignee + "</th>" +
     "<th data-col-rida='Pour_le' data-col-rida-w='Pour_le' class='rida-th-triable'>Pour le <span class='fleche-rida'></span>" + poignee + "</th>" +
     "<th data-col-rida-w='Fait_le'>Fait le" + poignee + "</th>" +
     "<th data-col-rida-w='Date_de_modification'>Modifié le" + poignee + "</th>" +
@@ -8011,7 +8013,7 @@ function boutonParticipantsRidaHtml(r) {
   if (estLigneJournalAuto(r)) return "";
   const noms = nomsParticipantsRida(r);
   return "<button type='button' class='btn-rida-participants' data-rida-id='" + r.id + "' title=\"" +
-    escapeHtml(noms.length ? "Personnes concernées : " + noms.join(", ") : "Aucune personne renseignée — cliquer pour en ajouter") + "\">👤 " + (idsParticipantsRida(r).length || "+") + "</button>";
+    escapeHtml(noms.length ? "Impliqués : " + noms.join(", ") + " — cliquer pour modifier" : "Aucune personne impliquée — cliquer pour en ajouter") + "\">👤 " + idsParticipantsRida(r).length + "</button>";
 }
 
 let modaleParticipants = null; // { ridaId, ligneId }
@@ -8019,11 +8021,11 @@ function rendreModaleParticipants() {
   const r = ridaToutes.find(x => x.id === modaleParticipants.ridaId);
   if (!r) return;
   const ids = idsParticipantsRida(r);
-  document.getElementById("participants-titre").textContent = "Participants — " + (r.Description || "atelier");
+  document.getElementById("participants-titre").textContent = "Impliqués — " + (r.Description || "ligne RIDA");
   document.getElementById("participants-liste").innerHTML = ids.length
     ? ids.map(id => "<span class='chip'><span class='chip-texte'>" + escapeHtml(nomActeurParId(id) || ("#" + id)) + "</span>" +
         "<button class='chip-retirer' type='button' data-acteur-id='" + id + "' title='Retirer'>×</button></span>").join("")
-    : "<span style='color:#888;'>Aucun participant (0)</span>";
+    : "<span style='color:#888;'>Aucune personne impliquée (0)</span>";
   document.getElementById("participants-nb").textContent = ids.length + " personne" + (ids.length > 1 ? "s" : "");
   document.getElementById("participants-datalist").innerHTML = acteursTriesParNom.filter(a => !ids.includes(a.id))
     .map(a => "<option value=\"" + escapeHtml(a.label) + "\"></option>").join("");
