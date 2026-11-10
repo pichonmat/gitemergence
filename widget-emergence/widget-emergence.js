@@ -1,6 +1,6 @@
-// Widget Emergence — v0.122
-// Numéro de release : <majeure>.<build> (0.122 = release majeure 0, build 122).
-const VERSION_WIDGET = "0.122";
+// Widget Emergence — v0.123
+// Numéro de release : <majeure>.<build> (0.123 = release majeure 0, build 123).
+const VERSION_WIDGET = "0.123";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -7320,7 +7320,7 @@ function exportLigneRida(r) {
   const d = r.Description ? exportTexteMarkdown(r.Description).replace(/\n+/g, " ") : "";
   return "- **" + type + "**" + (r.Porteur ? " — porteur : " + r.Porteur : "") +
     (r.Pour_le ? " — pour le " + formaterDate(r.Pour_le) : "") + (r.Fait_le ? " — fait le " + formaterDate(r.Fait_le) : "") +
-    (estAtelierRida(r) ? " — participants (" + idsParticipantsRida(r).length + ")" + (idsParticipantsRida(r).length ? " : " + nomsParticipantsRida(r).join(", ") : "") : "") +
+    (idsParticipantsRida(r).length || estAtelierRida(r) ? " — " + (estAtelierRida(r) ? "participants" : "personnes concernées") + " (" + idsParticipantsRida(r).length + ")" + (idsParticipantsRida(r).length ? " : " + nomsParticipantsRida(r).join(", ") : "") : "") +
     (estLigneJournalAuto(r) ? " *(journal automatique)*" : "") + (d ? " : " + d : "");
 }
 
@@ -8008,10 +8008,10 @@ function colonneParticipantsPresente() { return ridaToutes.length === 0 ? true :
 function idsParticipantsRida(r) { return refListVersIds(r && r.Participants).map(Number).filter(Boolean); }
 function nomsParticipantsRida(r) { return idsParticipantsRida(r).map(nomActeurParId).filter(Boolean); }
 function boutonParticipantsRidaHtml(r) {
-  if (!estAtelierRida(r)) return "";
+  if (estLigneJournalAuto(r)) return "";
   const noms = nomsParticipantsRida(r);
   return "<button type='button' class='btn-rida-participants' data-rida-id='" + r.id + "' title=\"" +
-    escapeHtml(noms.length ? "Participants : " + noms.join(", ") : "Aucun participant renseigné") + "\">👤 " + idsParticipantsRida(r).length + "</button>";
+    escapeHtml(noms.length ? "Personnes concernées : " + noms.join(", ") : "Aucune personne renseignée — cliquer pour en ajouter") + "\">👤 " + (idsParticipantsRida(r).length || "+") + "</button>";
 }
 
 let modaleParticipants = null; // { ridaId, ligneId }
