@@ -130,3 +130,11 @@ Clés utilisées : `tags` — liste JSON des tags proposés (ex. `["Urgent","Min
 `questions_ia` — liste JSON des questions types proposées dans l'onglet IA, éditée dans ⚙ Paramètres généraux → Assistant IA. Sans cette clé, les 5 questions d'origine sont utilisées.
 
 Colonne ajoutée à `Emergence` : `Tag` (`ChoiceList`) — tags de la demande, choisis dans la liste `tags` ci-dessus.
+
+## Ajouts v0.120
+
+Colonnes ajoutées à `Emergence` (type `Date`) : `Date_Go_NoGo_SDID` (Go/noGo SDID), `Date_MVP_previsionnelle` (MVP prévisionnel), `Date_MVP_realisee` (MVP réalisé). `Date_de_soumission` est affichée « Date d'entrée » dans le widget (colonne inchangée).
+
+Colonne ajoutée à `Emergence_Rida` : `Participants` (`RefList:Emergence_Acteurs`) — participants d'un atelier (ligne RIDA dont la description contient « tenue d'un atelier »).
+
+KPI (jours ouvrés lundi–vendredi hors jours fériés français) : Date d'entrée → Go/noGo, Date d'entrée → MVP réalisé, Date d'entrée → premier atelier (date de l'atelier = Fait_le, sinon Pour_le).

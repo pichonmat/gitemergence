@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.119 -->
+<!-- Widget Emergence — v0.120 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -38,7 +38,10 @@
             <th data-col="Priorite" data-filtre-champ="priorite" title="Priorité"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Prio. <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Statut" data-filtre-champ="statut"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Statut <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Date_de_derniere_modification" data-filtre-champ="derniere-modif" title="Dernière modification de la demande (fiche ou ligne RIDA)"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Modifié le <span class="fleche"></span><span class="poignee"></span></th>
-            <th data-col="Date_de_soumission"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span> Date de s... <span class="fleche"></span><span class="poignee"></span></th>
+            <th data-col="Date_de_soumission"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span> Date d'entrée <span class="fleche"></span><span class="poignee"></span></th>
+            <th data-col="Date_Go_NoGo_SDID"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span> Go/noGo SDID <span class="fleche"></span><span class="poignee"></span></th>
+            <th data-col="Date_MVP_previsionnelle"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span> MVP prévu <span class="fleche"></span><span class="poignee"></span></th>
+            <th data-col="Date_MVP_realisee"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span> MVP réalisé <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Organisation" data-filtre-champ="organisation"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Organisation <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Sponsor" data-filtre-champ="sponsor"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Sponsor <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Porteurs" data-filtre-champ="porteur"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Porteur <span class="fleche"></span><span class="poignee"></span></th>
@@ -180,7 +183,7 @@
     <select id="ia-statut" title="Périmètre : statut"></select>
     <select id="ia-typologie" title="Périmètre : typologie"></select>
     <select id="ia-organisation" title="Périmètre : organisation"></select>
-    <label class="ia-date">Soumises du <input type="date" id="ia-du"></label>
+    <label class="ia-date">Entrées du <input type="date" id="ia-du"></label>
     <label class="ia-date">au <input type="date" id="ia-au"></label>
     <button type="button" id="ia-reset" title="Réinitialiser le périmètre">✕ Réinitialiser</button>
   </div>
@@ -228,6 +231,16 @@
     <div class="carte-activite carte-activite-large">
       <div class="carte-activite-titre">Actions faites / à faire par semaine</div>
       <div id="graphique-activite-semaines" class="graphique-conteneur"></div>
+    </div>
+    <div class="carte-activite carte-activite-large">
+      <div class="carte-activite-titre">Délais de traitement (jours ouvrés)</div>
+      <div class="delais-barre">
+        <label>Entrées à partir du <input type="date" id="delais-debut"></label>
+        <label>sur <input type="number" id="delais-duree" min="1" max="120" value="12" style="width:60px;"> mois</label>
+        <label>Tag <select id="delais-tag"></select></label>
+        <span id="delais-resume" style="color:#666;"></span>
+      </div>
+      <div id="delais-histogrammes" class="delais-grille"></div>
     </div>
     <div class="carte-activite carte-activite-large">
       <div class="carte-activite-titre">Kanban des demandes par statut <span class="kanban-legende"><span class="kanban-pastille kanban-p1"></span>P1 <span class="kanban-pastille kanban-p2"></span>P2 <span class="kanban-pastille kanban-p3"></span>P3 <span class="kanban-pastille kanban-p0"></span>sans priorité</span>
@@ -1283,6 +1296,38 @@
   .param-onglet-btn:hover { color: #222; }
   .param-onglet-btn.actif { color: #c8472b; border-bottom-color: #c8472b; }
   .param-onglet-btn.alerte::after { content: " •"; color: #c8472b; }
+  .btn-rida-participants { cursor: pointer; border: 1px solid #b7c4f0; background: #e6ecff; color: #26408b; border-radius: 10px; font-size: 0.85em; padding: 0 7px; margin-top: 2px; }
+  .btn-rida-participants:hover { background: #d0dbff; }
+  .kpi-bloc { margin-bottom: 12px; }
+  .kpi-tuiles { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+  .kpi-tuile { border: 1px solid #e1e1e8; border-radius: 8px; padding: 8px 14px; min-width: 170px; background: #fafbff; }
+  .kpi-valeur { font-size: 1.5em; font-weight: 700; line-height: 1.1; }
+  .kpi-libelle { font-size: 0.8em; color: #666; margin-top: 2px; }
+  .delais-barre { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; font-size: 0.9em; }
+  .delais-barre input, .delais-barre select { font: inherit; }
+  .delais-grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .histo-carte { border: 1px solid #e1e1e8; border-radius: 8px; padding: 8px 10px; }
+  .histo-titre { font-weight: 700; font-size: 0.9em; margin-bottom: 6px; }
+  .histo-barres { display: flex; align-items: flex-end; gap: 6px; height: 150px; }
+  .histo-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; align-items: stretch; text-align: center; }
+  .histo-barre { min-height: 2px; border-radius: 3px 3px 0 0; }
+  .histo-nb { font-size: 0.8em; color: #444; height: 16px; }
+  .histo-lib { font-size: 0.7em; color: #666; margin-top: 3px; white-space: nowrap; }
+  .histo-stats { font-size: 0.78em; color: #666; margin-top: 6px; }
+  .frise { width: 100%; box-sizing: border-box; padding: 40px 50px; margin: 2px 0 8px; background: #fafbff; border: 1px solid #e8e8ee; border-radius: 8px; }
+  .frise-piste { position: relative; height: 6px; background: #d9dcec; border-radius: 3px; }
+  .frise-progres { position: absolute; left: 0; top: 0; bottom: 0; background: #8ea2e6; border-radius: 3px; }
+  .frise-jalon { position: absolute; top: 50%; transform: translateX(-50%); width: 0; height: 0; }
+  .frise-point { position: absolute; left: -6px; top: -6px; width: 12px; height: 12px; border-radius: 50%; background: #3b5bdb; border: 2px solid #fff; box-shadow: 0 0 0 1px #3b5bdb; }
+  .frise-label { position: absolute; left: 0; transform: translateX(-50%); white-space: nowrap; font-size: 0.75em; text-align: center; line-height: 1.15; font-weight: 600; }
+  .frise-label span { font-weight: 400; color: #666; }
+  .frise-haut .frise-label { bottom: 10px; }
+  .frise-bas .frise-label { top: 10px; }
+  .frise-debut .frise-point { background: #444; box-shadow: 0 0 0 1px #444; }
+  .frise-mvp-prev .frise-point { background: #fff; box-shadow: 0 0 0 2px #2b9348; }
+  .frise-mvp-reel .frise-point { background: #2b9348; box-shadow: 0 0 0 1px #2b9348; }
+  .frise-atelier .frise-point { background: #e07b1f; box-shadow: 0 0 0 1px #e07b1f; border-radius: 3px; transform: rotate(45deg); }
+  .frise-fin .frise-point, .frise-aujourdhui .frise-point { background: #c8472b; box-shadow: 0 0 0 1px #c8472b; }
 </style>
 
 <div class="modale-fond" id="modale-ppt-fond" style="display:none;">
@@ -1296,5 +1341,20 @@
       <button type="button" id="ppt-telecharger" class="btn-principal">⬇️ Télécharger .pptx</button>
       <button type="button" id="ppt-fermer" class="btn-secondaire">Fermer</button>
     </div>
+  </div>
+</div>
+
+<div class="modale-fond" id="modale-participants-fond" style="display:none;">
+  <div class="modale-boite" style="width:440px;max-width:92%;">
+    <div class="modale-titre" id="participants-titre">Participants</div>
+    <div style="font-size:0.85em;color:#777;margin-bottom:6px;">Personnes ayant participé à l'atelier : <b id="participants-nb">0 personne</b></div>
+    <div id="participants-liste" class="chips-conteneur" style="margin-bottom:8px;"></div>
+    <div class="ajout-pp-conteneur">
+      <input type="text" id="participants-saisie" list="participants-datalist" placeholder="Tapez un nom d'acteur…">
+      <datalist id="participants-datalist"></datalist>
+      <button type="button" id="participants-ajouter" title="Ajouter ce participant">+</button>
+    </div>
+    <div class="modale-msg" id="participants-msg"></div>
+    <div class="modale-actions"><button type="button" id="participants-fermer" class="btn-secondaire">Fermer</button></div>
   </div>
 </div>

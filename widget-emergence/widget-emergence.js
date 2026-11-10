@@ -1,6 +1,6 @@
-// Widget Emergence — v0.119
-// Numéro de release : <majeure>.<build> (0.119 = release majeure 0, build 119).
-const VERSION_WIDGET = "0.119";
+// Widget Emergence — v0.120
+// Numéro de release : <majeure>.<build> (0.120 = release majeure 0, build 120).
+const VERSION_WIDGET = "0.120";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -137,7 +137,8 @@ const LIBELLES_CHAMPS_JOURNAL = {
   Titre: "Titre", Objet_de_la_demande: "Objet de la demande", Detail_de_la_demande: "Détail de la demande",
   Main_courante: "Main courante", Statut: "Statut", Priorite: "Priorité", Sponsor: "Sponsor", Porteurs: "Porteur",
   Parties_prenantes_concernees: "Parties prenantes", Organisation: "Organisation",
-  Typologie_de_la_demande: "Typologie de la demande", Date_de_soumission: "Date de soumission",
+  Typologie_de_la_demande: "Typologie de la demande", Date_de_soumission: "Date d'entrée",
+  Date_Go_NoGo_SDID: "Go/noGo SDID", Date_MVP_previsionnelle: "Mise à disposition du MVP (prévisionnel)", Date_MVP_realisee: "Mise à disposition du MVP (réalisé)",
   Date_de_cloture: "Date de clôture", Orientation: "Orientation", Lien_vers_fiche_DS: "Lien vers fiche DS",
   Porteurs2: "Porteurs2", Vecteur_de_remontee_terrain: "Vecteur de remontée terrain",
   Nom_Prenom_demandeurs: "Nom Prénom demandeurs", Territoire: "Territoire",
@@ -568,6 +569,9 @@ let largeursColonnes = {
   "Date_de_derniere_modification": 120,
   "Priorite": 84,
   "Date_de_soumission": 100,
+  "Date_Go_NoGo_SDID": 100,
+  "Date_MVP_previsionnelle": 110,
+  "Date_MVP_realisee": 110,
   "Organisation": 110,
   "Sponsor": 130,
   "Porteurs": 130,
@@ -580,7 +584,7 @@ let largeursColonnes = {
 };
 
 const ORDRE_COLONNES = [
-  "Ppt", "Priorite", "Statut", "Date_de_derniere_modification", "Date_de_soumission", "Organisation", "Sponsor", "Porteurs",
+  "Ppt", "Priorite", "Statut", "Date_de_derniere_modification", "Date_de_soumission", "Date_Go_NoGo_SDID", "Date_MVP_previsionnelle", "Date_MVP_realisee", "Organisation", "Sponsor", "Porteurs",
   "Titre", "Ref_BRM", "Typologie_de_la_demande", "Tag", "Parties_prenantes_concernees", "Action_ouverte"
 ];
 
@@ -605,7 +609,10 @@ const LIBELLES_COLONNES = {
   "Priorite": "Priorité",
   "Statut": "Statut",
   "Date_de_derniere_modification": "Dernière modification",
-  "Date_de_soumission": "Date de soumission",
+  "Date_de_soumission": "Date d'entrée",
+  "Date_Go_NoGo_SDID": "Go/noGo SDID",
+  "Date_MVP_previsionnelle": "MVP prévisionnel",
+  "Date_MVP_realisee": "MVP réalisé",
   "Organisation": "Organisation",
   "Sponsor": "Sponsor",
   "Porteurs": "Porteur",
@@ -1930,7 +1937,7 @@ function afficherListe() {
   mettreAJourCompteurRechercheGlobale(lignesTriees.length);
 
   if (lignesTriees.length === 0) {
-    corps.innerHTML = "<tr><td colspan='14' class='chargement'>Aucune ligne trouvée.</td></tr>";
+    corps.innerHTML = "<tr><td colspan='17' class='chargement'>Aucune ligne trouvée.</td></tr>";
     return;
   }
   let html = "";
@@ -1975,7 +1982,10 @@ function afficherListe() {
       "<td class='cellule-priorite cellule-liste-editable' data-edit='priorite' title='Cliquer sur l\'icône pour modifier la priorité'><span class='texte-cellule-edit'>" + iconePriorite(ligne.Priorite) + "</span></td>" +
       "<td class='cellule-statut-modifiable' title='Cliquer pour changer le statut'>" + badgeStatut(ligne.Statut) + "</td>" +
       "<td class='cellule-derniere-modif' title='Dernière modification de la demande (fiche ou lignes RIDA)'>" + (formaterDerniereModifDemande(ligne.id) || "—") + "</td>" +
-      "<td class='cellule-liste-editable' data-edit='date' title=\"" + escapeHtml(formaterDate(ligne.Date_de_soumission) || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (formaterDate(ligne.Date_de_soumission) || "—") + "</span></td>" +
+      "<td class='cellule-liste-editable' data-edit='date' data-champ='Date_de_soumission' title=\"" + escapeHtml(formaterDate(ligne.Date_de_soumission) || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (formaterDate(ligne.Date_de_soumission) || "—") + "</span></td>" +
+      "<td class='cellule-liste-editable' data-edit='date' data-champ='Date_Go_NoGo_SDID' title=\"" + escapeHtml(formaterDate(ligne.Date_Go_NoGo_SDID) || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (formaterDate(ligne.Date_Go_NoGo_SDID) || "—") + "</span></td>" +
+      "<td class='cellule-liste-editable' data-edit='date' data-champ='Date_MVP_previsionnelle' title=\"" + escapeHtml(formaterDate(ligne.Date_MVP_previsionnelle) || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (formaterDate(ligne.Date_MVP_previsionnelle) || "—") + "</span></td>" +
+      "<td class='cellule-liste-editable' data-edit='date' data-champ='Date_MVP_realisee' title=\"" + escapeHtml(formaterDate(ligne.Date_MVP_realisee) || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (formaterDate(ligne.Date_MVP_realisee) || "—") + "</span></td>" +
       "<td class='cellule-liste-editable' data-edit='organisation' title=\"" + escapeHtml(ligne.Organisation || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + escapeHtml(ligne.Organisation || "—") + "</span></td>" +
       "<td class='cellule-liste-editable' data-edit='sponsor' title=\"" + escapeHtml(sponsorNom) + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (escapeHtml(sponsorNom) || "—") + "</span></td>" +
       "<td class='cellule-liste-editable' data-edit='porteur' title=\"" + escapeHtml(porteurTexte) + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (escapeHtml(porteurTexte) || "—") + "</span></td>" +
@@ -2163,7 +2173,7 @@ function activerEditionCellulesListe(corps) {
         element.addEventListener("change", () => finir(element.value || null, element.value !== valeurInitiale));
         element.addEventListener("blur", () => finir(null, false));
       } else if (type === "date") {
-        champ = "Date_de_soumission";
+        champ = td.getAttribute("data-champ") || "Date_de_soumission";
         valeurInitiale = dateEpochVersInput(ligne[champ]);
         element = document.createElement("input");
         element.type = "date";
@@ -2669,7 +2679,7 @@ function genererCelluleRidaPorteurHtml(r) {
   );
   return (
     "<div class='chips-conteneur chip-champ-unique chip-champ-compact'>" + interieur + "</div>" +
-    ajoutHtml
+    ajoutHtml + boutonParticipantsRidaHtml(r)
   );
 }
 
@@ -2755,7 +2765,7 @@ function afficherFiche(ligne) {
       return triRidaSens === "asc" ? vA - vB : vB - vA;
     });
   }
-  const ridaContenu = genererTableauRidaEditable(ridaLies);
+  const ridaContenu = genererFriseRidaHtml(ligne, ridaLies) + genererTableauRidaEditable(ridaLies);
 
   // --- Champ Sponsor (puce bleue, comme Parties prenantes — un seul acteur référencé) ---
   const sponsorChampHtml = genererSponsorChipHtml(sponsorId);
@@ -2822,10 +2832,25 @@ function afficherFiche(ligne) {
           <input type="text" id="organisation-input" class="input-organisation" placeholder="—" value="${escapeHtml(ligne.Organisation)}">
           <span class="msg-sauvegarde" id="msg-organisation"></span>
         </div>
-        <div class="champ-editable-inline champ-meta" title="Date de soumission">
-          <span class="champ-label">Soumise le</span>
+        <div class="champ-editable-inline champ-meta" title="Date d'entrée de la demande">
+          <span class="champ-label">Date d'entrée</span>
           <input type="date" id="date-soumission-input" value="${dateEpochVersInput(ligne.Date_de_soumission)}">
           <span class="msg-sauvegarde" id="msg-date-soumission"></span>
+        </div>
+        <div class="champ-editable-inline champ-meta" title="Date du Go/noGo SDID">
+          <span class="champ-label">Go/noGo SDID</span>
+          <input type="date" id="date-gonogo-input" value="${dateEpochVersInput(ligne.Date_Go_NoGo_SDID)}">
+          <span class="msg-sauvegarde" id="msg-date-gonogo"></span>
+        </div>
+        <div class="champ-editable-inline champ-meta" title="Mise à disposition du MVP (prévisionnelle)">
+          <span class="champ-label">MVP prévu</span>
+          <input type="date" id="date-mvp-prev-input" value="${dateEpochVersInput(ligne.Date_MVP_previsionnelle)}">
+          <span class="msg-sauvegarde" id="msg-date-mvp-prev"></span>
+        </div>
+        <div class="champ-editable-inline champ-meta" title="Mise à disposition du MVP (réalisée)">
+          <span class="champ-label">MVP réalisé</span>
+          <input type="date" id="date-mvp-reel-input" value="${dateEpochVersInput(ligne.Date_MVP_realisee)}">
+          <span class="msg-sauvegarde" id="msg-date-mvp-reel"></span>
         </div>
         <div class="champ-editable-inline champ-meta" title="Date de clôture">
           <span class="champ-label">Clôture</span>
@@ -2874,6 +2899,7 @@ function afficherFiche(ligne) {
     </div>
     <div class="tab-panel ${ongletActif === 'rida' ? 'active' : ''}" data-panel="rida">${ridaContenu}</div>
     <div class="tab-panel ${ongletActif === 'general' ? 'active' : ''}" data-panel="general">
+      ${genererKpiFicheHtml(ligne)}
       <div class="champ-editable">
         <div class="champ-label">Détail de la demande</div>
         ${champMarkdownHtml("detail", ligne.Detail_de_la_demande, "textarea-pleine-hauteur", "boite-pleine-hauteur")}
@@ -3104,6 +3130,12 @@ function afficherFiche(ligne) {
     sauverChampEmergence("Date_de_soumission", inputVersDateEpoch(dateSoumissionInput.value), msgDateSoumission);
   });
 
+  [["#date-gonogo-input", "Date_Go_NoGo_SDID", "#msg-date-gonogo"], ["#date-mvp-prev-input", "Date_MVP_previsionnelle", "#msg-date-mvp-prev"],
+    ["#date-mvp-reel-input", "Date_MVP_realisee", "#msg-date-mvp-reel"]].forEach(([sel, champ, selMsg]) => {
+    const inp = conteneur.querySelector(sel), msg = conteneur.querySelector(selMsg);
+    inp.addEventListener("change", () => sauverChampEmergence(champ, inputVersDateEpoch(inp.value), msg));
+  });
+
   const dateClotureInput = conteneur.querySelector("#date-cloture-input");
   const msgDateCloture = conteneur.querySelector("#msg-date-cloture");
   dateClotureInput.addEventListener("change", () => {
@@ -3299,6 +3331,10 @@ function afficherFiche(ligne) {
     }
 
     // Champ d'ajout du Porteur (texte + autocomplétion, valeur libre acceptée)
+    ridaTbody.addEventListener("click", (e) => {
+      const b = e.target.closest(".btn-rida-participants");
+      if (b) ouvrirModaleParticipants(parseInt(b.getAttribute("data-rida-id"), 10), ligne.id);
+    });
     ridaTbody.addEventListener("change", (e) => {
       if (e.target.classList.contains("rida-porteur-ajout-input")) {
         const ridaId = parseInt(e.target.getAttribute("data-rida-id"), 10);
@@ -5083,6 +5119,7 @@ function afficherActivite() {
   indicateur.textContent = String(donnees.demandesSansAction);
 
   rafraichirKanban();
+  afficherDelaisActivite();
 }
 
 // Kanban des demandes : une colonne par statut (dans l'ordre de COULEURS_STATUT), une carte par
@@ -6198,6 +6235,7 @@ function brancherCollageImage(textarea, ligneId, msgEl) {
 // Quand on commence à saisir la description d'une ligne RIDA (fiche ou onglet Rida), une liste de
 // titres types est proposée ; {sponsor} = sponsor de la demande, {date} = date du jour.
 const MODELES_TITRE_RIDA_DEFAUT = [
+  "Tenue d'un atelier avec {sponsor} le {date}",
   "Réunion avec {sponsor} le {date}",
   "Demande de prise de contact avec {sponsor}",
   "Attribution d'un compte N8N à {sponsor}",
@@ -7067,7 +7105,7 @@ function iaConstruireContexte(fiches) {
     const meta = [
       "Statut : " + (f.Statut || "—"), "Priorité : " + (f.Priorite || "—"), "Organisation : " + (f.Organisation || "—"),
       "Typologie : " + (typologiesDeLigne(f).join(", ") || "—"),
-      "Soumise le : " + (formaterDate(f.Date_de_soumission) || "—"), "Clôturée le : " + (formaterDate(f.Date_de_cloture) || "—")
+      "Date d'entrée : " + (formaterDate(f.Date_de_soumission) || "—"), "Clôturée le : " + (formaterDate(f.Date_de_cloture) || "—")
     ];
     l.push(meta.join(" | "));
     if (actifs.has("personnes")) {
@@ -7253,7 +7291,7 @@ function afficherIa() {
 // (tous les champs renseignés + lignes RIDA), les lignes RIDA sans fiche et les acteurs. Pas de mails,
 // de téléphones ni d'images (remplacées par « [image] »).
 const CHAMPS_EXPORT_IGNORES = new Set(["id", "manualSort", "html_fiche", "Titre", "Date_de_modification"]);
-const CHAMPS_EXPORT_DATES = new Set(["Date_de_soumission", "Date_de_cloture"]);
+const CHAMPS_EXPORT_DATES = new Set(["Date_de_soumission", "Date_Go_NoGo_SDID", "Date_MVP_previsionnelle", "Date_MVP_realisee", "Date_de_cloture"]);
 
 function exportTexteMarkdown(v) {
   // Texte libre conservé tel quel (markdown de l'utilisateur), mais : images retirées, titres rétrogradés en gras
@@ -7282,6 +7320,7 @@ function exportLigneRida(r) {
   const d = r.Description ? exportTexteMarkdown(r.Description).replace(/\n+/g, " ") : "";
   return "- **" + type + "**" + (r.Porteur ? " — porteur : " + r.Porteur : "") +
     (r.Pour_le ? " — pour le " + formaterDate(r.Pour_le) : "") + (r.Fait_le ? " — fait le " + formaterDate(r.Fait_le) : "") +
+    (estAtelierRida(r) ? " — participants (" + idsParticipantsRida(r).length + ")" + (idsParticipantsRida(r).length ? " : " + nomsParticipantsRida(r).join(", ") : "") : "") +
     (estLigneJournalAuto(r) ? " *(journal automatique)*" : "") + (d ? " : " + d : "");
 }
 
@@ -7316,7 +7355,7 @@ function genererMarkdownBase() {
   L.push("");
   L.push("## Index des demandes");
   L.push("");
-  L.push("| # | Titre | Statut | Priorité | Typologie | Organisation | Soumise le |");
+  L.push("| # | Titre | Statut | Priorité | Typologie | Organisation | Date d'entrée |");
   L.push("|---|---|---|---|---|---|---|");
   const cellule = (t) => String(t || "—").replace(/\|/g, "\\|").replace(/\s+/g, " ");
   fiches.forEach(f => L.push("| " + f.id + " | " + cellule(f.Titre) + " | " + cellule(f.Statut) + " | " + cellule(f.Priorite) + " | " +
@@ -7373,7 +7412,7 @@ function telechargerBaseMarkdown() {
 }
 document.getElementById("param-export-md").addEventListener("click", telechargerBaseMarkdown);
 
-// ===================== Export PowerPoint d'une fiche (v0.119) =====================
+// ===================== Export PowerPoint d'une fiche (v0.120) =====================
 // Icône « PPT » à gauche de chaque ligne de la liste : ouvre une modale (aperçu simplifié, textes modifiables)
 // puis produit un .pptx d'une diapo à partir du modèle stocké en pièce jointe dans la table Emergence_Templates
 // (colonne Fichier). Le modèle contient des balises <Organisation>, <objet de la demande>, <une ou deux dates clés>,
@@ -7590,7 +7629,10 @@ function pptContexteLlm(ligne) {
   add("Synthèse de la demande", ligne.Synthese_de_la_demande);
   add("Synthèse de l'irritant et état de son traitement", ligne.Synthese_reformulation_de_l_irritant_et_etat_de_son_traitement);
   add("Main courante", ligne.Main_courante);
-  if (ligne.Date_de_soumission) L.push("Date de soumission : " + formaterDate(ligne.Date_de_soumission));
+  if (ligne.Date_Go_NoGo_SDID) L.push("Go/noGo SDID : " + formaterDate(ligne.Date_Go_NoGo_SDID));
+  if (ligne.Date_MVP_previsionnelle) L.push("MVP prévisionnel : " + formaterDate(ligne.Date_MVP_previsionnelle));
+  if (ligne.Date_MVP_realisee) L.push("MVP réalisé : " + formaterDate(ligne.Date_MVP_realisee));
+  if (ligne.Date_de_soumission) L.push("Date d'entrée : " + formaterDate(ligne.Date_de_soumission));
   if (ligne.Date_de_cloture) L.push("Date de clôture : " + formaterDate(ligne.Date_de_cloture));
   const rida = pptLignesRida(ligne).slice(-12).map(exportLigneRida);
   if (rida.length) L.push("Lignes RIDA :\n" + rida.join("\n"));
@@ -7696,7 +7738,7 @@ document.getElementById("ppt-telecharger").addEventListener("click", async () =>
   } catch (e) { pptMessage("Génération impossible : " + (e.message || e)); }
 });
 
-// ===================== Tags (v0.119) : colonne Emergence.Tag + liste des tags dans Emergence_Parametres =====================
+// ===================== Tags (v0.120) : colonne Emergence.Tag + liste des tags dans Emergence_Parametres =====================
 // Table Emergence_Parametres (Cle, Valeur, Description) : paramètres applicatifs partagés. Clé « tags » : liste JSON des tags.
 // Colonne Emergence.Tag : Choice List (créée par l'outil de migration de structure).
 const TABLE_PARAMETRES = "Emergence_Parametres";
@@ -7855,7 +7897,7 @@ async function enregistrerListeTags() {
 document.getElementById("param-tag-ajouter").addEventListener("click", () => { tagEdition.push({ origine: null, nom: "" }); rendreEditeurTags(); });
 document.getElementById("param-tag-enregistrer").addEventListener("click", enregistrerListeTags);
 
-// --- Paramètres : onglets (v0.119) ---
+// --- Paramètres : onglets (v0.120) ---
 function afficherOngletParametres(nom) {
   document.querySelectorAll("#param-onglets .param-onglet-btn").forEach(b => b.classList.toggle("actif", b.getAttribute("data-onglet") === nom));
   document.querySelectorAll("#modale-parametres-fond .param-onglet-panneau").forEach(p => { p.style.display = p.getAttribute("data-onglet") === nom ? "" : "none"; });
@@ -7954,3 +7996,225 @@ async function enregistrerQuestionsIa() {
 document.getElementById("param-qia-ajouter").addEventListener("click", () => { qiaEdition.push({ texte: "" }); rendreEditeurQuestionsIa(); });
 document.getElementById("param-qia-enregistrer").addEventListener("click", enregistrerQuestionsIa);
 document.getElementById("param-qia-defaut").addEventListener("click", () => { qiaEdition = QUESTIONS_TYPES_IA_DEFAUT.map(t => ({ texte: t })); rendreEditeurQuestionsIa(); document.getElementById("param-qia-msg").textContent = "Questions d'origine rétablies : cliquez sur « Enregistrer les questions » pour les appliquer."; });
+
+// ===================== Ateliers : participants des lignes RIDA (v0.120) =====================
+// Un atelier = ligne RIDA dont la description contient « tenue d'un atelier ». Les participants sont stockés dans
+// Emergence_Rida.Participants (RefList vers Emergence_Acteurs, créée par l'outil de migration de structure v4).
+const CHAINE_ATELIER = "tenue d'un atelier";
+function estAtelierRida(r) {
+  return normaliserTexteRecherche(r && r.Description).replace(/[’‘`]/g, "'").includes(CHAINE_ATELIER);
+}
+function colonneParticipantsPresente() { return ridaToutes.length === 0 ? true : "Participants" in ridaToutes[0]; }
+function idsParticipantsRida(r) { return refListVersIds(r && r.Participants).map(Number).filter(Boolean); }
+function nomsParticipantsRida(r) { return idsParticipantsRida(r).map(nomActeurParId).filter(Boolean); }
+function boutonParticipantsRidaHtml(r) {
+  if (!estAtelierRida(r)) return "";
+  const noms = nomsParticipantsRida(r);
+  return "<button type='button' class='btn-rida-participants' data-rida-id='" + r.id + "' title=\"" +
+    escapeHtml(noms.length ? "Participants : " + noms.join(", ") : "Aucun participant renseigné") + "\">👤 " + idsParticipantsRida(r).length + "</button>";
+}
+
+let modaleParticipants = null; // { ridaId, ligneId }
+function rendreModaleParticipants() {
+  const r = ridaToutes.find(x => x.id === modaleParticipants.ridaId);
+  if (!r) return;
+  const ids = idsParticipantsRida(r);
+  document.getElementById("participants-titre").textContent = "Participants — " + (r.Description || "atelier");
+  document.getElementById("participants-liste").innerHTML = ids.length
+    ? ids.map(id => "<span class='chip'><span class='chip-texte'>" + escapeHtml(nomActeurParId(id) || ("#" + id)) + "</span>" +
+        "<button class='chip-retirer' type='button' data-acteur-id='" + id + "' title='Retirer'>×</button></span>").join("")
+    : "<span style='color:#888;'>Aucun participant (0)</span>";
+  document.getElementById("participants-nb").textContent = ids.length + " personne" + (ids.length > 1 ? "s" : "");
+  document.getElementById("participants-datalist").innerHTML = acteursTriesParNom.filter(a => !ids.includes(a.id))
+    .map(a => "<option value=\"" + escapeHtml(a.label) + "\"></option>").join("");
+}
+async function enregistrerParticipantsRida(liste) {
+  const msg = document.getElementById("participants-msg");
+  if (!colonneParticipantsPresente()) { msg.className = "modale-msg erreur"; msg.textContent = "La colonne « Participants » n'existe pas dans Emergence_Rida : lancez l'outil de migration de structure."; return; }
+  msg.className = "modale-msg"; msg.textContent = "";
+  try {
+    await appliquerActions([["UpdateRecord", TABLE_RIDA, modaleParticipants.ridaId, { Participants: liste.length ? ["L"].concat(liste) : null }]]);
+    const rida = await grist.docApi.fetchTable(TABLE_RIDA);
+    ridaToutes = tableVersLignes(rida);
+    rendreModaleParticipants();
+    const lc = lignesEmergence.find(l => l.id === modaleParticipants.ligneId);
+    if (lc) afficherFiche(lc);
+  } catch (e) { msg.className = "modale-msg erreur"; msg.textContent = "Erreur : " + e.message; }
+}
+function ajouterParticipantDepuisSaisie() {
+  const inp = document.getElementById("participants-saisie");
+  const texte = normaliserTexteRecherche(inp.value.trim());
+  if (!texte) return;
+  const msg = document.getElementById("participants-msg");
+  const cand = acteursTriesParNom.find(a => normaliserTexteRecherche(a.label) === texte) ||
+    acteursTriesParNom.find(a => normaliserTexteRecherche(nomActeurParId(a.id)) === texte);
+  if (!cand) { msg.className = "modale-msg erreur"; msg.textContent = "Aucun acteur ne correspond à « " + inp.value.trim() + " »."; return; }
+  const r = ridaToutes.find(x => x.id === modaleParticipants.ridaId);
+  const ids = idsParticipantsRida(r);
+  if (ids.includes(cand.id)) { msg.className = "modale-msg erreur"; msg.textContent = "Déjà dans la liste."; return; }
+  inp.value = "";
+  enregistrerParticipantsRida(ids.concat(cand.id));
+}
+function ouvrirModaleParticipants(ridaId, ligneId) {
+  modaleParticipants = { ridaId, ligneId };
+  document.getElementById("participants-msg").textContent = "";
+  document.getElementById("participants-saisie").value = "";
+  rendreModaleParticipants();
+  document.getElementById("modale-participants-fond").style.display = "flex";
+  document.getElementById("participants-saisie").focus();
+}
+document.getElementById("participants-fermer").addEventListener("click", () => { document.getElementById("modale-participants-fond").style.display = "none"; modaleParticipants = null; });
+document.getElementById("participants-ajouter").addEventListener("click", ajouterParticipantDepuisSaisie);
+document.getElementById("participants-saisie").addEventListener("keydown", (e) => { if (e.key === "Enter") ajouterParticipantDepuisSaisie(); });
+document.getElementById("participants-saisie").addEventListener("change", ajouterParticipantDepuisSaisie);
+document.getElementById("participants-liste").addEventListener("click", (e) => {
+  const b = e.target.closest(".chip-retirer");
+  if (!b || !modaleParticipants) return;
+  const id = Number(b.getAttribute("data-acteur-id"));
+  enregistrerParticipantsRida(idsParticipantsRida(ridaToutes.find(x => x.id === modaleParticipants.ridaId)).filter(x => x !== id));
+});
+
+// ===================== KPI de délais, histogrammes et frise (v0.120) =====================
+// Jours ouvrés : lundi–vendredi hors jours fériés français. Durée entre A et B = nombre de jours ouvrés dans ]A ; B].
+function joursFeriesFrance(annee) {
+  const cle = (d) => d.toISOString().slice(0, 10);
+  const S = new Set(["01-01", "05-01", "05-08", "07-14", "08-15", "11-01", "11-11", "12-25"].map(x => annee + "-" + x));
+  // Pâques (algorithme de Meeus/Jones/Butcher)
+  const a = annee % 19, b = Math.floor(annee / 100), c = annee % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), hh = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - hh - k) % 7, m = Math.floor((a + 11 * hh + 22 * l) / 451);
+  const mois = Math.floor((hh + l - 7 * m + 114) / 31), jour = ((hh + l - 7 * m + 114) % 31) + 1;
+  const paques = new Date(Date.UTC(annee, mois - 1, jour));
+  [1, 39, 50].forEach(n => S.add(cle(new Date(paques.getTime() + n * 86400000)))); // lundi de Pâques, Ascension, lundi de Pentecôte
+  return S;
+}
+const cacheFeries = {};
+function estJourOuvre(jourUtcMs) {
+  const d = new Date(jourUtcMs), dow = d.getUTCDay();
+  if (dow === 0 || dow === 6) return false;
+  const an = d.getUTCFullYear();
+  if (!cacheFeries[an]) cacheFeries[an] = joursFeriesFrance(an);
+  return !cacheFeries[an].has(d.toISOString().slice(0, 10));
+}
+// A, B : epoch en secondes. Retourne null si une date manque ou si B est antérieure à A.
+function joursOuvresEntre(a, b) {
+  if (!a || !b) return null;
+  const jA = Math.floor(Number(a) / 86400), jB = Math.floor(Number(b) / 86400);
+  if (!(jB >= jA) || jB - jA > 20000) return null;
+  let n = 0;
+  for (let jour = jA + 1; jour <= jB; jour++) if (estJourOuvre(jour * 86400000)) n++;
+  return n;
+}
+function lignesAteliersDeDemande(demandeId) {
+  return ridaToutes.filter(r => idDepuisRef(r.ID2) === demandeId && !estLigneJournalAuto(r) && estAtelierRida(r))
+    .map(r => ({ r, date: Number(r.Fait_le || r.Pour_le) || 0 })).filter(x => x.date)
+    .sort((x, y) => x.date - y.date);
+}
+function kpisDemande(l) {
+  const entree = Number(l.Date_de_soumission) || 0;
+  const ateliers = lignesAteliersDeDemande(l.id);
+  const premier = ateliers.length ? ateliers[0].date : 0;
+  const inverse = (a, b) => !!(a && b && Math.floor(b / 86400) < Math.floor(a / 86400));
+  return {
+    gonogo: joursOuvresEntre(entree, Number(l.Date_Go_NoGo_SDID) || 0),
+    mvp: joursOuvresEntre(entree, Number(l.Date_MVP_realisee) || 0),
+    atelier: joursOuvresEntre(entree, premier),
+    incoherent: { gonogo: inverse(entree, Number(l.Date_Go_NoGo_SDID)), mvp: inverse(entree, Number(l.Date_MVP_realisee)), atelier: inverse(entree, premier) },
+    premierAtelier: premier
+  };
+}
+const DEFINITIONS_KPI = [
+  { cle: "gonogo", libelle: "Date d'entrée → Go/noGo SDID", couleur: "#3b5bdb" },
+  { cle: "mvp", libelle: "Date d'entrée → MVP réalisé", couleur: "#2b9348" },
+  { cle: "atelier", libelle: "Date d'entrée → 1er atelier", couleur: "#e07b1f" }
+];
+function genererKpiFicheHtml(ligne) {
+  const k = kpisDemande(ligne);
+  const tuile = (d) => {
+    const v = k[d.cle];
+    const txt = v != null ? v + " j" : (k.incoherent[d.cle] ? "dates incohérentes" : "—");
+    return "<div class='kpi-tuile' title='Jours ouvrés (lundi–vendredi hors jours fériés français)'><div class='kpi-valeur' style='color:" + d.couleur + "'>" + txt + "</div>" +
+      "<div class='kpi-libelle'>" + d.libelle + "</div></div>";
+  };
+  return "<div class='kpi-bloc'><div class='champ-label'>Délais (en jours ouvrés)</div><div class='kpi-tuiles'>" + DEFINITIONS_KPI.map(tuile).join("") + "</div></div>";
+}
+
+// --- Histogrammes (onglet Activité) : distribution des délais, période sur la Date d'entrée, filtre par tag ---
+const TRANCHES_DELAIS = [
+  { lib: "0–5 j", min: 0, max: 5 }, { lib: "6–10 j", min: 6, max: 10 }, { lib: "11–20 j", min: 11, max: 20 },
+  { lib: "21–40 j", min: 21, max: 40 }, { lib: "41–60 j", min: 41, max: 60 }, { lib: "> 60 j", min: 61, max: Infinity }
+];
+function medianeDelais(t) { const s = t.slice().sort((a, b) => a - b), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : null; }
+function delaisActivitePeriode() {
+  const debutEl = document.getElementById("delais-debut"), moisEl = document.getElementById("delais-duree"), tagEl = document.getElementById("delais-tag");
+  const debut = inputVersDateEpoch(debutEl.value), mois = Math.max(1, parseInt(moisEl.value, 10) || 12);
+  let fin = null;
+  if (debut) { const d = new Date(debut * 1000); fin = Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + mois, d.getUTCDate()) / 1000); }
+  const tag = tagEl.value;
+  return lignesEmergence.filter(l => {
+    const e = Number(l.Date_de_soumission) || 0;
+    if (!e) return false;
+    if (debut && e < debut) return false;
+    if (fin && e >= fin) return false;
+    return !tag || tagsDeLigne(l).includes(tag);
+  });
+}
+let delaisInitialise = false;
+function afficherDelaisActivite() {
+  const zone = document.getElementById("delais-histogrammes");
+  if (!zone) return;
+  if (!delaisInitialise) {
+    delaisInitialise = true;
+    const d = new Date(); const debut = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 11, 1));
+    document.getElementById("delais-debut").value = debut.toISOString().slice(0, 10);
+    ["delais-debut", "delais-duree", "delais-tag"].forEach(id => document.getElementById(id).addEventListener("change", afficherDelaisActivite));
+  }
+  const tagEl = document.getElementById("delais-tag"), tagActuel = tagEl.value;
+  const tags = [...new Set(listeTagsDefinis().concat(...lignesEmergence.map(tagsDeLigne)))];
+  tagEl.innerHTML = "<option value=''>Tous les tags</option>" + tags.map(t => "<option value=\"" + escapeHtml(t) + "\"" + (t === tagActuel ? " selected" : "") + ">" + escapeHtml(t) + "</option>").join("");
+  const lignes = delaisActivitePeriode();
+  const kpis = lignes.map(kpisDemande);
+  document.getElementById("delais-resume").textContent = lignes.length + " demande" + (lignes.length > 1 ? "s" : "") + " entrée" + (lignes.length > 1 ? "s" : "") + " sur la période";
+  zone.innerHTML = DEFINITIONS_KPI.map(def => {
+    const valeurs = kpis.map(k => k[def.cle]).filter(v => v != null);
+    const comptes = TRANCHES_DELAIS.map(t => valeurs.filter(v => v >= t.min && v <= t.max).length);
+    const max = Math.max(1, ...comptes);
+    const barres = TRANCHES_DELAIS.map((t, i) =>
+      "<div class='histo-col' title='" + comptes[i] + " demande(s) : " + t.lib + "'><div class='histo-nb'>" + (comptes[i] || "") + "</div>" +
+      "<div class='histo-barre' style='height:" + Math.round(comptes[i] / max * 100) + "%;background:" + def.couleur + ";'></div><div class='histo-lib'>" + t.lib + "</div></div>").join("");
+    const moy = valeurs.length ? (valeurs.reduce((s, v) => s + v, 0) / valeurs.length) : null, med = medianeDelais(valeurs);
+    return "<div class='histo-carte'><div class='histo-titre'>" + def.libelle + "</div><div class='histo-barres'>" + barres + "</div>" +
+      "<div class='histo-stats'>" + (valeurs.length ? valeurs.length + " mesure(s) · médiane " + med + " j · moyenne " + (Math.round(moy * 10) / 10) + " j" : "Aucune mesure sur la période") + "</div></div>";
+  }).join("");
+}
+
+// --- Frise chronologique en haut de la section RIDA de la fiche ---
+function genererFriseRidaHtml(ligne, ridaLies) {
+  const entree = Number(ligne.Date_de_soumission) || 0;
+  const aujourdhui = aujourdHuiEpoch();
+  const ateliers = lignesAteliersDeDemande(ligne.id);
+  const datesRida = ridaLies.filter(x => !estLigneJournalAuto(x)).map(x => Number(x.Fait_le || x.Pour_le)).filter(Boolean);
+  const debut = entree || (datesRida.length ? Math.min(...datesRida) : 0);
+  if (!debut) return "";
+  const cloture = Number(ligne.Date_de_cloture) || 0;
+  const jalons = [{ t: debut, lib: "Entrée", cls: "debut" }];
+  if (Number(ligne.Date_Go_NoGo_SDID)) jalons.push({ t: Number(ligne.Date_Go_NoGo_SDID), lib: "Go/noGo", cls: "gonogo" });
+  if (Number(ligne.Date_MVP_previsionnelle)) jalons.push({ t: Number(ligne.Date_MVP_previsionnelle), lib: "MVP prévu", cls: "mvp-prev" });
+  if (Number(ligne.Date_MVP_realisee)) jalons.push({ t: Number(ligne.Date_MVP_realisee), lib: "MVP réalisé", cls: "mvp-reel" });
+  ateliers.forEach((a, i) => {
+    const noms = nomsParticipantsRida(a.r);
+    jalons.push({ t: a.date, lib: "Atelier" + (ateliers.length > 1 ? " " + (i + 1) : ""), cls: "atelier",
+      info: noms.length ? " — " + noms.length + " participant(s) : " + noms.join(", ") : " — aucun participant" });
+  });
+  jalons.push(cloture ? { t: cloture, lib: "Clôture", cls: "fin" } : { t: aujourdhui, lib: "Aujourd'hui", cls: "aujourdhui" });
+  const fin = Math.max(...jalons.map(x => x.t), debut + 86400);
+  const span = Math.max(fin - debut, 86400);
+  const pct = (t) => Math.min(100, Math.max(0, (t - debut) / span * 100));
+  jalons.sort((x, y) => x.t - y.t);
+  const marques = jalons.map((x, i) =>
+    "<div class='frise-jalon frise-" + x.cls + " " + (i % 2 ? "frise-bas" : "frise-haut") + "' style='left:" + pct(x.t) + "%;' title=\"" + escapeHtml(x.lib + " — " + formaterDate(x.t) + (x.info || "")) + "\">" +
+    "<div class='frise-label'>" + escapeHtml(x.lib) + "<br><span>" + formaterDate(x.t) + "</span></div><div class='frise-point'></div></div>").join("");
+  const progression = cloture ? 100 : pct(Math.min(aujourdhui, fin));
+  return "<div class='frise' title=\"Chronologie de la demande, de la date d'entrée " + (cloture ? "à la clôture" : "à aujourd'hui") + "\">" +
+    "<div class='frise-piste'><div class='frise-progres' style='width:" + progression + "%;'></div>" + marques + "</div></div>";
+}

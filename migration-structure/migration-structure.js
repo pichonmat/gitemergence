@@ -1,7 +1,7 @@
-// Migration de la structure — v3
+// Migration de la structure — v4
 // Outil à usage unique : widget personnalisé (accès complet) à ajouter temporairement dans Grist.
 // Compare le document au modèle attendu par le widget Émergence et crée ce qui manque. Ne supprime rien.
-const VERSION_OUTIL = "3";
+const VERSION_OUTIL = "4";
 grist.ready({ requiredAccess: 'full' });
 
 // Modèle attendu. creer:true = la table est créée si elle manque ; sinon elle doit déjà exister.
@@ -13,14 +13,16 @@ const STRUCTURE = [
     ["Parties_prenantes_concernees", "RefList:Emergence_Acteurs"], ["Porteurs", "Choice"], ["Statut", "Choice"],
     ["Priorite", "Choice"], ["Date_de_soumission", "Date"], ["Date_de_cloture", "Date"],
     ["Date_de_modification", "Date", "Date de modification"],
-    ["Tag", "ChoiceList", "Tag"]
+    ["Tag", "ChoiceList", "Tag"],
+    ["Date_Go_NoGo_SDID", "Date", "Go/noGo SDID"], ["Date_MVP_previsionnelle", "Date", "MVP (prévisionnel)"], ["Date_MVP_realisee", "Date", "MVP (réalisé)"]
   ] },
   { table: "Emergence_Acteurs", colonnes: [
     ["Nom_et_Prenom", "Text"], ["Organisation", "Text"], ["mail", "Text"], ["Role", "Text"]
   ] },
   { table: "Emergence_Rida", colonnes: [
     ["ID2", "Ref:Emergence"], ["RIDA", "Text"], ["Porteur", "Text"], ["Pour_le", "Date"], ["Description", "Text"],
-    ["Fait_le", "Date"], ["Date_de_modification", "Date", "Date de modification"]
+    ["Fait_le", "Date"], ["Date_de_modification", "Date", "Date de modification"],
+    ["Participants", "RefList:Emergence_Acteurs", "Participants"]
   ] },
   { table: "Emergence_Images", creer: true, colonnes: [
     ["ID2", "Ref:Emergence", "ID"], ["Nom", "Text"], ["Type", "Text"], ["Date_ajout", "Date", "Date d'ajout"],
