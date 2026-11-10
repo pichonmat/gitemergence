@@ -1,6 +1,6 @@
-// Widget Emergence — v0.121
-// Numéro de release : <majeure>.<build> (0.121 = release majeure 0, build 121).
-const VERSION_WIDGET = "0.121";
+// Widget Emergence — v0.122
+// Numéro de release : <majeure>.<build> (0.122 = release majeure 0, build 122).
+const VERSION_WIDGET = "0.122";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
