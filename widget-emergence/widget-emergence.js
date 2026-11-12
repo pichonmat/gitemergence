@@ -1,6 +1,6 @@
-// Widget Emergence — v0.124
-// Numéro de release : <majeure>.<build> (0.124 = release majeure 0, build 124).
-const VERSION_WIDGET = "0.124";
+// Widget Emergence — v0.125
+// Numéro de release : <majeure>.<build> (0.125 = release majeure 0, build 125).
+const VERSION_WIDGET = "0.125";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -570,6 +570,7 @@ let largeursColonnes = {
   "Priorite": 84,
   "Date_de_soumission": 100,
   "Date_Go_NoGo_SDID": 100,
+  "Date_1er_atelier": 100,
   "Date_MVP_previsionnelle": 110,
   "Date_MVP_realisee": 110,
   "Organisation": 110,
@@ -584,7 +585,7 @@ let largeursColonnes = {
 };
 
 const ORDRE_COLONNES = [
-  "Ppt", "Priorite", "Statut", "Date_de_derniere_modification", "Date_de_soumission", "Date_Go_NoGo_SDID", "Date_MVP_previsionnelle", "Date_MVP_realisee", "Organisation", "Sponsor", "Porteurs",
+  "Ppt", "Priorite", "Statut", "Date_de_derniere_modification", "Date_de_soumission", "Date_Go_NoGo_SDID", "Date_1er_atelier", "Date_MVP_previsionnelle", "Date_MVP_realisee", "Organisation", "Sponsor", "Porteurs",
   "Titre", "Ref_BRM", "Typologie_de_la_demande", "Tag", "Parties_prenantes_concernees", "Action_ouverte"
 ];
 
@@ -611,6 +612,7 @@ const LIBELLES_COLONNES = {
   "Date_de_derniere_modification": "Dernière modification",
   "Date_de_soumission": "Date d'entrée",
   "Date_Go_NoGo_SDID": "Go/noGo SDID",
+  "Date_1er_atelier": "1er atelier",
   "Date_MVP_previsionnelle": "MVP prévisionnel",
   "Date_MVP_realisee": "MVP réalisé",
   "Organisation": "Organisation",
@@ -1828,6 +1830,10 @@ function trierLignes(lignes) {
       vA = a.Priorite ? String(a.Priorite).trim() : "P9";
       vB = b.Priorite ? String(b.Priorite).trim() : "P9";
     }
+    if (colonneTri === "Date_1er_atelier") {
+      vA = datePremierAtelier(a.id);
+      vB = datePremierAtelier(b.id);
+    }
     if (colonneTri === "Date_de_derniere_modification") {
       vA = epochDerniereModifDemande(a.id);
       vB = epochDerniereModifDemande(b.id);
@@ -1937,7 +1943,7 @@ function afficherListe() {
   mettreAJourCompteurRechercheGlobale(lignesTriees.length);
 
   if (lignesTriees.length === 0) {
-    corps.innerHTML = "<tr><td colspan='17' class='chargement'>Aucune ligne trouvée.</td></tr>";
+    corps.innerHTML = "<tr><td colspan='18' class='chargement'>Aucune ligne trouvée.</td></tr>";
     return;
   }
   let html = "";
@@ -1984,6 +1990,7 @@ function afficherListe() {
       "<td class='cellule-derniere-modif' title='Dernière modification de la demande (fiche ou lignes RIDA)'>" + (formaterDerniereModifDemande(ligne.id) || "—") + "</td>" +
       "<td class='cellule-liste-editable' data-edit='date' data-champ='Date_de_soumission' title=\"" + escapeHtml(formaterDate(ligne.Date_de_soumission) || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (formaterDate(ligne.Date_de_soumission) || "—") + "</span></td>" +
       "<td class='cellule-liste-editable' data-edit='date' data-champ='Date_Go_NoGo_SDID' title=\"" + escapeHtml(formaterDate(ligne.Date_Go_NoGo_SDID) || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (formaterDate(ligne.Date_Go_NoGo_SDID) || "—") + "</span></td>" +
+      "<td class='cellule-derniere-modif' title='Date du premier atelier (première ligne RIDA de type atelier)'>" + (formaterDate(datePremierAtelier(ligne.id)) || "—") + "</td>" +
       "<td class='cellule-liste-editable' data-edit='date' data-champ='Date_MVP_previsionnelle' title=\"" + escapeHtml(formaterDate(ligne.Date_MVP_previsionnelle) || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (formaterDate(ligne.Date_MVP_previsionnelle) || "—") + "</span></td>" +
       "<td class='cellule-liste-editable' data-edit='date' data-champ='Date_MVP_realisee' title=\"" + escapeHtml(formaterDate(ligne.Date_MVP_realisee) || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (formaterDate(ligne.Date_MVP_realisee) || "—") + "</span></td>" +
       "<td class='cellule-liste-editable' data-edit='organisation' title=\"" + escapeHtml(ligne.Organisation || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + escapeHtml(ligne.Organisation || "—") + "</span></td>" +
@@ -2843,6 +2850,10 @@ function afficherFiche(ligne) {
           <span class="champ-label">Go/noGo SDID</span>
           <input type="date" id="date-gonogo-input" value="${dateEpochVersInput(ligne.Date_Go_NoGo_SDID)}">
           <span class="msg-sauvegarde" id="msg-date-gonogo"></span>
+        </div>
+        <div class="champ-editable-inline champ-meta" title="Date du premier atelier (calculée d'après les lignes RIDA « tenue d'un atelier »)">
+          <span class="champ-label">1er atelier</span>
+          <input type="date" id="date-1er-atelier-input" value="${dateEpochVersInput(datePremierAtelier(ligne.id))}" disabled>
         </div>
         <div class="champ-editable-inline champ-meta" title="Mise à disposition du MVP (prévisionnelle)">
           <span class="champ-label">MVP prévu</span>
@@ -8107,6 +8118,10 @@ function joursOuvresEntre(a, b) {
   for (let jour = jA + 1; jour <= jB; jour++) if (estJourOuvre(jour * 86400000)) n++;
   return n;
 }
+function datePremierAtelier(demandeId) {
+  const a = lignesAteliersDeDemande(demandeId);
+  return a.length ? a[0].date : 0;
+}
 function lignesAteliersDeDemande(demandeId) {
   return ridaToutes.filter(r => idDepuisRef(r.ID2) === demandeId && !estLigneJournalAuto(r) && estAtelierRida(r))
     .map(r => ({ r, date: Number(r.Fait_le || r.Pour_le) || 0 })).filter(x => x.date)
@@ -8205,7 +8220,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
   if (Number(ligne.Date_MVP_realisee)) jalons.push({ t: Number(ligne.Date_MVP_realisee), lib: "MVP réalisé", cls: "mvp-reel" });
   ateliers.forEach((a, i) => {
     const noms = nomsParticipantsRida(a.r);
-    jalons.push({ t: a.date, lib: "Atelier" + (ateliers.length > 1 ? " " + (i + 1) : ""), cls: "atelier",
+    jalons.push({ t: a.date, lib: i === 0 ? "1er atelier" : "Atelier " + (i + 1), cls: "atelier",
       info: noms.length ? " — " + noms.length + " participant(s) : " + noms.join(", ") : " — aucun participant" });
   });
   jalons.push(cloture ? { t: cloture, lib: "Clôture", cls: "fin" } : { t: aujourdhui, lib: "Aujourd'hui", cls: "aujourdhui" });
