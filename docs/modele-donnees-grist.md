@@ -145,4 +145,4 @@ Boîte aux lettres, lue en lecture seule par l'onglet « Messages » du widget. 
 
 Le rattachement à une demande se fait par le bouton « Mapping automatique » (expéditeur → acteur via `Emergence_Acteurs.mail` → demandes où il est sponsor, porteur ou partie prenante ; si plusieurs, celle dont le titre figure dans le message) ; seuls les messages sans demande sont touchés. Les liens se modifient depuis le message ou depuis l'onglet « Messages » de la fiche.
 
-À partir de v0.132 : colonne `BAL` (Choice « entrant » / « sortant », libellé « $BAL ») pour distinguer messages reçus et envoyés (vide = entrant). Un message sortant se rattache aux demandes uniquement d'après ses destinataires ; il s'affiche dans le RIDA comme « Message mail envoyé à … ».
+À partir de v0.132 : colonne `BAL` (Text « entrant » / « sortant », libellé « $BAL ») pour distinguer messages reçus et envoyés (vide = entrant). Un message sortant se rattache aux demandes uniquement d'après ses destinataires ; il s'affiche dans le RIDA comme « Message mail envoyé à … ».

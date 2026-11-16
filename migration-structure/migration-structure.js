@@ -36,7 +36,7 @@ const STRUCTURE = [
   ] },
   { table: "Emergence_BalInno", creer: true, colonnes: [
     ["Recu", "DateTime:Europe/Paris", "Reçu"], ["Expediteur", "Text", "Expéditeur"], ["Destinataires", "Text"], ["Sujet", "Text"], ["Message", "Text"], ["UID", "Numeric"],
-    ["Demandes", "RefList:Emergence", "Demandes"], ["BAL", "Choice", "$BAL"]
+    ["Demandes", "RefList:Emergence", "Demandes"], ["BAL", "Text", "$BAL"]
   ] },
   { table: "Emergence_Session", creer: true, colonnes: [["Email", "Text", "Email", "user.Email"]] }
 ];
