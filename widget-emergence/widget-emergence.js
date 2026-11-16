@@ -1,6 +1,6 @@
-// Widget Emergence — v0.126
-// Numéro de release : <majeure>.<build> (0.126 = release majeure 0, build 126).
-const VERSION_WIDGET = "0.126";
+// Widget Emergence — v0.127
+// Numéro de release : <majeure>.<build> (0.127 = release majeure 0, build 127).
+const VERSION_WIDGET = "0.127";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -589,6 +589,31 @@ const ORDRE_COLONNES = [
   "Ppt", "Priorite", "Statut", "Date_de_derniere_modification", "Activite_rida", "Date_de_soumission", "Date_Go_NoGo_SDID", "Date_1er_atelier", "Date_MVP_previsionnelle", "Date_MVP_realisee", "Organisation", "Sponsor", "Porteurs",
   "Titre", "Ref_BRM", "Typologie_de_la_demande", "Tag", "Parties_prenantes_concernees", "Action_ouverte"
 ];
+
+// Ordre d'affichage des colonnes de la liste : modifiable en faisant glisser les en-têtes, mémorisé
+// dans le navigateur. ORDRE_COLONNES_DEFAUT = ordre dans lequel les cellules sont générées.
+const ORDRE_COLONNES_DEFAUT = ORDRE_COLONNES.slice();
+const CLE_STOCKAGE_ORDRE_COLONNES = "emergence_ordre_colonnes";
+(function chargerOrdreColonnes() {
+  try {
+    const brut = window.localStorage.getItem(CLE_STOCKAGE_ORDRE_COLONNES);
+    if (!brut) return;
+    const saisi = JSON.parse(brut);
+    if (!Array.isArray(saisi)) return;
+    const valides = [];
+    saisi.forEach(c => { if (ORDRE_COLONNES_DEFAUT.includes(c) && !valides.includes(c)) valides.push(c); });
+    ORDRE_COLONNES_DEFAUT.forEach((c, i) => {
+      if (valides.includes(c)) return; // colonne ajoutée depuis : placée après sa voisine de gauche par défaut
+      let pos = 0;
+      for (let k = i - 1; k >= 0; k--) { const idx = valides.indexOf(ORDRE_COLONNES_DEFAUT[k]); if (idx >= 0) { pos = idx + 1; break; } }
+      valides.splice(pos, 0, c);
+    });
+    ORDRE_COLONNES.splice(0, ORDRE_COLONNES.length, ...valides);
+  } catch (e) { /* ordre par défaut */ }
+})();
+function sauvegarderOrdreColonnes() {
+  try { window.localStorage.setItem(CLE_STOCKAGE_ORDRE_COLONNES, JSON.stringify(ORDRE_COLONNES)); } catch (e) { /* non mémorisé */ }
+}
 
 // Référence BRM (colonne texte facultative de la table Emergence, libellé « Ref BRM ») : lue sous
 // son identifiant Grist quel qu'il soit (Ref_BRM, RefBRM, ref_brm...) ; chaîne vide si la colonne
@@ -1395,10 +1420,13 @@ function construirePopupConfigColonnes() {
     "<label><input type='checkbox' class='case-config-colonne' value=\"" + escapeHtml(col) + "\"" +
     (colonnesVisibles.has(col) ? " checked" : "") + ">" + escapeHtml(LIBELLES_COLONNES[col] || col) + "</label>"
   ).join("") +
+    "<div class='bloc-export-excel'><button type='button' id='btn-reinit-ordre-colonnes' title='Remet les colonnes dans leur ordre d&#39;origine (elles se déplacent en glissant leur en-tête)'>↺ Réinitialiser l'ordre des colonnes</button></div>" +
     "<div class='bloc-export-excel'><button type='button' id='btn-export-excel-zip' title='Un fichier Excel par table Emergence, dans une archive .zip'>📦 Exporter toutes les tables (Excel, .zip)</button>" +
     "<div id='msg-export-excel' class='msg-export-excel'></div></div>";
 
   brancherBoutonsTailleTexte(popup);
+  const btnOrdre = popup.querySelector("#btn-reinit-ordre-colonnes");
+  if (btnOrdre) btnOrdre.addEventListener("click", (e) => { e.stopPropagation(); reinitialiserOrdreColonnes(); });
   const btnExcel = popup.querySelector("#btn-export-excel-zip");
   if (btnExcel) btnExcel.addEventListener("click", (e) => { e.stopPropagation(); exporterExcelZip(); });
   popup.querySelectorAll(".case-config-colonne").forEach(cb => {
@@ -1423,7 +1451,7 @@ function appliquerVisibiliteColonnes() {
   table.querySelectorAll("tbody tr[data-id]").forEach(tr => {
     const tds = tr.querySelectorAll("td");
     tds.forEach((td, index) => {
-      const nomCol = ORDRE_COLONNES[index];
+      const nomCol = td.getAttribute("data-col") || ORDRE_COLONNES[index];
       td.style.display = colonnesVisibles.has(nomCol) ? "" : "none";
     });
   });
@@ -1911,7 +1939,7 @@ function appliquerLargeursColonnes() {
   lignesTr.forEach(tr => {
     const tds = tr.querySelectorAll("td");
     tds.forEach((td, index) => {
-      const nomCol = ORDRE_COLONNES[index];
+      const nomCol = td.getAttribute("data-col") || ORDRE_COLONNES[index];
       if (nomCol === colonneElastique) {
         td.style.width = "";
         td.style.minWidth = "120px";
@@ -2082,8 +2110,85 @@ function afficherListe() {
   });
   activerEditionCellulesListe(corps);
   mettreAJourFleches();
+  reordonnerColonnesListe();
   appliquerLargeursColonnes();
   appliquerVisibiliteColonnes();
+}
+
+// Réordonne en-têtes et cellules selon ORDRE_COLONNES (les cellules sont générées dans l'ordre par défaut ;
+// on les repère par data-col pour pouvoir les replacer).
+function reordonnerColonnesListe() {
+  const table = document.getElementById("table-liste");
+  if (!table) return;
+  const rangEntete = table.querySelector("thead tr");
+  if (rangEntete) {
+    const parCol = {};
+    [...rangEntete.children].forEach(th => { const c = th.getAttribute("data-col"); if (c) parCol[c] = th; });
+    ORDRE_COLONNES.forEach(c => { if (parCol[c]) rangEntete.appendChild(parCol[c]); });
+  }
+  table.querySelectorAll("tbody tr[data-id]").forEach(tr => {
+    const tds = [...tr.children];
+    if (tds.length !== ORDRE_COLONNES_DEFAUT.length) return;
+    tds.forEach((td, i) => { if (!td.hasAttribute("data-col")) td.setAttribute("data-col", ORDRE_COLONNES_DEFAUT[i]); });
+    const parCol = {};
+    tds.forEach(td => { parCol[td.getAttribute("data-col")] = td; });
+    ORDRE_COLONNES.forEach(c => { if (parCol[c]) tr.appendChild(parCol[c]); });
+  });
+}
+
+// Glisser-déposer des en-têtes pour changer l'ordre des colonnes.
+(function initDeplacementColonnes() {
+  const ths = document.querySelectorAll("#table-liste thead th[data-col]");
+  let colDeplacee = null;
+  const nettoyer = () => ths.forEach(t => t.classList.remove("th-deplace", "th-cible-gauche", "th-cible-droite"));
+  ths.forEach(th => {
+    th.setAttribute("draggable", "true");
+    th.addEventListener("dragstart", (e) => {
+      if (th.dataset.enTrainDeRedimensionner === "1" || (e.target && e.target.classList && e.target.classList.contains("poignee"))) { e.preventDefault(); return; }
+      colDeplacee = th.getAttribute("data-col");
+      e.dataTransfer.effectAllowed = "move";
+      try { e.dataTransfer.setData("text/plain", colDeplacee); } catch (err) { /* ignoré */ }
+      th.classList.add("th-deplace");
+    });
+    th.addEventListener("dragend", () => { colDeplacee = null; nettoyer(); });
+    th.addEventListener("dragover", (e) => {
+      if (!colDeplacee || colDeplacee === th.getAttribute("data-col")) return;
+      e.preventDefault();
+      const r = th.getBoundingClientRect(), gauche = e.clientX < r.left + r.width / 2;
+      th.classList.toggle("th-cible-gauche", gauche);
+      th.classList.toggle("th-cible-droite", !gauche);
+    });
+    th.addEventListener("dragleave", () => th.classList.remove("th-cible-gauche", "th-cible-droite"));
+    th.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const cible = th.getAttribute("data-col");
+      if (!colDeplacee || colDeplacee === cible) { nettoyer(); return; }
+      const r = th.getBoundingClientRect(), avant = e.clientX < r.left + r.width / 2;
+      deplacerColonneListe(colDeplacee, cible, avant);
+      colDeplacee = null; nettoyer();
+    });
+  });
+})();
+function deplacerColonneListe(col, cible, avant) {
+  const i = ORDRE_COLONNES.indexOf(col);
+  if (i < 0 || ORDRE_COLONNES.indexOf(cible) < 0) return;
+  ORDRE_COLONNES.splice(i, 1);
+  let j = ORDRE_COLONNES.indexOf(cible);
+  if (!avant) j++;
+  ORDRE_COLONNES.splice(j, 0, col);
+  sauvegarderOrdreColonnes();
+  reordonnerColonnesListe();
+  appliquerLargeursColonnes();
+  appliquerVisibiliteColonnes();
+  construirePopupConfigColonnes();
+}
+function reinitialiserOrdreColonnes() {
+  ORDRE_COLONNES.splice(0, ORDRE_COLONNES.length, ...ORDRE_COLONNES_DEFAUT);
+  sauvegarderOrdreColonnes();
+  reordonnerColonnesListe();
+  appliquerLargeursColonnes();
+  appliquerVisibiliteColonnes();
+  construirePopupConfigColonnes();
 }
 
 // ---------- Édition en place des cellules de la liste des demandes ----------
@@ -6498,6 +6603,8 @@ function ouvrirParametres() {
   fond.style.display = "flex";
 }
 
+let planifierParametresGeneraux = () => {};
+
 // --- Paramètres : éditeur de la liste des typologies (choix de la colonne Grist) ---
 let typoEdition = [];    // lignes en cours d'édition : { origine (nom actuel dans Grist ou null si nouveau), nom }
 let typoOriginales = []; // noms actuels dans Grist au moment de l'ouverture
@@ -6539,7 +6646,7 @@ function initialiserEditeurTypologies() {
   msg.textContent = ok ? "" : "Lecture des choix de la colonne impossible : liste intégrée affichée, modification indisponible.";
 }
 
-async function enregistrerListeTypologies() {
+async function enregistrerListeTypologies(auto) {
   const msg = document.getElementById("param-typo-msg");
   msg.className = "modale-msg";
   const lignes = typoEdition.map(r => ({ origine: r.origine, nom: String(r.nom).trim() })).filter(r => r.nom);
@@ -6559,7 +6666,7 @@ async function enregistrerListeTypologies() {
     const lignesMsg = []
       .concat(impactRen.map(o => "• « " + o + " » renommée en « " + renommages.get(o) + " » : " + nbFichesTypologie(o) + " fiche(s) mises à jour"))
       .concat(impactSup.map(o => "• « " + o + " » supprimée : retirée de " + nbFichesTypologie(o) + " fiche(s)"));
-    if (!window.confirm("Cette modification met à jour des fiches :\n" + lignesMsg.join("\n") + "\n\nContinuer ?")) return;
+    if (!window.confirm("Cette modification met à jour des fiches :\n" + lignesMsg.join("\n") + "\n\nContinuer ?")) { if (auto) initialiserEditeurTypologies(); return; }
   }
   msg.textContent = "Enregistrement…";
   try {
@@ -6592,7 +6699,8 @@ async function enregistrerListeTypologies() {
     afficherListe();
     const courante = lignesEmergence.find(l => l.id === ligneSelectionneeId);
     if (courante) afficherFiche(courante);
-    initialiserEditeurTypologies();
+    if (auto) { typoOriginales = finals.slice(); typoEdition.forEach(r => { r.nom = String(r.nom).trim(); if (r.nom) r.origine = r.nom; }); }
+    else initialiserEditeurTypologies();
     msg.className = "modale-msg";
     msg.textContent = "Liste enregistrée" + (actions.length ? " (" + actions.length + " fiche(s) mises à jour)." : ".");
   } catch (e) {
@@ -6637,6 +6745,7 @@ function lireFormulaireParametres() {
     if (estPreset(url.value.trim(), "url")) url.value = preset.url;
     if (estPreset(modele.value.trim(), "modele")) modele.value = preset.modele;
     mettreAJourLienCleLlm();
+    planifierParametresGeneraux();
   });
   document.getElementById("param-llm-lister").addEventListener("click", async () => {
     msg.className = "modale-msg";
@@ -6645,7 +6754,7 @@ function lireFormulaireParametres() {
       const { ids, total } = await listerModelesLlm(lireFormulaireParametres());
       document.getElementById("datalist-llm-modeles").innerHTML = ids.map(i => "<option value=\"" + escapeHtml(i) + "\"></option>").join("");
       const champ = document.getElementById("param-llm-modele");
-      if (!champ.value.trim() && ids.length) champ.value = ids[0];
+      if (!champ.value.trim() && ids.length) { champ.value = ids[0]; planifierParametresGeneraux(); }
       msg.textContent = ids.length + " modèle(s) LLM disponible(s)" + (total > ids.length ? " (" + (total - ids.length) + " non génératif(s) masqué(s))" : "") +
         " — cliquez dans le champ Modèle pour choisir.";
       if (ids.length) champ.focus();
@@ -6663,15 +6772,23 @@ function lireFormulaireParametres() {
   document.getElementById("param-typo-enregistrer").addEventListener("click", enregistrerListeTypologies);
   document.getElementById("param-llm-prompt-defaut").addEventListener("click", () => {
     document.getElementById("param-llm-prompt").value = PROMPT_SYNTHESE_DEFAUT;
+    planifierParametresGeneraux();
   });
-  document.getElementById("param-enregistrer").addEventListener("click", () => {
+  // Enregistrement automatique : plus de bouton « Appliquer », chaque modification est prise en compte après une courte pause.
+  const appliquerParametresGeneraux = () => {
     journalModificationsActif = document.getElementById("param-journal-rida").checked;
     sauverOptionsGenerales({ journalRida: journalModificationsActif });
     const ok = sauverConfigLlm(lireFormulaireParametres());
     msg.className = "modale-msg";
-    msg.textContent = ok ? "Paramètres enregistrés dans ce navigateur." : "Enregistrés pour cette session seulement (stockage du navigateur indisponible).";
+    msg.textContent = ok ? "Enregistré automatiquement." : "Pris en compte pour cette session seulement (stockage du navigateur indisponible).";
     afficherReporting();
-  });
+  };
+  let timerAutoGeneral = null;
+  planifierParametresGeneraux = () => { clearTimeout(timerAutoGeneral); timerAutoGeneral = setTimeout(appliquerParametresGeneraux, 500); };
+  ["input", "change"].forEach(ev => document.getElementById("param-panneaux").addEventListener(ev, (e) => {
+    const id = e.target && e.target.id || "";
+    if (id === "param-journal-rida" || id.indexOf("param-llm-") === 0) planifierParametresGeneraux();
+  }));
   document.getElementById("param-llm-tester").addEventListener("click", async () => {
     msg.className = "modale-msg";
     msg.textContent = "Test en cours…";
@@ -7879,7 +7996,7 @@ function initialiserEditeurTags() {
   msg.textContent = ok ? "" : (!parametresDisponibles ? "Table « " + TABLE_PARAMETRES + " » absente : lancez l'outil de migration de structure."
     : "Colonne « Tag » absente de la table Emergence : lancez l'outil de migration de structure.");
 }
-async function enregistrerListeTags() {
+async function enregistrerListeTags(auto) {
   const msg = document.getElementById("param-tag-msg");
   msg.className = "modale-msg";
   const lignes = tagEdition.map(r => ({ origine: r.origine, nom: String(r.nom).trim() })).filter(r => r.nom);
@@ -7897,7 +8014,7 @@ async function enregistrerListeTags() {
   if (impactRen.length || impactSup.length) {
     const L = impactRen.map(o => "• « " + o + " » renommé en « " + renommages.get(o) + " » : " + nbFichesTag(o) + " fiche(s) mises à jour")
       .concat(impactSup.map(o => "• « " + o + " » supprimé : retiré de " + nbFichesTag(o) + " fiche(s)"));
-    if (!window.confirm("Cette modification met à jour des fiches :\n" + L.join("\n") + "\n\nContinuer ?")) return;
+    if (!window.confirm("Cette modification met à jour des fiches :\n" + L.join("\n") + "\n\nContinuer ?")) { if (auto) initialiserEditeurTags(); return; }
   }
   msg.textContent = "Enregistrement…";
   try {
@@ -7913,7 +8030,8 @@ async function enregistrerListeTags() {
     afficherListe();
     const courante = lignesEmergence.find(l => l.id === ligneSelectionneeId);
     if (courante) afficherFiche(courante);
-    initialiserEditeurTags();
+    if (auto) { tagOriginaux = lignes.map(r => r.nom); tagEdition.forEach(r => { r.nom = String(r.nom).trim(); if (r.nom) r.origine = r.nom; }); }
+    else initialiserEditeurTags();
     msg.className = "modale-msg";
     msg.textContent = "Liste enregistrée" + (actions.length ? " (" + actions.length + " fiche(s) mises à jour)." : ".");
   } catch (e) { msg.className = "modale-msg erreur"; msg.textContent = "Échec de l'enregistrement : " + e.message; }
@@ -7961,14 +8079,14 @@ function initialiserEditeurPhrases() {
   msg.textContent = ok ? "" : "Table « " + TABLE_PARAMETRES + " » absente : lancez l'outil de migration de structure (phrases d'origine affichées).";
   document.querySelector("#param-onglets [data-onglet='rida']").classList.toggle("alerte", !ok);
 }
-async function enregistrerListePhrases() {
+async function enregistrerListePhrases(auto) {
   const msg = document.getElementById("param-phr-msg");
   const liste = phrEdition.map(r => String(r.texte).trim()).filter(Boolean);
   if (new Set(liste.map(normaliserTexteRecherche)).size !== liste.length) { msg.className = "modale-msg erreur"; msg.textContent = "Doublon dans la liste."; return; }
   msg.className = "modale-msg"; msg.textContent = "Enregistrement…";
   try {
     await ecrireParametreJson(PARAM_PHRASES_RIDA, liste, "Phrases types proposées pour la description des lignes RIDA (JSON ; {sponsor}, {date})");
-    initialiserEditeurPhrases();
+    if (!auto) initialiserEditeurPhrases();
     msg.textContent = "Phrases enregistrées (" + liste.length + ").";
   } catch (e) { msg.className = "modale-msg erreur"; msg.textContent = "Échec de l'enregistrement : " + e.message; }
 }
@@ -8005,7 +8123,7 @@ function initialiserEditeurQuestionsIa() {
   msg.className = ok ? "modale-msg" : "modale-msg erreur";
   msg.textContent = ok ? "" : "Table « " + TABLE_PARAMETRES + " » absente : lancez l'outil de migration de structure (questions d'origine affichées).";
 }
-async function enregistrerQuestionsIa() {
+async function enregistrerQuestionsIa(auto) {
   const msg = document.getElementById("param-qia-msg");
   const liste = qiaEdition.map(r => String(r.texte).trim()).filter(Boolean);
   if (new Set(liste.map(normaliserTexteRecherche)).size !== liste.length) { msg.className = "modale-msg erreur"; msg.textContent = "Doublon dans la liste."; return; }
@@ -8013,13 +8131,48 @@ async function enregistrerQuestionsIa() {
   try {
     await ecrireParametreJson(PARAM_QUESTIONS_IA, liste, "Questions types proposées dans l'onglet IA (JSON)");
     afficherQuestionsTypesIa();
-    initialiserEditeurQuestionsIa();
+    if (!auto) initialiserEditeurQuestionsIa();
     msg.textContent = "Questions enregistrées (" + liste.length + ").";
   } catch (e) { msg.className = "modale-msg erreur"; msg.textContent = "Échec de l'enregistrement : " + e.message; }
 }
 document.getElementById("param-qia-ajouter").addEventListener("click", () => { qiaEdition.push({ texte: "" }); rendreEditeurQuestionsIa(); });
 document.getElementById("param-qia-enregistrer").addEventListener("click", enregistrerQuestionsIa);
 document.getElementById("param-qia-defaut").addEventListener("click", () => { qiaEdition = QUESTIONS_TYPES_IA_DEFAUT.map(t => ({ texte: t })); rendreEditeurQuestionsIa(); document.getElementById("param-qia-msg").textContent = "Questions d'origine rétablies : cliquez sur « Enregistrer les questions » pour les appliquer."; });
+
+// --- Paramètres : enregistrement automatique des listes (plus de bouton « Enregistrer ») ---
+function creerAutoEnregistrement(fnEnregistrer, boutonId, delai) {
+  let timer = null, enCours = false, rejouer = false;
+  const lancer = async () => {
+    if (enCours) { rejouer = true; return; }
+    enCours = true;
+    try { await fnEnregistrer(true); } finally { enCours = false; if (rejouer) { rejouer = false; lancer(); } }
+  };
+  return (immediat) => {
+    clearTimeout(timer);
+    if (document.getElementById(boutonId).disabled) return; // table / colonne absente : pas d'écriture
+    timer = setTimeout(lancer, immediat ? 0 : delai);
+  };
+}
+const autoTypologies = creerAutoEnregistrement(enregistrerListeTypologies, "param-typo-enregistrer", 600);
+const autoTags = creerAutoEnregistrement(enregistrerListeTags, "param-tag-enregistrer", 600);
+const autoPhrases = creerAutoEnregistrement(enregistrerListePhrases, "param-phr-enregistrer", 800);
+const autoQuestionsIa = creerAutoEnregistrement(enregistrerQuestionsIa, "param-qia-enregistrer", 800);
+(function brancherEnregistrementAutomatique() {
+  const brancher = (zoneId, auto, surSaisie) => {
+    const zone = document.getElementById(zoneId);
+    zone.addEventListener("change", () => auto(true));   // fin de saisie (sortie du champ / Entrée)
+    if (surSaisie) zone.addEventListener("input", () => auto(false)); // texte libre : enregistré après une pause
+    zone.addEventListener("click", (e) => { if (e.target.closest && e.target.closest(".typo-haut, .typo-bas, .typo-suppr")) auto(true); });
+  };
+  brancher("param-typo-liste", autoTypologies, false); // renommer une typologie met à jour des fiches : seulement en fin de saisie
+  brancher("param-tag-liste", autoTags, false);
+  brancher("param-phr-liste", autoPhrases, true);
+  brancher("param-qia-liste", autoQuestionsIa, true);
+  document.getElementById("param-phr-defaut").addEventListener("click", () => autoPhrases(true));
+  document.getElementById("param-qia-defaut").addEventListener("click", () => autoQuestionsIa(true));
+  // les boutons « Enregistrer / Appliquer » n'ont plus lieu d'être
+  ["param-typo-enregistrer", "param-tag-enregistrer", "param-phr-enregistrer", "param-qia-enregistrer"].forEach(id => { document.getElementById(id).style.display = "none"; });
+})();
 
 // ===================== Ateliers : participants des lignes RIDA (v0.120) =====================
 // Un atelier = ligne RIDA dont la description contient « tenue d'un atelier ». Les participants sont stockés dans
