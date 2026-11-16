@@ -1,6 +1,6 @@
-// Widget Emergence — v0.128
-// Numéro de release : <majeure>.<build> (0.128 = release majeure 0, build 128).
-const VERSION_WIDGET = "0.128";
+// Widget Emergence — v0.129
+// Numéro de release : <majeure>.<build> (0.129 = release majeure 0, build 129).
+const VERSION_WIDGET = "0.129";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -3025,6 +3025,7 @@ function afficherFiche(ligne) {
       <button class="tab-btn ${ongletActif === 'general' ? 'active' : ''}" data-tab="general">Général</button>
       <button class="tab-btn ${ongletActif === 'main-courante' ? 'active' : ''}" data-tab="main-courante">Main courante</button>
       <button class="tab-btn ${ongletActif === 'autres' ? 'active' : ''}" data-tab="autres">Autres champs</button>
+      <button class="tab-btn ${ongletActif === 'messages' ? 'active' : ''}" data-tab="messages" id="tab-btn-messages-fiche">Messages</button>
     </div>
     <div class="tab-panel ${ongletActif === 'rida' ? 'active' : ''}" data-panel="rida">${ridaContenu}</div>
     <div class="tab-panel ${ongletActif === 'general' ? 'active' : ''}" data-panel="general">
@@ -3042,7 +3043,9 @@ function afficherFiche(ligne) {
     <div class="tab-panel ${ongletActif === 'autres' ? 'active' : ''}" data-panel="autres">
       <ul class="liste-champs">${listeChamps}</ul>
     </div>
+    <div class="tab-panel ${ongletActif === 'messages' ? 'active' : ''}" data-panel="messages"><div id="fiche-messages"></div></div>
   `;
+  rafraichirOngletMessagesFiche();
 
   conteneur.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -8453,12 +8456,13 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.128) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.129) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
 let messagesBrut = [];        // [{ id, recu (epoch s), expediteur, destinataires, sujet, message, uid }]
 let messagesCharges = false;
+let colonneDemandesMessagesPresente = true;
 let messagesErreur = "";
 let triMessages = { col: "Recu", sens: "desc" };
 let messagesAffiches = [];    // liste filtrée + triée courante (pour ← →)
@@ -8472,13 +8476,60 @@ async function chargerMessages() {
     messagesBrut = ids.map((id, i) => ({
       id, recu: Number(t.Recu && t.Recu[i]) || 0,
       expediteur: String((t.Expediteur && t.Expediteur[i]) || ""), destinataires: String((t.Destinataires && t.Destinataires[i]) || ""),
-      sujet: String((t.Sujet && t.Sujet[i]) || ""), message: String((t.Message && t.Message[i]) || ""), uid: t.UID ? t.UID[i] : null
+      sujet: String((t.Sujet && t.Sujet[i]) || ""), message: String((t.Message && t.Message[i]) || ""), uid: t.UID ? t.UID[i] : null,
+      demandes: refListVersIds(t.Demandes ? t.Demandes[i] : null).map(Number).filter(Boolean)
     }));
+    colonneDemandesMessagesPresente = "Demandes" in t;
     messagesCharges = true;
   } catch (e) {
     messagesBrut = []; messagesCharges = false;
     messagesErreur = "Table « " + TABLE_MESSAGES + " » illisible : " + (e && e.message || e);
   }
+}
+// --- Lien messages ↔ demandes (colonne Emergence_BalInno.Demandes : RefList vers Emergence) ---
+function titreDemande(id) {
+  const l = lignesEmergence.find(x => x.id === id);
+  return l ? (l.Titre || "Demande " + id) : "(demande supprimée #" + id + ")";
+}
+function emailDeExpediteur(texte) {
+  const m = String(texte || "").match(/[\w.+'-]+@[\w-]+(?:\.[\w-]+)+/);
+  return m ? m[0].toLowerCase() : "";
+}
+// Suggestion de demandes pour un message d'après l'expéditeur : acteur dont le mail correspond, puis demandes où il est
+// sponsor, porteur ou partie prenante. S'il y en a plusieurs, on ne garde que celles dont le titre apparaît dans le message.
+function suggestionDemandesMessage(m) {
+  const mail = emailDeExpediteur(m.expediteur);
+  if (!mail) return { ids: [], etat: "inconnu" };
+  const acteurs = Object.keys(acteursParId).filter(id => String(acteursParId[id].mail || "").trim().toLowerCase() === mail).map(Number);
+  if (!acteurs.length) return { ids: [], etat: "inconnu" };
+  const noms = acteurs.map(id => normaliserTexteRecherche(nomActeurParId(id)));
+  let cand = lignesEmergence.filter(l =>
+    acteurs.includes(Number(idDepuisRef(l.Sponsor))) || refListVersIds(l.Parties_prenantes_concernees).some(i => acteurs.includes(Number(i))) ||
+    (l.Porteurs && noms.includes(normaliserTexteRecherche(l.Porteurs)))).map(l => l.id);
+  if (!cand.length) return { ids: [], etat: "aucune" };
+  if (cand.length === 1) return { ids: cand, etat: "unique" };
+  const texte = normaliserTexteRecherche(m.sujet + " " + m.message.slice(0, 3000));
+  const fin = cand.filter(id => { const t = normaliserTexteRecherche(titreDemande(id)); return t.length >= 4 && texte.includes(t); });
+  if (fin.length) return { ids: fin, etat: "affine" };
+  return { ids: [], etat: "ambigu", candidats: cand };
+}
+async function enregistrerDemandesMessage(msgId, ids) {
+  await grist.docApi.applyUserActions([["UpdateRecord", TABLE_MESSAGES, msgId, { Demandes: ids.length ? ["L"].concat(ids) : null }]]);
+  const m = messagesBrut.find(x => x.id === msgId);
+  if (m) m.demandes = ids.slice();
+}
+async function modifierLiensMessage(msgId, fn) {
+  const m = messagesBrut.find(x => x.id === msgId);
+  if (!m) return;
+  if (!colonneDemandesMessagesPresente) { alert("La colonne « Demandes » n'existe pas dans " + TABLE_MESSAGES + " (RefList vers Emergence) : lancez l'outil de migration de structure."); return; }
+  const ids = [...new Set(fn(m.demandes.slice()))];
+  await enregistrerDemandesMessage(msgId, ids);
+  rafraichirApresChangementLiens();
+}
+function rafraichirApresChangementLiens() {
+  afficherMessages();
+  if (indexMessageOuvert >= 0 && document.getElementById("modale-message-fond").style.display !== "none") rendreBlocDemandesMessage();
+  if (ligneSelectionneeId != null) rafraichirOngletMessagesFiche();
 }
 function dateMessage(epoch) {
   if (!epoch) return "";
@@ -8494,7 +8545,8 @@ function messagesFiltresTries() {
   const fin = inputDateVersEpochFin(document.getElementById("msg-date-fin").value);
   const colonnes = {};
   document.querySelectorAll("#table-messages [data-filtre-msg]").forEach(i => { const v = normaliserTexteRecherche(i.value || ""); if (v) colonnes[i.getAttribute("data-filtre-msg")] = v; });
-  const champ = { Expediteur: "expediteur", Destinataires: "destinataires", Sujet: "sujet" };
+  const champ = { Expediteur: "expediteur", Destinataires: "destinataires", Sujet: "sujet", Demandes: "demandesTexte" };
+  messagesBrut.forEach(m => { m.demandesTexte = m.demandes.map(titreDemande).join(", "); });
   const liste = messagesBrut.filter(m => {
     if (debut && m.recu < debut) return false;
     if (fin && m.recu > fin) return false;
@@ -8502,7 +8554,7 @@ function messagesFiltresTries() {
     if (global && !normaliserTexteRecherche(m.expediteur + " " + m.destinataires + " " + m.sujet + " " + m.message).includes(global)) return false;
     return true;
   });
-  const cle = { Recu: "recu", Expediteur: "expediteur", Destinataires: "destinataires", Sujet: "sujet" }[triMessages.col] || "recu";
+  const cle = { Recu: "recu", Expediteur: "expediteur", Destinataires: "destinataires", Sujet: "sujet", Demandes: "demandesTexte" }[triMessages.col] || "recu";
   const sens = triMessages.sens === "asc" ? 1 : -1;
   liste.sort((a, b) => {
     const x = a[cle], y = b[cle];
@@ -8512,6 +8564,16 @@ function messagesFiltresTries() {
   return liste;
 }
 
+function celluleDemandesMessageHtml(m) {
+  if (m.demandes.length) {
+    const noms = m.demandes.map(titreDemande);
+    return "<td title=\"" + escapeHtml(noms.join("\n")) + "\"><span class='msg-lien-demande'>" + escapeHtml(noms.join(", ")) + "</span></td>";
+  }
+  const sg = suggestionDemandesMessage(m);
+  if (sg.ids.length) return "<td class='msg-suggestion' title=\"Suggestion d'après l'expéditeur (pas encore enregistrée)\">≈ " + escapeHtml(sg.ids.map(titreDemande).join(", ")) + "</td>";
+  if (sg.etat === "ambigu") return "<td class='msg-suggestion' title=\"" + escapeHtml("Plusieurs demandes possibles :\n" + sg.candidats.map(titreDemande).join("\n")) + "\">? " + sg.candidats.length + " demandes possibles</td>";
+  return "<td></td>";
+}
 function afficherMessages() {
   const corps = document.getElementById("corps-messages");
   messagesAffiches = messagesFiltresTries();
@@ -8521,15 +8583,15 @@ function afficherMessages() {
   });
   document.getElementById("msg-compteur").textContent = messagesErreur ? "" :
     messagesAffiches.length + " message" + (messagesAffiches.length > 1 ? "s" : "") + (messagesAffiches.length !== messagesBrut.length ? " sur " + messagesBrut.length : "");
-  if (messagesErreur) { corps.innerHTML = "<tr><td colspan='4' class='msg-vide'>" + escapeHtml(messagesErreur) + "</td></tr>"; return; }
-  if (!messagesAffiches.length) { corps.innerHTML = "<tr><td colspan='4' class='msg-vide'>Aucun message.</td></tr>"; return; }
+  if (messagesErreur) { corps.innerHTML = "<tr><td colspan='5' class='msg-vide'>" + escapeHtml(messagesErreur) + "</td></tr>"; return; }
+  if (!messagesAffiches.length) { corps.innerHTML = "<tr><td colspan='5' class='msg-vide'>Aucun message.</td></tr>"; return; }
   corps.innerHTML = messagesAffiches.map((m, i) =>
     "<tr data-msg-index='" + i + "'><td>" + escapeHtml(dateMessage(m.recu)) + "</td><td title=\"" + escapeHtml(m.expediteur) + "\">" + escapeHtml(m.expediteur) +
-    "</td><td title=\"" + escapeHtml(m.destinataires) + "\">" + escapeHtml(m.destinataires) + "</td><td title=\"" + escapeHtml(m.sujet) + "\">" + escapeHtml(m.sujet || "(sans sujet)") + "</td></tr>").join("");
+    "</td><td title=\"" + escapeHtml(m.destinataires) + "\">" + escapeHtml(m.destinataires) + "</td><td title=\"" + escapeHtml(m.sujet) + "\">" + escapeHtml(m.sujet || "(sans sujet)") + "</td>" + celluleDemandesMessageHtml(m) + "</tr>").join("");
 }
 
 async function ouvrirOngletMessages() {
-  if (!messagesCharges) { document.getElementById("corps-messages").innerHTML = "<tr><td colspan='4' class='msg-vide'>Chargement…</td></tr>"; await chargerMessages(); }
+  if (!messagesCharges) { document.getElementById("corps-messages").innerHTML = "<tr><td colspan='5' class='msg-vide'>Chargement…</td></tr>"; await chargerMessages(); }
   afficherMessages();
 }
 
@@ -8542,6 +8604,33 @@ function messageTexteVersHtml(t) {
       .replace(/([\w.+-]+@[\w-]+(?:\.[\w-]+)+)/g, (m0, a, off, str) => /href="[^"]*$/.test(str.slice(0, off)) || str.slice(off - 1, off) === ">" ? m0 : "<a href=\"mailto:" + a + "\">" + a + "</a>");
     return /^\s*>/.test(l) ? "<span class='msg-citation'>" + h + "</span>" : h + "\n";
   }).join("");
+}
+function optionsDemandesDatalist() {
+  return lignesEmergence.slice().sort((a, b) => String(a.Titre || "").localeCompare(String(b.Titre || ""), "fr"))
+    .map(l => "<option value=\"#" + l.id + " — " + escapeHtml(l.Titre || "") + "\"></option>").join("");
+}
+function demandeDepuisSaisie(v) {
+  v = String(v || "").trim(); if (!v) return null;
+  const mid = v.match(/^#(\d+)/);
+  if (mid) return lignesEmergence.some(l => l.id === Number(mid[1])) ? Number(mid[1]) : null;
+  const n = normaliserTexteRecherche(v);
+  const ex = lignesEmergence.filter(l => normaliserTexteRecherche(l.Titre) === n);
+  if (ex.length === 1) return ex[0].id;
+  const part = lignesEmergence.filter(l => normaliserTexteRecherche(l.Titre).includes(n));
+  return part.length === 1 ? part[0].id : null;
+}
+function rendreBlocDemandesMessage() {
+  const m = messagesAffiches[indexMessageOuvert];
+  const zone = document.getElementById("msg-detail-demandes");
+  if (!m) { zone.innerHTML = ""; return; }
+  const chips = m.demandes.length ? m.demandes.map(id =>
+    "<span class='chip'><span class='chip-texte' data-ouvrir-demande='" + id + "' style='cursor:pointer;' title='Ouvrir la demande'>" + escapeHtml(titreDemande(id)) + "</span>" +
+    "<button type='button' class='chip-retirer' data-retirer-demande='" + id + "' title='Supprimer ce lien'>×</button></span>").join("") : "<span style='color:#888;'>Aucune demande liée</span>";
+  const sg = m.demandes.length ? { ids: [] } : suggestionDemandesMessage(m);
+  const sug = sg.ids.length ? "<div class='msg-sugg'>Suggestion d'après l'expéditeur : " + sg.ids.map(id => "<button type='button' class='btn-secondaire' data-lier-demande='" + id + "'>+ " + escapeHtml(titreDemande(id)) + "</button>").join(" ") + "</div>"
+    : (sg.etat === "ambigu" ? "<div class='msg-sugg'>Plusieurs demandes possibles pour cet expéditeur : " + sg.candidats.map(id => "<button type='button' class='btn-secondaire' data-lier-demande='" + id + "'>+ " + escapeHtml(titreDemande(id)) + "</button>").join(" ") + "</div>" : "");
+  zone.innerHTML = "<div><b>Demandes liées</b> <span class='chips-conteneur' style='display:inline-flex;'>" + chips + "</span></div>" + sug +
+    "<div class='ajout-pp-conteneur' style='margin-top:4px;'><input type='text' id='msg-demande-saisie' list='msg-demandes-datalist' placeholder='Lier à une demande (titre ou n°)…'><datalist id='msg-demandes-datalist'>" + optionsDemandesDatalist() + "</datalist><button type='button' id='msg-demande-ajouter' title='Ajouter ce lien'>+</button></div>";
 }
 function ouvrirMessage(index) {
   const m = messagesAffiches[index];
@@ -8565,6 +8654,7 @@ function ouvrirMessage(index) {
   } else {
     corps.innerHTML = "<div class='msg-texte'>" + messageTexteVersHtml(m.message) + "</div>";
   }
+  rendreBlocDemandesMessage();
   document.getElementById("msg-detail-prec").disabled = index <= 0;
   document.getElementById("msg-detail-suiv").disabled = index >= messagesAffiches.length - 1;
   document.getElementById("modale-message-fond").style.display = "flex";
@@ -8591,6 +8681,31 @@ function ouvrirMessage(index) {
   const fond = document.getElementById("modale-message-fond");
   const fermer = () => { fond.style.display = "none"; document.getElementById("msg-detail-corps").innerHTML = ""; };
   document.getElementById("msg-detail-fermer").addEventListener("click", fermer);
+  const zoneDem = document.getElementById("msg-detail-demandes");
+  const idMsgCourant = () => { const m = messagesAffiches[indexMessageOuvert]; return m ? m.id : null; };
+  const ajouterDepuisSaisie = async () => {
+    const champ = document.getElementById("msg-demande-saisie"), id = demandeDepuisSaisie(champ.value);
+    if (!id) { champ.setCustomValidity && champ.setCustomValidity(""); champ.style.outline = "2px solid #c8472b"; return; }
+    await modifierLiensMessage(idMsgCourant(), l => l.concat(id));
+  };
+  zoneDem.addEventListener("click", async (e) => {
+    const r = e.target.closest("[data-retirer-demande]"), l = e.target.closest("[data-lier-demande]"), o = e.target.closest("[data-ouvrir-demande]");
+    if (r) await modifierLiensMessage(idMsgCourant(), a => a.filter(x => x !== Number(r.getAttribute("data-retirer-demande"))));
+    else if (l) await modifierLiensMessage(idMsgCourant(), a => a.concat(Number(l.getAttribute("data-lier-demande"))));
+    else if (o) { fond.style.display = "none"; basculerVue("demandes"); selectionnerLigne(Number(o.getAttribute("data-ouvrir-demande"))); }
+    else if (e.target.id === "msg-demande-ajouter") await ajouterDepuisSaisie();
+  });
+  zoneDem.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.id === "msg-demande-saisie") ajouterDepuisSaisie(); });
+  zoneDem.addEventListener("change", (e) => { if (e.target.id === "msg-demande-saisie" && demandeDepuisSaisie(e.target.value) && /^#\d+ — /.test(e.target.value)) ajouterDepuisSaisie(); });
+  document.getElementById("msg-mapping-auto").addEventListener("click", async () => {
+    if (!colonneDemandesMessagesPresente) { alert("La colonne « Demandes » n'existe pas dans " + TABLE_MESSAGES + " : lancez l'outil de migration de structure."); return; }
+    const aLier = messagesBrut.filter(m => !m.demandes.length).map(m => ({ m, sg: suggestionDemandesMessage(m) })).filter(x => x.sg.ids.length);
+    if (!aLier.length) { alert("Aucun message sans demande ne peut être rattaché automatiquement (expéditeur inconnu des acteurs, ou plusieurs demandes possibles)."); return; }
+    if (!window.confirm(aLier.length + " message(s) sans demande vont être rattachés d'après l'expéditeur (acteur dont l'e-mail correspond ; si plusieurs demandes, celle dont le titre figure dans le message).\nLes messages déjà rattachés ne sont pas modifiés. Continuer ?")) return;
+    await grist.docApi.applyUserActions(aLier.map(x => ["UpdateRecord", TABLE_MESSAGES, x.m.id, { Demandes: ["L"].concat(x.sg.ids) }]));
+    aLier.forEach(x => { x.m.demandes = x.sg.ids.slice(); });
+    rafraichirApresChangementLiens();
+  });
   fond.addEventListener("mousedown", (e) => { if (e.target === fond) fermer(); });
   document.getElementById("msg-detail-prec").addEventListener("click", () => ouvrirMessage(indexMessageOuvert - 1));
   document.getElementById("msg-detail-suiv").addEventListener("click", () => ouvrirMessage(indexMessageOuvert + 1));
@@ -8601,3 +8716,54 @@ function ouvrirMessage(index) {
     else if (e.key === "ArrowRight" && indexMessageOuvert < messagesAffiches.length - 1) ouvrirMessage(indexMessageOuvert + 1);
   });
 })();
+
+// --- Fiche : onglet « Messages » (messages liés à la demande ; ajout / suppression de liens) ---
+async function rafraichirOngletMessagesFiche() {
+  const zone = document.getElementById("fiche-messages"), btn = document.getElementById("tab-btn-messages-fiche");
+  if (!zone) return;
+  const idDemande = ligneSelectionneeId;
+  if (!messagesCharges && !messagesErreur) { zone.innerHTML = "<div class='msg-vide'>Chargement…</div>"; await chargerMessages(); }
+  if (idDemande !== ligneSelectionneeId || !document.getElementById("fiche-messages")) return; // fiche changée entre-temps
+  if (messagesErreur) { zone.innerHTML = "<div class='msg-vide'>" + escapeHtml(messagesErreur) + "</div>"; return; }
+  const lies = messagesBrut.filter(m => m.demandes.includes(idDemande)).sort((a, b) => b.recu - a.recu);
+  if (btn) btn.textContent = "Messages" + (lies.length ? " (" + lies.length + ")" : "");
+  const lignes = lies.map(m =>
+    "<tr data-msg-id='" + m.id + "'><td>" + escapeHtml(dateMessage(m.recu)) + "</td><td title=\"" + escapeHtml(m.expediteur) + "\">" + escapeHtml(m.expediteur) + "</td>" +
+    "<td title=\"" + escapeHtml(m.sujet) + "\">" + escapeHtml(m.sujet || "(sans sujet)") + "</td>" +
+    "<td class='msg-fiche-actions'><button type='button' class='btn-fiche-msg-delier' data-msg-id='" + m.id + "' title='Supprimer le lien entre ce message et la demande'>✕</button></td></tr>").join("");
+  const dejaLies = new Set(lies.map(m => m.id));
+  const options = messagesBrut.filter(m => !dejaLies.has(m.id)).sort((a, b) => b.recu - a.recu)
+    .map(m => "<option value=\"#" + m.id + " — " + escapeHtml(dateMessage(m.recu) + " · " + (m.expediteur || "?") + " · " + (m.sujet || "(sans sujet)")) + "\"></option>").join("");
+  zone.innerHTML = (lies.length ? "<table class='tableau-fiche msg-fiche-table'><thead><tr><th style='width:100px;'>Reçu</th><th style='width:30%;'>Expéditeur</th><th>Sujet</th><th style='width:40px;'></th></tr></thead><tbody>" + lignes + "</tbody></table>"
+    : "<div class='msg-vide' style='text-align:left;'>Aucun message lié à cette demande.</div>") +
+    "<div class='ajout-pp-conteneur' style='margin-top:8px;'><input type='text' id='fiche-msg-saisie' list='fiche-msg-datalist' placeholder='Lier un message (tapez l&#39;expéditeur, le sujet ou la date)…' style='min-width:340px;'><datalist id='fiche-msg-datalist'>" + options + "</datalist><button type='button' id='fiche-msg-ajouter' title='Lier ce message à la demande'>+</button></div>" +
+    "<div class='modale-msg' id='fiche-msg-info'></div>";
+}
+document.getElementById("fiche-container").addEventListener("click", async (e) => {
+  const ouvrir = e.target.closest(".msg-fiche-table tbody tr");
+  const delier = e.target.closest(".btn-fiche-msg-delier");
+  if (delier) {
+    e.stopPropagation();
+    const id = Number(delier.getAttribute("data-msg-id")), idDemande = ligneSelectionneeId;
+    await modifierLiensMessage(id, l => l.filter(x => x !== idDemande));
+    return;
+  }
+  if (e.target.id === "fiche-msg-ajouter") {
+    const champ = document.getElementById("fiche-msg-saisie"), v = champ.value.trim(), mid = v.match(/^#(\d+)/);
+    let m = mid ? messagesBrut.find(x => x.id === Number(mid[1])) : null;
+    if (!m && v) { const n = normaliserTexteRecherche(v), c = messagesBrut.filter(x => normaliserTexteRecherche(x.expediteur + " " + x.sujet).includes(n)); if (c.length === 1) m = c[0]; }
+    if (!m) { document.getElementById("fiche-msg-info").className = "modale-msg erreur"; document.getElementById("fiche-msg-info").textContent = "Choisissez un message dans la liste proposée."; return; }
+    const idDemande = ligneSelectionneeId;
+    await modifierLiensMessage(m.id, l => l.concat(idDemande));
+    return;
+  }
+  if (ouvrir) {
+    const m = messagesBrut.find(x => x.id === Number(ouvrir.getAttribute("data-msg-id")));
+    if (!m) return;
+    messagesAffiches = messagesBrut.filter(x => x.demandes.includes(ligneSelectionneeId)).sort((a, b) => b.recu - a.recu);
+    ouvrirMessage(messagesAffiches.findIndex(x => x.id === m.id));
+  }
+});
+document.getElementById("fiche-container").addEventListener("change", (e) => {
+  if (e.target.id === "fiche-msg-saisie" && /^#\d+ — /.test(e.target.value)) document.getElementById("fiche-msg-ajouter").click();
+});

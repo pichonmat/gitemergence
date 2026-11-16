@@ -141,4 +141,6 @@ KPI (jours ouvrés lundi–vendredi hors jours fériés français) : Date d'entr
 
 ## Emergence_BalInno (v0.128)
 
-Boîte aux lettres, lue en lecture seule par l'onglet « Messages » du widget. Colonnes : `Recu` (DateTime), `Expediteur`, `Destinataires`, `Sujet`, `Message` (Text, texte brut ou HTML), `UID` (Numeric). La liste n'affiche pas le contenu ; un clic ouvre le message mis en forme (HTML affiché dans un cadre isolé, sans script).
+Boîte aux lettres, lue en lecture seule par l'onglet « Messages » du widget. Colonnes : `Recu` (DateTime), `Expediteur`, `Destinataires`, `Sujet`, `Message` (Text, texte brut ou HTML), `UID` (Numeric), `Demandes` (RefList vers Emergence, v0.129 : demandes liées au message). La liste n'affiche pas le contenu ; un clic ouvre le message mis en forme (HTML affiché dans un cadre isolé, sans script).
+
+Le rattachement à une demande se fait par le bouton « Mapping automatique » (expéditeur → acteur via `Emergence_Acteurs.mail` → demandes où il est sponsor, porteur ou partie prenante ; si plusieurs, celle dont le titre figure dans le message) ; seuls les messages sans demande sont touchés. Les liens se modifient depuis le message ou depuis l'onglet « Messages » de la fiche.

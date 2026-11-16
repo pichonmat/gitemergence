@@ -1,7 +1,7 @@
-// Migration de la structure — v4
+// Migration de la structure — v5
 // Outil à usage unique : widget personnalisé (accès complet) à ajouter temporairement dans Grist.
 // Compare le document au modèle attendu par le widget Émergence et crée ce qui manque. Ne supprime rien.
-const VERSION_OUTIL = "4";
+const VERSION_OUTIL = "5";
 grist.ready({ requiredAccess: 'full' });
 
 // Modèle attendu. creer:true = la table est créée si elle manque ; sinon elle doit déjà exister.
@@ -33,6 +33,10 @@ const STRUCTURE = [
   ] },
   { table: "Emergence_Templates", creer: true, colonnes: [
     ["titre", "Text"], ["Fichier", "Attachments"]
+  ] },
+  { table: "Emergence_BalInno", creer: true, colonnes: [
+    ["Recu", "DateTime:Europe/Paris", "Reçu"], ["Expediteur", "Text", "Expéditeur"], ["Destinataires", "Text"], ["Sujet", "Text"], ["Message", "Text"], ["UID", "Numeric"],
+    ["Demandes", "RefList:Emergence", "Demandes"]
   ] },
   { table: "Emergence_Session", creer: true, colonnes: [["Email", "Text", "Email", "user.Email"]] }
 ];
