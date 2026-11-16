@@ -1,6 +1,6 @@
-// Widget Emergence — v0.125
-// Numéro de release : <majeure>.<build> (0.125 = release majeure 0, build 125).
-const VERSION_WIDGET = "0.125";
+// Widget Emergence — v0.126
+// Numéro de release : <majeure>.<build> (0.126 = release majeure 0, build 126).
+const VERSION_WIDGET = "0.126";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -567,6 +567,7 @@ let largeursColonnes = {
   "Ppt": 44,
   "Statut": 110,
   "Date_de_derniere_modification": 120,
+  "Activite_rida": 90,
   "Priorite": 84,
   "Date_de_soumission": 100,
   "Date_Go_NoGo_SDID": 100,
@@ -585,7 +586,7 @@ let largeursColonnes = {
 };
 
 const ORDRE_COLONNES = [
-  "Ppt", "Priorite", "Statut", "Date_de_derniere_modification", "Date_de_soumission", "Date_Go_NoGo_SDID", "Date_1er_atelier", "Date_MVP_previsionnelle", "Date_MVP_realisee", "Organisation", "Sponsor", "Porteurs",
+  "Ppt", "Priorite", "Statut", "Date_de_derniere_modification", "Activite_rida", "Date_de_soumission", "Date_Go_NoGo_SDID", "Date_1er_atelier", "Date_MVP_previsionnelle", "Date_MVP_realisee", "Organisation", "Sponsor", "Porteurs",
   "Titre", "Ref_BRM", "Typologie_de_la_demande", "Tag", "Parties_prenantes_concernees", "Action_ouverte"
 ];
 
@@ -610,6 +611,7 @@ const LIBELLES_COLONNES = {
   "Priorite": "Priorité",
   "Statut": "Statut",
   "Date_de_derniere_modification": "Dernière modification",
+  "Activite_rida": "Activité RIDA",
   "Date_de_soumission": "Date d'entrée",
   "Date_Go_NoGo_SDID": "Go/noGo SDID",
   "Date_1er_atelier": "1er atelier",
@@ -1812,6 +1814,7 @@ function formaterDerniereModifDemande(ligneId) {
 
 function trierLignes(lignes) {
   const copie = [...lignes];
+  if (colonneTri === "Activite_rida") activiteRidaCache = activiteRidaParDemande();
   copie.sort((a, b) => {
     let vA = a[colonneTri], vB = b[colonneTri];
 
@@ -1829,6 +1832,11 @@ function trierLignes(lignes) {
     if (colonneTri === "Priorite") {
       vA = a.Priorite ? String(a.Priorite).trim() : "P9";
       vB = b.Priorite ? String(b.Priorite).trim() : "P9";
+    }
+    if (colonneTri === "Activite_rida") {
+      const x = activiteRidaCache.get(a.id) || { sem: 0, mois: 0, avant: 0 }, y = activiteRidaCache.get(b.id) || { sem: 0, mois: 0, avant: 0 };
+      vA = x.sem * 1e6 + x.mois * 1e3 + x.avant;
+      vB = y.sem * 1e6 + y.mois * 1e3 + y.avant;
     }
     if (colonneTri === "Date_1er_atelier") {
       vA = datePremierAtelier(a.id);
@@ -1935,15 +1943,17 @@ function infobulleObjetDemande(ligne) {
   return objet ? "Objet de la demande :\n" + objet : (ligne.Titre || "");
 }
 
+let activiteRidaCache = new Map();
 function afficherListe() {
   clearTimeout(timerEditionListe);
   const corps = document.getElementById("corps-tableau");
   const lignesFiltrees = appliquerFiltres(lignesEmergence);
+  activiteRidaCache = activiteRidaParDemande();
   const lignesTriees = trierLignes(lignesFiltrees);
   mettreAJourCompteurRechercheGlobale(lignesTriees.length);
 
   if (lignesTriees.length === 0) {
-    corps.innerHTML = "<tr><td colspan='18' class='chargement'>Aucune ligne trouvée.</td></tr>";
+    corps.innerHTML = "<tr><td colspan='19' class='chargement'>Aucune ligne trouvée.</td></tr>";
     return;
   }
   let html = "";
@@ -1988,6 +1998,7 @@ function afficherListe() {
       "<td class='cellule-priorite cellule-liste-editable' data-edit='priorite' title='Cliquer sur l\'icône pour modifier la priorité'><span class='texte-cellule-edit'>" + iconePriorite(ligne.Priorite) + "</span></td>" +
       "<td class='cellule-statut-modifiable' title='Cliquer pour changer le statut'>" + badgeStatut(ligne.Statut) + "</td>" +
       "<td class='cellule-derniere-modif' title='Dernière modification de la demande (fiche ou lignes RIDA)'>" + (formaterDerniereModifDemande(ligne.id) || "—") + "</td>" +
+      "<td class='cellule-activite'>" + activiteRidaHtml(activiteRidaCache.get(ligne.id)) + "</td>" +
       "<td class='cellule-liste-editable' data-edit='date' data-champ='Date_de_soumission' title=\"" + escapeHtml(formaterDate(ligne.Date_de_soumission) || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (formaterDate(ligne.Date_de_soumission) || "—") + "</span></td>" +
       "<td class='cellule-liste-editable' data-edit='date' data-champ='Date_Go_NoGo_SDID' title=\"" + escapeHtml(formaterDate(ligne.Date_Go_NoGo_SDID) || "") + " (cliquer pour modifier)\"><span class='texte-cellule-edit'>" + (formaterDate(ligne.Date_Go_NoGo_SDID) || "—") + "</span></td>" +
       "<td class='cellule-derniere-modif' title='Date du premier atelier (première ligne RIDA de type atelier)'>" + (formaterDate(datePremierAtelier(ligne.id)) || "—") + "</td>" +
@@ -8117,6 +8128,29 @@ function joursOuvresEntre(a, b) {
   let n = 0;
   for (let jour = jA + 1; jour <= jB; jour++) if (estJourOuvre(jour * 86400000)) n++;
   return n;
+}
+// --- Activité RIDA par demande (mini-graphique de la vue liste) ---
+// Trois périodes glissantes sans chevauchement : 7 derniers jours, 8 à 30 jours, avant.
+// Lignes comptées : toutes sauf journal automatique, datées par « Fait le » sinon « Pour le ».
+const PLAFOND_BARRE_ACTIVITE = 10;
+function activiteRidaParDemande() {
+  const auj = aujourdHuiEpoch(), j7 = auj - 6 * 86400, j30 = auj - 29 * 86400;
+  const m = new Map();
+  ridaToutes.forEach(r => {
+    if (estLigneJournalAuto(r)) return;
+    const id = idDepuisRef(r.ID2); if (!id) return;
+    const t = Number(r.Fait_le || r.Pour_le) || 0;
+    const a = m.get(id) || { sem: 0, mois: 0, avant: 0 };
+    if (t >= j7) a.sem++; else if (t >= j30) a.mois++; else a.avant++;
+    m.set(id, a);
+  });
+  return m;
+}
+function activiteRidaHtml(a) {
+  a = a || { sem: 0, mois: 0, avant: 0 };
+  const barre = (n, lib, cls) => "<div class='act-col' title='" + n + " RIDA — " + lib + "'><div class='act-nb'>" + (n || "") + "</div><div class='act-barre " + cls + "' style='height:" + (n ? Math.max(3, Math.round(Math.min(n, PLAFOND_BARRE_ACTIVITE) / PLAFOND_BARRE_ACTIVITE * 28)) : 1) + "px;'></div></div>";
+  return "<div class='act-graph' title='Activité RIDA : avant (gauche) · 8 à 30 jours · 7 derniers jours (droite)'>" +
+    barre(a.avant, "il y a plus de 30 jours", "act-ancien") + barre(a.mois, "entre 8 et 30 jours", "act-mois") + barre(a.sem, "7 derniers jours", "act-semaine") + "</div>";
 }
 function datePremierAtelier(demandeId) {
   const a = lignesAteliersDeDemande(demandeId);

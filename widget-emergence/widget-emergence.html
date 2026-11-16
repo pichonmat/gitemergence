@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.125 -->
+<!-- Widget Emergence — v0.126 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -38,6 +38,7 @@
             <th data-col="Priorite" data-filtre-champ="priorite" title="Priorité"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Prio. <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Statut" data-filtre-champ="statut"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Statut <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Date_de_derniere_modification" data-filtre-champ="derniere-modif" title="Dernière modification de la demande (fiche ou ligne RIDA)"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Modifié le <span class="fleche"></span><span class="poignee"></span></th>
+            <th data-col="Activite_rida" title="Activité RIDA : avant · 8 à 30 jours · 7 derniers jours"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span> Activité <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Date_de_soumission"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span> Date d'entrée <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Date_Go_NoGo_SDID"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span> Go/noGo SDID <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Date_1er_atelier"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span> 1er atelier <span class="fleche"></span><span class="poignee"></span></th>
@@ -1323,6 +1324,13 @@
   .frise-label { position: absolute; left: 0; transform: translateX(-50%); white-space: nowrap; font-size: 0.75em; text-align: center; line-height: 1.15; font-weight: 600; }
   .frise-jour { position: absolute; top: 50%; transform: translate(-50%,-50%); width: 10px; height: 10px; border-radius: 50%; background: #fff; border: 2px solid #3b5bdb; z-index: 1; cursor: help; }
   .frise-delai { position: absolute; top: 50%; transform: translate(-50%,-50%); font-size: 0.62em; color: #667; background: #fafbff; padding: 0 3px; line-height: 1.2; white-space: nowrap; z-index: 0; }
+  .act-graph { display: flex; align-items: flex-end; gap: 3px; height: 42px; padding-top: 2px; }
+  .act-col { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; width: 22px; height: 100%; }
+  .act-nb { font-size: 0.68em; color: #555; line-height: 1.1; min-height: 10px; }
+  .act-barre { width: 14px; border-radius: 2px 2px 0 0; }
+  .act-ancien { background: #c3c9e6; }
+  .act-mois { background: #8ea2e6; }
+  .act-semaine { background: #3b5bdb; }
   .frise-label span { font-weight: 400; color: #666; }
   .frise-haut .frise-label { bottom: 10px; }
   .frise-bas .frise-label { top: 10px; }
