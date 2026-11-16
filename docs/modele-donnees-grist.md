@@ -144,3 +144,5 @@ KPI (jours ouvrés lundi–vendredi hors jours fériés français) : Date d'entr
 Boîte aux lettres, lue en lecture seule par l'onglet « Messages » du widget. Colonnes : `Recu` (DateTime), `Expediteur`, `Destinataires`, `Sujet`, `Message` (Text, texte brut ou HTML), `UID` (Numeric), `Demandes` (RefList vers Emergence, v0.129 : demandes liées au message). La liste n'affiche pas le contenu ; un clic ouvre le message mis en forme (HTML affiché dans un cadre isolé, sans script).
 
 Le rattachement à une demande se fait par le bouton « Mapping automatique » (expéditeur → acteur via `Emergence_Acteurs.mail` → demandes où il est sponsor, porteur ou partie prenante ; si plusieurs, celle dont le titre figure dans le message) ; seuls les messages sans demande sont touchés. Les liens se modifient depuis le message ou depuis l'onglet « Messages » de la fiche.
+
+À partir de v0.132 : colonne `BAL` (Choice « entrant » / « sortant », libellé « $BAL ») pour distinguer messages reçus et envoyés (vide = entrant). Un message sortant se rattache aux demandes uniquement d'après ses destinataires ; il s'affiche dans le RIDA comme « Message mail envoyé à … ».

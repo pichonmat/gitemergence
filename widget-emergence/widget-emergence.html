@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.131 -->
+<!-- Widget Emergence — v0.132 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -185,7 +185,8 @@
 <div id="vue-messages" style="display:none;">
   <div class="barre-filtres-actions">
     <input type="text" id="msg-recherche" placeholder="Rechercher (expéditeur, destinataires, sujet, contenu du message)…" style="min-width:320px;">
-    <label class="msg-lib-date">Reçus du <input type="date" id="msg-date-debut"></label>
+    <select id="msg-sens" title="Filtrer par sens"><option value="">Reçus et envoyés</option><option value="entrant">Reçus</option><option value="sortant">Envoyés</option></select>
+    <label class="msg-lib-date">Du <input type="date" id="msg-date-debut"></label>
     <label class="msg-lib-date">au <input type="date" id="msg-date-fin"></label>
     <button type="button" id="msg-reinit" class="btn-secondaire" title="Efface tous les filtres">Effacer les filtres</button>
     <button type="button" id="msg-mapping-auto" class="btn-secondaire" title="Rattache aux demandes les messages qui n'en ont pas encore, d'après l'expéditeur">⚡ Mapping automatique</button>
@@ -196,13 +197,15 @@
     <table id="table-messages">
       <thead>
         <tr>
-          <th data-col-msg="Recu" style="width:110px;">Reçu <span class="fleche"></span></th>
+          <th data-col-msg="Recu" style="width:110px;">Date <span class="fleche"></span></th>
+          <th data-col-msg="Sens" style="width:80px;" title="Reçu ou envoyé">Sens <span class="fleche"></span></th>
           <th data-col-msg="Expediteur" style="width:25%;">Expéditeur <span class="fleche"></span></th>
           <th data-col-msg="Destinataires" style="width:25%;">Destinataires <span class="fleche"></span></th>
           <th data-col-msg="Sujet">Sujet <span class="fleche"></span></th>
           <th data-col-msg="Demandes" style="width:24%;" title="Demandes liées au message (≈ = suggestion d'après l'expéditeur)">Demandes <span class="fleche"></span></th>
         </tr>
         <tr class="msg-filtres-colonnes">
+          <th></th>
           <th></th>
           <th><input type="text" data-filtre-msg="Expediteur" placeholder="Filtrer…"></th>
           <th><input type="text" data-filtre-msg="Destinataires" placeholder="Filtrer…"></th>
@@ -1394,6 +1397,8 @@
   .rida-message-type { display: inline-block; padding: 0 8px; border-radius: 4px; background: #e3d3f4; color: #5b2a86; font-weight: 700; }
   .rida-message-porteur { text-align: center; color: #8e44ad; }
   .rida-message-desc { font-style: italic; }
+  .msg-sens-entrant { color: #26408b; }
+  .msg-sens-sortant { color: #1c7a3d; }
   .msg-vide { text-align: center; color: #888; padding: 16px; cursor: default; }
   .msg-entete { flex: 0 0 auto; font-size: 0.88em; color: #444; background: #f7f7fb; border: 1px solid #e8e8ee; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; line-height: 1.5; }
   .msg-entete b { display: inline-block; min-width: 92px; color: #666; font-weight: 600; }

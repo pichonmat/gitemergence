@@ -1,6 +1,6 @@
-// Widget Emergence — v0.131
-// Numéro de release : <majeure>.<build> (0.131 = release majeure 0, build 131).
-const VERSION_WIDGET = "0.131";
+// Widget Emergence — v0.132
+// Numéro de release : <majeure>.<build> (0.132 = release majeure 0, build 132).
+const VERSION_WIDGET = "0.132";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -8456,7 +8456,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.131) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.132) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -8473,11 +8473,14 @@ async function chargerMessages() {
   try {
     const t = await grist.docApi.fetchTable(TABLE_MESSAGES);
     const ids = t.id || [];
+    // colonne « $BAL » (entrant / sortant) : son identifiant Grist est « BAL » (ou proche) ; vide = entrant
+    const colBal = Object.keys(t).find(k => /^_*bal\d*$/i.test(k)) || "";
     messagesBrut = ids.map((id, i) => ({
       id, recu: Number(t.Recu && t.Recu[i]) || 0,
       expediteur: String((t.Expediteur && t.Expediteur[i]) || ""), destinataires: String((t.Destinataires && t.Destinataires[i]) || ""),
       sujet: String((t.Sujet && t.Sujet[i]) || ""), message: String((t.Message && t.Message[i]) || ""), uid: t.UID ? t.UID[i] : null,
-      demandes: refListVersIds(t.Demandes ? t.Demandes[i] : null).map(Number).filter(Boolean)
+      demandes: refListVersIds(t.Demandes ? t.Demandes[i] : null).map(Number).filter(Boolean),
+      sens: /sort|envoy|sent|out/i.test(String(colBal ? t[colBal][i] : "")) ? "sortant" : "entrant"
     }));
     colonneDemandesMessagesPresente = "Demandes" in t;
     messagesCharges = true;
@@ -8507,6 +8510,7 @@ function acteurImpliqueDansDemande(l, ids) { // nombre d'acteurs de ids impliqu�
 // demandes où ils sont sponsor, porteur ou partie prenante. S'il y en a plusieurs, on affine d'abord avec le titre (présent dans
 // le sujet ou le début du message), puis avec les destinataires (demandes impliquant le plus de destinataires connus).
 function suggestionDemandesMessage(m) {
+  if (m.sens === "sortant") return suggestionDemandesMessageSortant(m);
   const expediteurs = acteursDeEmails(m.expediteur);
   const destinataires = acteursDeEmails(m.destinataires).filter(id => !expediteurs.includes(id));
   const base = expediteurs.length ? expediteurs : destinataires;
@@ -8528,6 +8532,24 @@ function suggestionDemandesMessage(m) {
   }
   if (parTitre.length) return { ids: cand, etat: "affine" }; // le titre figure dans le message : lien probable avec chacune de ces demandes
   return { ids: [], etat: "ambigu", candidats: cand };
+}
+// Message envoyé : le rattachement se fait uniquement sur les destinataires (acteurs dont le mail correspond), puis titre,
+// puis nombre de destinataires impliqués dans la demande.
+function suggestionDemandesMessageSortant(m) {
+  const dest = acteursDeEmails(m.destinataires);
+  if (!dest.length) return { ids: [], etat: "inconnu" };
+  const score = l => acteurImpliqueDansDemande(l, dest);
+  let cand = lignesEmergence.filter(l => score(l) > 0);
+  if (!cand.length) return { ids: [], etat: "aucune" };
+  if (cand.length === 1) return { ids: [cand[0].id], etat: "unique" };
+  const texte = normaliserTexteRecherche(m.sujet + " " + m.message.slice(0, 3000));
+  const parTitre = cand.filter(l => { const t = normaliserTexteRecherche(titreDemande(l.id)); return t.length >= 4 && texte.includes(t); });
+  if (parTitre.length) { cand = parTitre; if (cand.length === 1) return { ids: [cand[0].id], etat: "affine" }; }
+  const best = Math.max(...cand.map(score));
+  const top = cand.filter(l => score(l) === best);
+  if (top.length === 1) return { ids: [top[0].id], etat: "affine-destinataires" };
+  if (parTitre.length) return { ids: top.map(l => l.id), etat: "affine" };
+  return { ids: [], etat: "ambigu", candidats: top.map(l => l.id) };
 }
 async function enregistrerDemandesMessage(msgId, ids) {
   await grist.docApi.applyUserActions([["UpdateRecord", TABLE_MESSAGES, msgId, { Demandes: ids.length ? ["L"].concat(ids) : null }]]);
@@ -8557,6 +8579,7 @@ function inputDateVersEpochFin(v) { return v ? Math.floor(new Date(v + "T23:59:5
 
 function messagesFiltresTries() {
   const global = normaliserTexteRecherche(document.getElementById("msg-recherche").value || "");
+  const sensFiltre = document.getElementById("msg-sens").value;
   const debut = inputDateVersEpochDebut(document.getElementById("msg-date-debut").value);
   const fin = inputDateVersEpochFin(document.getElementById("msg-date-fin").value);
   const colonnes = {};
@@ -8564,13 +8587,14 @@ function messagesFiltresTries() {
   const champ = { Expediteur: "expediteur", Destinataires: "destinataires", Sujet: "sujet", Demandes: "demandesTexte" };
   messagesBrut.forEach(m => { m.demandesTexte = m.demandes.map(titreDemande).join(", "); });
   const liste = messagesBrut.filter(m => {
+    if (sensFiltre && m.sens !== sensFiltre) return false;
     if (debut && m.recu < debut) return false;
     if (fin && m.recu > fin) return false;
     for (const k of Object.keys(colonnes)) if (!normaliserTexteRecherche(m[champ[k]]).includes(colonnes[k])) return false;
     if (global && !normaliserTexteRecherche(m.expediteur + " " + m.destinataires + " " + m.sujet + " " + m.message).includes(global)) return false;
     return true;
   });
-  const cle = { Recu: "recu", Expediteur: "expediteur", Destinataires: "destinataires", Sujet: "sujet", Demandes: "demandesTexte" }[triMessages.col] || "recu";
+  const cle = { Recu: "recu", Expediteur: "expediteur", Destinataires: "destinataires", Sujet: "sujet", Demandes: "demandesTexte", Sens: "sens" }[triMessages.col] || "recu";
   const sens = triMessages.sens === "asc" ? 1 : -1;
   liste.sort((a, b) => {
     const x = a[cle], y = b[cle];
@@ -8599,15 +8623,15 @@ function afficherMessages() {
   });
   document.getElementById("msg-compteur").textContent = messagesErreur ? "" :
     messagesAffiches.length + " message" + (messagesAffiches.length > 1 ? "s" : "") + (messagesAffiches.length !== messagesBrut.length ? " sur " + messagesBrut.length : "");
-  if (messagesErreur) { corps.innerHTML = "<tr><td colspan='5' class='msg-vide'>" + escapeHtml(messagesErreur) + "</td></tr>"; return; }
-  if (!messagesAffiches.length) { corps.innerHTML = "<tr><td colspan='5' class='msg-vide'>Aucun message.</td></tr>"; return; }
+  if (messagesErreur) { corps.innerHTML = "<tr><td colspan='6' class='msg-vide'>" + escapeHtml(messagesErreur) + "</td></tr>"; return; }
+  if (!messagesAffiches.length) { corps.innerHTML = "<tr><td colspan='6' class='msg-vide'>Aucun message.</td></tr>"; return; }
   corps.innerHTML = messagesAffiches.map((m, i) =>
-    "<tr data-msg-index='" + i + "'><td>" + escapeHtml(dateMessage(m.recu)) + "</td><td title=\"" + escapeHtml(m.expediteur) + "\">" + escapeHtml(m.expediteur) +
+    "<tr data-msg-index='" + i + "'><td>" + escapeHtml(dateMessage(m.recu)) + "</td><td title='" + (m.sens === "sortant" ? "Message envoyé" : "Message reçu") + "' class='msg-sens msg-sens-" + m.sens + "'>" + (m.sens === "sortant" ? "↑ envoyé" : "↓ reçu") + "</td><td title=\"" + escapeHtml(m.expediteur) + "\">" + escapeHtml(m.expediteur) +
     "</td><td title=\"" + escapeHtml(m.destinataires) + "\">" + escapeHtml(m.destinataires) + "</td><td title=\"" + escapeHtml(m.sujet) + "\">" + escapeHtml(m.sujet || "(sans sujet)") + "</td>" + celluleDemandesMessageHtml(m) + "</tr>").join("");
 }
 
 async function ouvrirOngletMessages() {
-  if (!messagesCharges) { document.getElementById("corps-messages").innerHTML = "<tr><td colspan='5' class='msg-vide'>Chargement…</td></tr>"; await chargerMessages(); }
+  if (!messagesCharges) { document.getElementById("corps-messages").innerHTML = "<tr><td colspan='6' class='msg-vide'>Chargement…</td></tr>"; await chargerMessages(); }
   afficherMessages();
 }
 
@@ -8654,7 +8678,7 @@ function ouvrirMessage(index) {
   indexMessageOuvert = index;
   document.getElementById("msg-detail-sujet").textContent = m.sujet || "(sans sujet)";
   const ligneEnt = (lib, v) => v ? "<div><b>" + lib + "</b>" + escapeHtml(v) + "</div>" : "";
-  document.getElementById("msg-detail-entete").innerHTML = ligneEnt("De", m.expediteur) + ligneEnt("À", m.destinataires) + ligneEnt("Reçu le", dateMessage(m.recu));
+  document.getElementById("msg-detail-entete").innerHTML = ligneEnt("De", m.expediteur) + ligneEnt("À", m.destinataires) + ligneEnt(m.sens === "sortant" ? "Envoyé le" : "Reçu le", dateMessage(m.recu));
   const corps = document.getElementById("msg-detail-corps");
   corps.scrollTop = 0;
   if (messageEstHtml(m.message)) {
@@ -8677,10 +8701,10 @@ function ouvrirMessage(index) {
 }
 (function brancherOngletMessages() {
   const re = () => afficherMessages();
-  ["msg-recherche", "msg-date-debut", "msg-date-fin"].forEach(id => { document.getElementById(id).addEventListener("input", re); document.getElementById(id).addEventListener("change", re); });
+  ["msg-recherche", "msg-date-debut", "msg-date-fin", "msg-sens"].forEach(id => { document.getElementById(id).addEventListener("input", re); document.getElementById(id).addEventListener("change", re); });
   document.querySelectorAll("#table-messages [data-filtre-msg]").forEach(i => i.addEventListener("input", re));
   document.getElementById("msg-reinit").addEventListener("click", () => {
-    ["msg-recherche", "msg-date-debut", "msg-date-fin"].forEach(id => { document.getElementById(id).value = ""; });
+    ["msg-recherche", "msg-date-debut", "msg-date-fin", "msg-sens"].forEach(id => { document.getElementById(id).value = ""; });
     document.querySelectorAll("#table-messages [data-filtre-msg]").forEach(i => { i.value = ""; });
     afficherMessages();
   });
@@ -8745,13 +8769,13 @@ async function rafraichirOngletMessagesFiche() {
   insererMessagesDansRida(lies);
   if (btn) btn.textContent = "Messages" + (lies.length ? " (" + lies.length + ")" : "");
   const lignes = lies.map(m =>
-    "<tr data-msg-id='" + m.id + "'><td>" + escapeHtml(dateMessage(m.recu)) + "</td><td title=\"" + escapeHtml(m.expediteur) + "\">" + escapeHtml(m.expediteur) + "</td>" +
+    "<tr data-msg-id='" + m.id + "'><td>" + escapeHtml(dateMessage(m.recu)) + "</td><td title=\"" + escapeHtml(m.sens === "sortant" ? m.destinataires : m.expediteur) + "\">" + (m.sens === "sortant" ? "↑ à " + escapeHtml(m.destinataires) : "↓ " + escapeHtml(m.expediteur)) + "</td>" +
     "<td title=\"" + escapeHtml(m.sujet) + "\">" + escapeHtml(m.sujet || "(sans sujet)") + "</td>" +
     "<td class='msg-fiche-actions'><button type='button' class='btn-fiche-msg-delier' data-msg-id='" + m.id + "' title='Supprimer le lien entre ce message et la demande'>✕</button></td></tr>").join("");
   const dejaLies = new Set(lies.map(m => m.id));
   const options = messagesBrut.filter(m => !dejaLies.has(m.id)).sort((a, b) => b.recu - a.recu)
     .map(m => "<option value=\"#" + m.id + " — " + escapeHtml(dateMessage(m.recu) + " · " + (m.expediteur || "?") + " · " + (m.sujet || "(sans sujet)")) + "\"></option>").join("");
-  zone.innerHTML = (lies.length ? "<table class='tableau-fiche msg-fiche-table'><thead><tr><th style='width:100px;'>Reçu</th><th style='width:30%;'>Expéditeur</th><th>Sujet</th><th style='width:40px;'></th></tr></thead><tbody>" + lignes + "</tbody></table>"
+  zone.innerHTML = (lies.length ? "<table class='tableau-fiche msg-fiche-table'><thead><tr><th style='width:100px;'>Date</th><th style='width:30%;'>Correspondant</th><th>Sujet</th><th style='width:40px;'></th></tr></thead><tbody>" + lignes + "</tbody></table>"
     : "<div class='msg-vide' style='text-align:left;'>Aucun message lié à cette demande.</div>") +
     "<div class='ajout-pp-conteneur' style='margin-top:8px;'><input type='text' id='fiche-msg-saisie' list='fiche-msg-datalist' placeholder='Lier un message (tapez l&#39;expéditeur, le sujet ou la date)…' style='min-width:340px;'><datalist id='fiche-msg-datalist'>" + options + "</datalist><button type='button' id='fiche-msg-ajouter' title='Lier ce message à la demande'>+</button></div>" +
     "<div class='modale-msg' id='fiche-msg-info'></div>";
@@ -8798,11 +8822,11 @@ function insererMessagesDansRida(lies) {
     const tr = document.createElement("tr");
     tr.className = "rida-message";
     tr.setAttribute("data-msg-id", m.id);
-    tr.title = "Message reçu — cliquer pour lire le contenu (ligne non modifiable)";
+    tr.title = (m.sens === "sortant" ? "Message envoyé" : "Message reçu") + " — cliquer pour lire le contenu (ligne non modifiable)";
     const d = escapeHtml(dateMessage(m.recu));
-    tr.innerHTML = "<td><span class='rida-message-type'>I</span></td><td class='rida-message-porteur'>✉</td><td></td>" +
+    tr.innerHTML = "<td><span class='rida-message-type'>I</span></td><td class='rida-message-porteur'>✉ " + (m.sens === "sortant" ? "↑" : "↓") + "</td><td></td>" +
       "<td>" + d + "</td><td>" + d + "</td><td></td>" +
-      "<td class='rida-message-desc'>Message mail de " + escapeHtml(m.expediteur || "(expéditeur inconnu)") + (m.sujet ? " : " + escapeHtml(m.sujet) : "") + "</td><td></td>";
+      "<td class='rida-message-desc'>" + (m.sens === "sortant" ? "Message mail envoyé à " + escapeHtml(m.destinataires || "(destinataire inconnu)") : "Message mail de " + escapeHtml(m.expediteur || "(expéditeur inconnu)")) + (m.sujet ? " : " + escapeHtml(m.sujet) : "") + "</td><td></td>";
     // position : trié par date avec les lignes RIDA si le tableau est trié par « Pour le », sinon à la fin
     let ref = null;
     if (trie) {
