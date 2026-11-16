@@ -138,3 +138,7 @@ Colonnes ajoutées à `Emergence` (type `Date`) : `Date_Go_NoGo_SDID` (Go/noGo S
 Colonne ajoutée à `Emergence_Rida` : `Participants` (`RefList:Emergence_Acteurs`) — participants d'un atelier (ligne RIDA dont la description contient « tenue d'un atelier »).
 
 KPI (jours ouvrés lundi–vendredi hors jours fériés français) : Date d'entrée → Go/noGo, Date d'entrée → MVP réalisé, Date d'entrée → premier atelier (date de l'atelier = Fait_le, sinon Pour_le).
+
+## Emergence_BalInno (v0.128)
+
+Boîte aux lettres, lue en lecture seule par l'onglet « Messages » du widget. Colonnes : `Recu` (DateTime), `Expediteur`, `Destinataires`, `Sujet`, `Message` (Text, texte brut ou HTML), `UID` (Numeric). La liste n'affiche pas le contenu ; un clic ouvre le message mis en forme (HTML affiché dans un cadre isolé, sans script).

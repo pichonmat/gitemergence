@@ -1,6 +1,6 @@
-// Widget Emergence — v0.127
-// Numéro de release : <majeure>.<build> (0.127 = release majeure 0, build 127).
-const VERSION_WIDGET = "0.127";
+// Widget Emergence — v0.128
+// Numéro de release : <majeure>.<build> (0.128 = release majeure 0, build 128).
+const VERSION_WIDGET = "0.128";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -4907,7 +4907,8 @@ function basculerVue(mode) {
     activite: document.getElementById("vue-activite"),
     planning: document.getElementById("vue-planning"),
     reporting: document.getElementById("vue-reporting"),
-    ia: document.getElementById("vue-ia")
+    ia: document.getElementById("vue-ia"),
+    messages: document.getElementById("vue-messages")
   };
   const tags = {
     demandes: document.getElementById("tag-demandes"),
@@ -4916,7 +4917,8 @@ function basculerVue(mode) {
     activite: document.getElementById("tag-activite"),
     planning: document.getElementById("tag-planning"),
     reporting: document.getElementById("tag-reporting"),
-    ia: document.getElementById("tag-ia")
+    ia: document.getElementById("tag-ia"),
+    messages: document.getElementById("tag-messages")
   };
 
   Object.keys(vues).forEach(cle => {
@@ -4939,6 +4941,8 @@ function basculerVue(mode) {
     afficherReporting();
   } else if (mode === "ia") {
     afficherIa();
+  } else if (mode === "messages") {
+    ouvrirOngletMessages();
   }
 }
 
@@ -4949,6 +4953,7 @@ document.getElementById("tag-activite").addEventListener("click", () => basculer
 document.getElementById("tag-reporting").addEventListener("click", () => basculerVue("reporting"));
 document.getElementById("tag-planning").addEventListener("click", () => basculerVue("planning"));
 document.getElementById("tag-ia").addEventListener("click", () => basculerVue("ia"));
+document.getElementById("tag-messages").addEventListener("click", () => basculerVue("messages"));
 
 // --- Onglet Activité : indicateurs et graphiques de synthèse ---
 
@@ -8446,3 +8451,153 @@ function genererFriseRidaHtml(ligne, ridaLies) {
   return "<div class='frise' title=\"Chronologie de la demande, de la date d'entrée " + (cloture ? "à la clôture" : "à aujourd'hui") + "\">" +
     "<div class='frise-piste'><div class='frise-progres' style='width:" + progression + "%;'></div>" + delais + petitsPoints + marques + "</div></div>";
 }
+
+
+// ===================== Onglet Messages (v0.128) : table Emergence_BalInno =====================
+// Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
+// un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
+const TABLE_MESSAGES = "Emergence_BalInno";
+let messagesBrut = [];        // [{ id, recu (epoch s), expediteur, destinataires, sujet, message, uid }]
+let messagesCharges = false;
+let messagesErreur = "";
+let triMessages = { col: "Recu", sens: "desc" };
+let messagesAffiches = [];    // liste filtrée + triée courante (pour ← →)
+let indexMessageOuvert = -1;
+
+async function chargerMessages() {
+  messagesErreur = "";
+  try {
+    const t = await grist.docApi.fetchTable(TABLE_MESSAGES);
+    const ids = t.id || [];
+    messagesBrut = ids.map((id, i) => ({
+      id, recu: Number(t.Recu && t.Recu[i]) || 0,
+      expediteur: String((t.Expediteur && t.Expediteur[i]) || ""), destinataires: String((t.Destinataires && t.Destinataires[i]) || ""),
+      sujet: String((t.Sujet && t.Sujet[i]) || ""), message: String((t.Message && t.Message[i]) || ""), uid: t.UID ? t.UID[i] : null
+    }));
+    messagesCharges = true;
+  } catch (e) {
+    messagesBrut = []; messagesCharges = false;
+    messagesErreur = "Table « " + TABLE_MESSAGES + " » illisible : " + (e && e.message || e);
+  }
+}
+function dateMessage(epoch) {
+  if (!epoch) return "";
+  const d = new Date(epoch * 1000);
+  return String(d.getDate()).padStart(2, "0") + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + d.getFullYear();
+}
+function inputDateVersEpochDebut(v) { return v ? Math.floor(new Date(v + "T00:00:00").getTime() / 1000) : 0; }
+function inputDateVersEpochFin(v) { return v ? Math.floor(new Date(v + "T23:59:59").getTime() / 1000) : 0; }
+
+function messagesFiltresTries() {
+  const global = normaliserTexteRecherche(document.getElementById("msg-recherche").value || "");
+  const debut = inputDateVersEpochDebut(document.getElementById("msg-date-debut").value);
+  const fin = inputDateVersEpochFin(document.getElementById("msg-date-fin").value);
+  const colonnes = {};
+  document.querySelectorAll("#table-messages [data-filtre-msg]").forEach(i => { const v = normaliserTexteRecherche(i.value || ""); if (v) colonnes[i.getAttribute("data-filtre-msg")] = v; });
+  const champ = { Expediteur: "expediteur", Destinataires: "destinataires", Sujet: "sujet" };
+  const liste = messagesBrut.filter(m => {
+    if (debut && m.recu < debut) return false;
+    if (fin && m.recu > fin) return false;
+    for (const k of Object.keys(colonnes)) if (!normaliserTexteRecherche(m[champ[k]]).includes(colonnes[k])) return false;
+    if (global && !normaliserTexteRecherche(m.expediteur + " " + m.destinataires + " " + m.sujet + " " + m.message).includes(global)) return false;
+    return true;
+  });
+  const cle = { Recu: "recu", Expediteur: "expediteur", Destinataires: "destinataires", Sujet: "sujet" }[triMessages.col] || "recu";
+  const sens = triMessages.sens === "asc" ? 1 : -1;
+  liste.sort((a, b) => {
+    const x = a[cle], y = b[cle];
+    const c = typeof x === "number" ? x - y : String(x).localeCompare(String(y), "fr", { sensitivity: "base" });
+    return c * sens || (b.recu - a.recu);
+  });
+  return liste;
+}
+
+function afficherMessages() {
+  const corps = document.getElementById("corps-messages");
+  messagesAffiches = messagesFiltresTries();
+  document.querySelectorAll("#table-messages th[data-col-msg]").forEach(th => {
+    const f = th.querySelector(".fleche");
+    if (f) f.textContent = th.getAttribute("data-col-msg") === triMessages.col ? (triMessages.sens === "asc" ? "▲" : "▼") : "";
+  });
+  document.getElementById("msg-compteur").textContent = messagesErreur ? "" :
+    messagesAffiches.length + " message" + (messagesAffiches.length > 1 ? "s" : "") + (messagesAffiches.length !== messagesBrut.length ? " sur " + messagesBrut.length : "");
+  if (messagesErreur) { corps.innerHTML = "<tr><td colspan='4' class='msg-vide'>" + escapeHtml(messagesErreur) + "</td></tr>"; return; }
+  if (!messagesAffiches.length) { corps.innerHTML = "<tr><td colspan='4' class='msg-vide'>Aucun message.</td></tr>"; return; }
+  corps.innerHTML = messagesAffiches.map((m, i) =>
+    "<tr data-msg-index='" + i + "'><td>" + escapeHtml(dateMessage(m.recu)) + "</td><td title=\"" + escapeHtml(m.expediteur) + "\">" + escapeHtml(m.expediteur) +
+    "</td><td title=\"" + escapeHtml(m.destinataires) + "\">" + escapeHtml(m.destinataires) + "</td><td title=\"" + escapeHtml(m.sujet) + "\">" + escapeHtml(m.sujet || "(sans sujet)") + "</td></tr>").join("");
+}
+
+async function ouvrirOngletMessages() {
+  if (!messagesCharges) { document.getElementById("corps-messages").innerHTML = "<tr><td colspan='4' class='msg-vide'>Chargement…</td></tr>"; await chargerMessages(); }
+  afficherMessages();
+}
+
+// --- Mise en forme du message ---
+function messageEstHtml(t) { return /<\s*(html|body|div|p|br|table|span|a|img|ul|ol|li|h[1-6]|strong|b|i|blockquote)(\s|>|\/)/i.test(t || ""); }
+function messageTexteVersHtml(t) {
+  const lignes = String(t || "").replace(/\r\n?/g, "\n").split("\n");
+  return lignes.map(l => {
+    let h = escapeHtml(l).replace(/(https?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]])/g, "<a href=\"$1\" target=\"_blank\" rel=\"noopener noreferrer\">$1</a>")
+      .replace(/([\w.+-]+@[\w-]+(?:\.[\w-]+)+)/g, (m0, a, off, str) => /href="[^"]*$/.test(str.slice(0, off)) || str.slice(off - 1, off) === ">" ? m0 : "<a href=\"mailto:" + a + "\">" + a + "</a>");
+    return /^\s*>/.test(l) ? "<span class='msg-citation'>" + h + "</span>" : h + "\n";
+  }).join("");
+}
+function ouvrirMessage(index) {
+  const m = messagesAffiches[index];
+  if (!m) return;
+  indexMessageOuvert = index;
+  document.getElementById("msg-detail-sujet").textContent = m.sujet || "(sans sujet)";
+  const ligneEnt = (lib, v) => v ? "<div><b>" + lib + "</b>" + escapeHtml(v) + "</div>" : "";
+  document.getElementById("msg-detail-entete").innerHTML = ligneEnt("De", m.expediteur) + ligneEnt("À", m.destinataires) + ligneEnt("Reçu le", dateMessage(m.recu));
+  const corps = document.getElementById("msg-detail-corps");
+  corps.scrollTop = 0;
+  if (messageEstHtml(m.message)) {
+    // HTML : affiché dans un cadre isolé (aucun script, aucune connexion externe hors images)
+    const doc = "<!doctype html><html><head><meta charset='utf-8'><meta http-equiv='Content-Security-Policy' content=\"default-src 'none'; img-src data: https: cid:; style-src 'unsafe-inline'\">" +
+      "<base target='_blank'><style>body{font-family:Segoe UI,Arial,sans-serif;font-size:14px;line-height:1.5;color:#222;margin:0;word-wrap:break-word}img{max-width:100%;height:auto}</style></head><body>" + m.message + "</body></html>";
+    corps.innerHTML = "";
+    const fr = document.createElement("iframe");
+    fr.setAttribute("sandbox", "allow-popups allow-popups-to-escape-sandbox");
+    fr.setAttribute("referrerpolicy", "no-referrer");
+    fr.srcdoc = doc;
+    corps.appendChild(fr);
+  } else {
+    corps.innerHTML = "<div class='msg-texte'>" + messageTexteVersHtml(m.message) + "</div>";
+  }
+  document.getElementById("msg-detail-prec").disabled = index <= 0;
+  document.getElementById("msg-detail-suiv").disabled = index >= messagesAffiches.length - 1;
+  document.getElementById("modale-message-fond").style.display = "flex";
+}
+(function brancherOngletMessages() {
+  const re = () => afficherMessages();
+  ["msg-recherche", "msg-date-debut", "msg-date-fin"].forEach(id => { document.getElementById(id).addEventListener("input", re); document.getElementById(id).addEventListener("change", re); });
+  document.querySelectorAll("#table-messages [data-filtre-msg]").forEach(i => i.addEventListener("input", re));
+  document.getElementById("msg-reinit").addEventListener("click", () => {
+    ["msg-recherche", "msg-date-debut", "msg-date-fin"].forEach(id => { document.getElementById(id).value = ""; });
+    document.querySelectorAll("#table-messages [data-filtre-msg]").forEach(i => { i.value = ""; });
+    afficherMessages();
+  });
+  document.getElementById("msg-actualiser").addEventListener("click", async () => { await chargerMessages(); afficherMessages(); });
+  document.querySelectorAll("#table-messages th[data-col-msg]").forEach(th => th.addEventListener("click", () => {
+    const c = th.getAttribute("data-col-msg");
+    if (triMessages.col === c) triMessages.sens = triMessages.sens === "asc" ? "desc" : "asc"; else triMessages = { col: c, sens: c === "Recu" ? "desc" : "asc" };
+    afficherMessages();
+  }));
+  document.getElementById("corps-messages").addEventListener("click", (e) => {
+    const tr = e.target.closest("tr[data-msg-index]");
+    if (tr) ouvrirMessage(parseInt(tr.getAttribute("data-msg-index"), 10));
+  });
+  const fond = document.getElementById("modale-message-fond");
+  const fermer = () => { fond.style.display = "none"; document.getElementById("msg-detail-corps").innerHTML = ""; };
+  document.getElementById("msg-detail-fermer").addEventListener("click", fermer);
+  fond.addEventListener("mousedown", (e) => { if (e.target === fond) fermer(); });
+  document.getElementById("msg-detail-prec").addEventListener("click", () => ouvrirMessage(indexMessageOuvert - 1));
+  document.getElementById("msg-detail-suiv").addEventListener("click", () => ouvrirMessage(indexMessageOuvert + 1));
+  document.addEventListener("keydown", (e) => {
+    if (fond.style.display === "none") return;
+    if (e.key === "Escape") fermer();
+    else if (e.key === "ArrowLeft" && indexMessageOuvert > 0) ouvrirMessage(indexMessageOuvert - 1);
+    else if (e.key === "ArrowRight" && indexMessageOuvert < messagesAffiches.length - 1) ouvrirMessage(indexMessageOuvert + 1);
+  });
+})();
