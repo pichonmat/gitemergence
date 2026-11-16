@@ -1,6 +1,6 @@
-// Widget Emergence — v0.130
-// Numéro de release : <majeure>.<build> (0.130 = release majeure 0, build 130).
-const VERSION_WIDGET = "0.130";
+// Widget Emergence — v0.131
+// Numéro de release : <majeure>.<build> (0.131 = release majeure 0, build 131).
+const VERSION_WIDGET = "0.131";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -8456,7 +8456,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.130) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.131) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -8742,6 +8742,7 @@ async function rafraichirOngletMessagesFiche() {
   if (idDemande !== ligneSelectionneeId || !document.getElementById("fiche-messages")) return; // fiche changée entre-temps
   if (messagesErreur) { zone.innerHTML = "<div class='msg-vide'>" + escapeHtml(messagesErreur) + "</div>"; return; }
   const lies = messagesBrut.filter(m => m.demandes.includes(idDemande)).sort((a, b) => b.recu - a.recu);
+  insererMessagesDansRida(lies);
   if (btn) btn.textContent = "Messages" + (lies.length ? " (" + lies.length + ")" : "");
   const lignes = lies.map(m =>
     "<tr data-msg-id='" + m.id + "'><td>" + escapeHtml(dateMessage(m.recu)) + "</td><td title=\"" + escapeHtml(m.expediteur) + "\">" + escapeHtml(m.expediteur) + "</td>" +
@@ -8782,4 +8783,41 @@ document.getElementById("fiche-container").addEventListener("click", async (e) =
 });
 document.getElementById("fiche-container").addEventListener("change", (e) => {
   if (e.target.id === "fiche-msg-saisie" && /^#\d+ — /.test(e.target.value)) document.getElementById("fiche-msg-ajouter").click();
+});
+
+// --- Fiche : messages liés affichés comme lignes d'information (non éditables) dans le tableau RIDA ---
+function insererMessagesDansRida(lies) {
+  const tbody = document.getElementById("rida-tbody");
+  if (!tbody) return;
+  tbody.querySelectorAll("tr.rida-message").forEach(tr => tr.remove());
+  const trie = triRidaColonne === "Pour_le";
+  const croissant = !trie || triRidaSens === "asc";
+  const dateLigne = (tr) => { const r = ridaToutes.find(x => x.id === Number(tr.getAttribute("data-rida-id"))); return r ? (Number(r.Pour_le) || 0) : 0; };
+  const messages = lies.slice().sort((a, b) => croissant ? a.recu - b.recu : b.recu - a.recu);
+  messages.forEach(m => {
+    const tr = document.createElement("tr");
+    tr.className = "rida-message";
+    tr.setAttribute("data-msg-id", m.id);
+    tr.title = "Message reçu — cliquer pour lire le contenu (ligne non modifiable)";
+    const d = escapeHtml(dateMessage(m.recu));
+    tr.innerHTML = "<td><span class='rida-message-type'>I</span></td><td class='rida-message-porteur'>✉</td><td></td>" +
+      "<td>" + d + "</td><td>" + d + "</td><td></td>" +
+      "<td class='rida-message-desc'>Message mail de " + escapeHtml(m.expediteur || "(expéditeur inconnu)") + (m.sujet ? " : " + escapeHtml(m.sujet) : "") + "</td><td></td>";
+    // position : trié par date avec les lignes RIDA si le tableau est trié par « Pour le », sinon à la fin
+    let ref = null;
+    if (trie) {
+      for (const ligne of tbody.querySelectorAll("tr[data-rida-id]")) {
+        const dl = dateLigne(ligne);
+        if (croissant ? dl > m.recu : dl < m.recu) { ref = ligne; break; }
+      }
+    }
+    tbody.insertBefore(tr, ref);
+  });
+}
+document.getElementById("fiche-container").addEventListener("click", (e) => {
+  const tr = e.target.closest("tr.rida-message");
+  if (!tr) return;
+  const lies = messagesBrut.filter(x => x.demandes.includes(ligneSelectionneeId)).sort((a, b) => b.recu - a.recu);
+  messagesAffiches = lies;
+  ouvrirMessage(lies.findIndex(x => x.id === Number(tr.getAttribute("data-msg-id"))));
 });
