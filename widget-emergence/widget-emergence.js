@@ -1,6 +1,6 @@
-// Widget Emergence — v0.129
-// Numéro de release : <majeure>.<build> (0.129 = release majeure 0, build 129).
-const VERSION_WIDGET = "0.129";
+// Widget Emergence — v0.130
+// Numéro de release : <majeure>.<build> (0.130 = release majeure 0, build 130).
+const VERSION_WIDGET = "0.130";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -8456,7 +8456,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.129) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.130) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -8491,26 +8491,42 @@ function titreDemande(id) {
   const l = lignesEmergence.find(x => x.id === id);
   return l ? (l.Titre || "Demande " + id) : "(demande supprimée #" + id + ")";
 }
-function emailDeExpediteur(texte) {
-  const m = String(texte || "").match(/[\w.+'-]+@[\w-]+(?:\.[\w-]+)+/);
-  return m ? m[0].toLowerCase() : "";
+function emailsDeTexte(texte) {
+  return [...new Set((String(texte || "").match(/[\w.+'-]+@[\w-]+(?:\.[\w-]+)+/g) || []).map(x => x.toLowerCase()))];
 }
-// Suggestion de demandes pour un message d'après l'expéditeur : acteur dont le mail correspond, puis demandes où il est
-// sponsor, porteur ou partie prenante. S'il y en a plusieurs, on ne garde que celles dont le titre apparaît dans le message.
+function acteursDeEmails(texte) {
+  const mails = emailsDeTexte(texte);
+  return Object.keys(acteursParId).filter(id => mails.includes(String(acteursParId[id].mail || "").trim().toLowerCase())).map(Number);
+}
+function acteurImpliqueDansDemande(l, ids) { // nombre d'acteurs de ids impliqués (sponsor, porteur, partie prenante)
+  const noms = ids.map(id => normaliserTexteRecherche(nomActeurParId(id)));
+  const pp = refListVersIds(l.Parties_prenantes_concernees).map(Number), sp = Number(idDepuisRef(l.Sponsor));
+  return ids.filter((id, k) => id === sp || pp.includes(id) || (l.Porteurs && normaliserTexteRecherche(l.Porteurs) === noms[k])).length;
+}
+// Suggestion de demandes pour un message : acteurs dont le mail correspond à l'expéditeur (à défaut, aux destinataires), puis
+// demandes où ils sont sponsor, porteur ou partie prenante. S'il y en a plusieurs, on affine d'abord avec le titre (présent dans
+// le sujet ou le début du message), puis avec les destinataires (demandes impliquant le plus de destinataires connus).
 function suggestionDemandesMessage(m) {
-  const mail = emailDeExpediteur(m.expediteur);
-  if (!mail) return { ids: [], etat: "inconnu" };
-  const acteurs = Object.keys(acteursParId).filter(id => String(acteursParId[id].mail || "").trim().toLowerCase() === mail).map(Number);
-  if (!acteurs.length) return { ids: [], etat: "inconnu" };
-  const noms = acteurs.map(id => normaliserTexteRecherche(nomActeurParId(id)));
-  let cand = lignesEmergence.filter(l =>
-    acteurs.includes(Number(idDepuisRef(l.Sponsor))) || refListVersIds(l.Parties_prenantes_concernees).some(i => acteurs.includes(Number(i))) ||
-    (l.Porteurs && noms.includes(normaliserTexteRecherche(l.Porteurs)))).map(l => l.id);
+  const expediteurs = acteursDeEmails(m.expediteur);
+  const destinataires = acteursDeEmails(m.destinataires).filter(id => !expediteurs.includes(id));
+  const base = expediteurs.length ? expediteurs : destinataires;
+  if (!base.length) return { ids: [], etat: "inconnu" };
+  let cand = lignesEmergence.filter(l => acteurImpliqueDansDemande(l, base) > 0).map(l => l.id);
   if (!cand.length) return { ids: [], etat: "aucune" };
   if (cand.length === 1) return { ids: cand, etat: "unique" };
+  let etat = "affine";
   const texte = normaliserTexteRecherche(m.sujet + " " + m.message.slice(0, 3000));
-  const fin = cand.filter(id => { const t = normaliserTexteRecherche(titreDemande(id)); return t.length >= 4 && texte.includes(t); });
-  if (fin.length) return { ids: fin, etat: "affine" };
+  const parTitre = cand.filter(id => { const t = normaliserTexteRecherche(titreDemande(id)); return t.length >= 4 && texte.includes(t); });
+  if (parTitre.length) cand = parTitre;
+  if (cand.length === 1) return { ids: cand, etat };
+  // destinataires : seulement s'ils ont servi à autre chose que de base (expéditeur connu)
+  if (expediteurs.length && destinataires.length) {
+    const score = id => acteurImpliqueDansDemande(lignesEmergence.find(l => l.id === id), destinataires);
+    const best = Math.max(...cand.map(score));
+    if (best > 0) { const top = cand.filter(id => score(id) === best); if (top.length < cand.length) cand = top; }
+    if (cand.length === 1) return { ids: cand, etat: "affine-destinataires" };
+  }
+  if (parTitre.length) return { ids: cand, etat: "affine" }; // le titre figure dans le message : lien probable avec chacune de ces demandes
   return { ids: [], etat: "ambigu", candidats: cand };
 }
 async function enregistrerDemandesMessage(msgId, ids) {
