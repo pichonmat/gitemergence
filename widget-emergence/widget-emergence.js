@@ -1,6 +1,6 @@
-// Widget Emergence — v0.132
-// Numéro de release : <majeure>.<build> (0.132 = release majeure 0, build 132).
-const VERSION_WIDGET = "0.132";
+// Widget Emergence — v0.133
+// Numéro de release : <majeure>.<build> (0.133 = release majeure 0, build 133).
+const VERSION_WIDGET = "0.133";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -8456,7 +8456,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.132) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.133) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -8464,6 +8464,7 @@ let messagesBrut = [];        // [{ id, recu (epoch s), expediteur, destinataire
 let messagesCharges = false;
 let colonneDemandesMessagesPresente = true;
 let messagesErreur = "";
+let filtresMessages = {};      // filtres par colonne (🔎 dans les en-têtes) : { Expediteur: "…", … }
 let triMessages = { col: "Recu", sens: "desc" };
 let messagesAffiches = [];    // liste filtrée + triée courante (pour ← →)
 let indexMessageOuvert = -1;
@@ -8583,7 +8584,7 @@ function messagesFiltresTries() {
   const debut = inputDateVersEpochDebut(document.getElementById("msg-date-debut").value);
   const fin = inputDateVersEpochFin(document.getElementById("msg-date-fin").value);
   const colonnes = {};
-  document.querySelectorAll("#table-messages [data-filtre-msg]").forEach(i => { const v = normaliserTexteRecherche(i.value || ""); if (v) colonnes[i.getAttribute("data-filtre-msg")] = v; });
+  Object.keys(filtresMessages).forEach(k => { const v = normaliserTexteRecherche(filtresMessages[k] || ""); if (v) colonnes[k] = v; });
   const champ = { Expediteur: "expediteur", Destinataires: "destinataires", Sujet: "sujet", Demandes: "demandesTexte" };
   messagesBrut.forEach(m => { m.demandesTexte = m.demandes.map(titreDemande).join(", "); });
   const liste = messagesBrut.filter(m => {
@@ -8702,10 +8703,31 @@ function ouvrirMessage(index) {
 (function brancherOngletMessages() {
   const re = () => afficherMessages();
   ["msg-recherche", "msg-date-debut", "msg-date-fin", "msg-sens"].forEach(id => { document.getElementById(id).addEventListener("input", re); document.getElementById(id).addEventListener("change", re); });
-  document.querySelectorAll("#table-messages [data-filtre-msg]").forEach(i => i.addEventListener("input", re));
+  // Filtres par colonne : icône 🔎 dans l'en-tête, comme dans la liste des demandes
+  const fermerPopupFiltre = () => { const p = document.getElementById("popup-filtre-msg"); if (p) p.remove(); };
+  const marquerFiltresActifs = () => document.querySelectorAll("#table-messages [data-filtre-msg-icone]").forEach(ic => ic.classList.toggle("filtre-actif", !!(filtresMessages[ic.getAttribute("data-filtre-msg-icone")] || "").trim()));
+  document.querySelectorAll("#table-messages [data-filtre-msg-icone]").forEach(ic => ic.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const col = ic.getAttribute("data-filtre-msg-icone"), deja = document.getElementById("popup-filtre-msg");
+    fermerPopupFiltre();
+    if (deja && deja.getAttribute("data-col") === col) return;
+    const pop = document.createElement("div");
+    pop.id = "popup-filtre-msg"; pop.className = "popup-filtre-msg"; pop.setAttribute("data-col", col);
+    pop.innerHTML = "<input type='text' placeholder='Filtrer…'><button type='button' class='btn-secondaire' title='Effacer ce filtre'>✕</button>";
+    const r = ic.closest("th").getBoundingClientRect();
+    pop.style.top = (r.bottom + 4) + "px"; pop.style.left = Math.max(4, Math.min(r.left, window.innerWidth - 300)) + "px";
+    document.body.appendChild(pop);
+    const inp = pop.querySelector("input"); inp.value = filtresMessages[col] || ""; inp.focus();
+    inp.addEventListener("input", () => { filtresMessages[col] = inp.value; marquerFiltresActifs(); afficherMessages(); });
+    inp.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === "Escape") fermerPopupFiltre(); });
+    pop.querySelector("button").addEventListener("click", () => { filtresMessages[col] = ""; inp.value = ""; marquerFiltresActifs(); afficherMessages(); inp.focus(); });
+    pop.addEventListener("click", (ev) => ev.stopPropagation());
+  }));
+  document.addEventListener("click", (e) => { if (!e.target.closest("#popup-filtre-msg")) fermerPopupFiltre(); });
   document.getElementById("msg-reinit").addEventListener("click", () => {
     ["msg-recherche", "msg-date-debut", "msg-date-fin", "msg-sens"].forEach(id => { document.getElementById(id).value = ""; });
-    document.querySelectorAll("#table-messages [data-filtre-msg]").forEach(i => { i.value = ""; });
+    filtresMessages = {};
+    marquerFiltresActifs();
     afficherMessages();
   });
   document.getElementById("msg-actualiser").addEventListener("click", async () => { await chargerMessages(); afficherMessages(); });
