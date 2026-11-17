@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.135 -->
+<!-- Widget Emergence — v0.136 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -190,7 +190,10 @@
     <label class="msg-lib-date">au <input type="date" id="msg-date-fin"></label>
     <button type="button" id="msg-reinit" class="btn-secondaire" title="Efface tous les filtres">Effacer les filtres</button>
     <button type="button" id="msg-mapping-auto" class="btn-secondaire" title="Rattache aux demandes les messages qui n'en ont pas encore, d'après l'expéditeur">⚡ Mapping automatique</button>
-    <button type="button" id="msg-reinit-colonnes" class="btn-secondaire" title="Remet les colonnes dans leur ordre et leurs largeurs d'origine (déplacer = glisser un en-tête ; redimensionner = bord droit de l'en-tête)">↺ Colonnes</button>
+    <div class="filtre-multi-conteneur" id="conteneur-config-colonnes-messages">
+      <button type="button" id="btn-config-colonnes-messages" class="btn-filtre-multi btn-config-colonnes" title="Afficher / masquer, réinitialiser les colonnes">⚙</button>
+      <div class="popup-filtre-multi" id="popup-config-colonnes-messages" style="display:none;"></div>
+    </div>
     <button type="button" id="msg-actualiser" class="btn-secondaire" title="Relit la table Emergence_BalInno">↻ Actualiser</button>
     <span id="msg-compteur" class="msg-compteur"></span>
   </div>
@@ -198,12 +201,12 @@
     <table id="table-messages">
       <thead>
         <tr>
-          <th data-col-msg="Recu">Date <span class="fleche"></span><span class="poignee"></span></th>
-          <th data-col-msg="Sens" title="Reçu ou envoyé">Sens <span class="fleche"></span><span class="poignee"></span></th>
-          <th data-col-msg="Expediteur"><span class="icone-filtre-action" data-filtre-msg-icone="Expediteur" title="Filtrer">🔎</span> Expéditeur <span class="fleche"></span><span class="poignee"></span></th>
-          <th data-col-msg="Destinataires"><span class="icone-filtre-action" data-filtre-msg-icone="Destinataires" title="Filtrer">🔎</span> Destinataires <span class="fleche"></span><span class="poignee"></span></th>
-          <th data-col-msg="Sujet"><span class="icone-filtre-action" data-filtre-msg-icone="Sujet" title="Filtrer">🔎</span> Sujet <span class="fleche"></span><span class="poignee"></span></th>
-          <th data-col-msg="Demandes" title="Demandes liées au message (≈ = suggestion d'après l'expéditeur)"><span class="icone-filtre-action" data-filtre-msg-icone="Demandes" title="Filtrer">🔎</span> Demandes <span class="fleche"></span><span class="poignee"></span></th>
+          <th data-col-msg="Recu"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span>Date <span class="fleche"></span><span class="poignee"></span></th>
+          <th data-col-msg="Sens" title="Reçu ou envoyé"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span>Sens <span class="fleche"></span><span class="poignee"></span></th>
+          <th data-col-msg="Expediteur"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" data-filtre-msg-icone="Expediteur" title="Filtrer">🔎</span> Expéditeur <span class="fleche"></span><span class="poignee"></span></th>
+          <th data-col-msg="Destinataires"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" data-filtre-msg-icone="Destinataires" title="Filtrer">🔎</span> Destinataires <span class="fleche"></span><span class="poignee"></span></th>
+          <th data-col-msg="Sujet"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" data-filtre-msg-icone="Sujet" title="Filtrer">🔎</span> Sujet <span class="fleche"></span><span class="poignee"></span></th>
+          <th data-col-msg="Demandes" title="Demandes liées au message (≈ = suggestion d'après l'expéditeur)"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" data-filtre-msg-icone="Demandes" title="Filtrer">🔎</span> Demandes <span class="fleche"></span><span class="poignee"></span></th>
         </tr>
       </thead>
       <tbody id="corps-messages"></tbody>
@@ -1435,6 +1438,7 @@
     <div class="modale-actions" style="flex:0 0 auto;">
       <button type="button" id="msg-detail-prec" class="btn-secondaire" title="Message précédent de la liste">←</button>
       <button type="button" id="msg-detail-suiv" class="btn-secondaire" title="Message suivant de la liste">→</button>
+      <button type="button" id="msg-detail-supprimer" class="btn-secondaire" style="color:#c8472b;" title="Supprimer ce message de la table">🗑 Supprimer</button>
       <button type="button" id="msg-detail-fermer" class="btn-secondaire" style="margin-left:auto;">Fermer</button>
     </div>
   </div>

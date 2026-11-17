@@ -1,6 +1,6 @@
-// Widget Emergence — v0.135
-// Numéro de release : <majeure>.<build> (0.135 = release majeure 0, build 135).
-const VERSION_WIDGET = "0.135";
+// Widget Emergence — v0.136
+// Numéro de release : <majeure>.<build> (0.136 = release majeure 0, build 136).
+const VERSION_WIDGET = "0.136";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -8479,7 +8479,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.135) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.136) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -8503,15 +8503,53 @@ let largeursMessages = Object.assign({}, LARGEURS_MESSAGES_DEFAUT);
 function sauvegarderDispositionMessages() {
   try { window.localStorage.setItem("emergence_ordre_messages", JSON.stringify(ordreMessages)); window.localStorage.setItem("emergence_largeurs_messages", JSON.stringify(largeursMessages)); } catch (e) { /* non mémorisé */ }
 }
+let colonnesVisiblesMessages = new Set(COLONNES_MESSAGES_DEFAUT);
+(function chargerColonnesMasqueesMessages() {
+  try {
+    const m = JSON.parse(window.localStorage.getItem("emergence_colonnes_masquees_messages") || "[]");
+    if (Array.isArray(m)) m.forEach(c => { if (COLONNES_MESSAGES_DEFAUT.includes(c) && colonnesVisiblesMessages.size > 1) colonnesVisiblesMessages.delete(c); });
+  } catch (e) { /* toutes visibles */ }
+})();
+function sauvegarderColonnesMasqueesMessages() {
+  try { window.localStorage.setItem("emergence_colonnes_masquees_messages", JSON.stringify(COLONNES_MESSAGES_DEFAUT.filter(c => !colonnesVisiblesMessages.has(c)))); } catch (e) { /* non mémorisé */ }
+}
+const LIBELLES_COLONNES_MESSAGES = { Recu: "Date", Sens: "Sens (reçu / envoyé)", Expediteur: "Expéditeur", Destinataires: "Destinataires", Sujet: "Sujet", Demandes: "Demandes liées" };
+function colonnesMessagesVisiblesOrdonnees() { return ordreMessages.filter(c => colonnesVisiblesMessages.has(c)); }
+function derniereColonneMessagesVisible() { const v = colonnesMessagesVisiblesOrdonnees(); return v.length ? v[v.length - 1] : null; }
+// Comme dans la liste des demandes : la dernière colonne visible est « élastique » (prend la place restante, non redimensionnable),
+// les autres ont une largeur fixe ; les colonnes masquées disparaissent de l'en-tête et des lignes.
 function appliquerDispositionMessages() {
   const table = document.getElementById("table-messages");
   if (!table) return;
   const tr = table.querySelector("thead tr");
   ordreMessages.forEach(c => { const th = tr.querySelector("th[data-col-msg='" + c + "']"); if (th) tr.appendChild(th); });
-  let total = 0;
-  tr.querySelectorAll("th[data-col-msg]").forEach(th => { const w = largeursMessages[th.getAttribute("data-col-msg")]; th.style.width = w + "px"; total += w; });
-  table.style.width = total + "px";
-  table.style.minWidth = "100%";
+  const elastique = derniereColonneMessagesVisible();
+  tr.querySelectorAll("th[data-col-msg]").forEach(th => {
+    const c = th.getAttribute("data-col-msg");
+    th.style.display = colonnesVisiblesMessages.has(c) ? "" : "none";
+    if (c === elastique) { th.style.width = ""; th.style.minWidth = "120px"; th.style.maxWidth = ""; }
+    else { const w = largeursMessages[c]; th.style.width = w + "px"; th.style.minWidth = w + "px"; th.style.maxWidth = w + "px"; }
+  });
+  table.style.width = "100%";
+  table.style.minWidth = "";
+}
+function construirePopupColonnesMessages() {
+  const popup = document.getElementById("popup-config-colonnes-messages");
+  if (!popup) return;
+  popup.innerHTML = COLONNES_MESSAGES_DEFAUT.map(c =>
+    "<label><input type='checkbox' class='case-config-colonne-messages' value='" + c + "'" + (colonnesVisiblesMessages.has(c) ? " checked" : "") + ">" + escapeHtml(LIBELLES_COLONNES_MESSAGES[c]) + "</label>").join("") +
+    "<div class='bloc-export-excel'><button type='button' id='msg-reinit-colonnes' title=\"Remet les colonnes dans leur ordre, leurs largeurs et leur affichage d'origine (déplacer = glisser un en-tête ; redimensionner = bord droit de l'en-tête)\">↺ Réinitialiser les colonnes</button></div>";
+  popup.querySelectorAll(".case-config-colonne-messages").forEach(cb => cb.addEventListener("change", () => {
+    if (cb.checked) colonnesVisiblesMessages.add(cb.value);
+    else if (colonnesVisiblesMessages.size > 1) colonnesVisiblesMessages.delete(cb.value);
+    else cb.checked = true; // au moins une colonne reste affichée
+    sauvegarderColonnesMasqueesMessages(); afficherMessages();
+  }));
+  popup.querySelector("#msg-reinit-colonnes").addEventListener("click", (e) => {
+    e.stopPropagation();
+    ordreMessages = COLONNES_MESSAGES_DEFAUT.slice(); largeursMessages = Object.assign({}, LARGEURS_MESSAGES_DEFAUT); colonnesVisiblesMessages = new Set(COLONNES_MESSAGES_DEFAUT);
+    sauvegarderDispositionMessages(); sauvegarderColonnesMasqueesMessages(); afficherMessages(); construirePopupColonnesMessages();
+  });
 }
 let filtresMessages = {};      // filtres par colonne (🔎 dans les en-têtes) : { Expediteur: "…", … }
 let triMessages = { col: "Recu", sens: "desc" };
@@ -8614,6 +8652,15 @@ async function modifierLiensMessage(msgId, fn) {
   await enregistrerDemandesMessage(msgId, ids);
   rafraichirApresChangementLiens();
 }
+async function supprimerMessage(msgId) {
+  const m = messagesBrut.find(x => x.id === msgId);
+  if (!m) return;
+  const lib = (m.sens === "sortant" ? "envoyé à " + (m.destinataires || "?") : "reçu de " + (m.expediteur || "?")) + " — « " + (m.sujet || "sans sujet") + " »";
+  if (!window.confirm("Supprimer définitivement ce message (" + lib + ") de la table " + TABLE_MESSAGES + " ?" + (m.demandes.length ? "\nIl disparaîtra aussi du RIDA des demandes liées." : ""))) return false;
+  await grist.docApi.applyUserActions([["RemoveRecord", TABLE_MESSAGES, msgId]]);
+  messagesBrut = messagesBrut.filter(x => x.id !== msgId);
+  return true;
+}
 function rafraichirApresChangementLiens() {
   afficherMessages();
   if (indexMessageOuvert >= 0 && document.getElementById("modale-message-fond").style.display !== "none") rendreBlocDemandesMessage();
@@ -8695,7 +8742,7 @@ function afficherMessages() {
       Sujet: "<td title=\"" + escapeHtml(m.sujet) + "\">" + escapeHtml(m.sujet || "(sans sujet)") + "</td>",
       Demandes: celluleDemandesMessageHtml(m)
     };
-    return "<tr data-msg-index='" + i + "'>" + ordreMessages.map(c => cellules[c]).join("") + "</tr>";
+    return "<tr data-msg-index='" + i + "'>" + colonnesMessagesVisiblesOrdonnees().map(c => cellules[c]).join("") + "</tr>";
   }).join("");
 }
 
@@ -8775,6 +8822,7 @@ function ouvrirMessage(index) {
   document.querySelectorAll("#table-messages thead .poignee").forEach(poignee => poignee.addEventListener("pointerdown", (e) => {
     const th = poignee.closest("th"), col = th.getAttribute("data-col-msg"), x0 = th.getBoundingClientRect().left;
     e.preventDefault(); e.stopPropagation();
+    if (col === derniereColonneMessagesVisible()) return; // colonne élastique : suit la largeur disponible
     try { poignee.setPointerCapture(e.pointerId); } catch (err) { /* ignoré */ }
     th.dataset.enTrainDeRedimensionner = "1"; poignee.classList.add("active-resize");
     th.setAttribute("draggable", "false"); // sinon le navigateur démarre un glisser-déposer et « pointerup » n'arrive jamais
@@ -8830,10 +8878,23 @@ function ouvrirMessage(index) {
       });
     });
   })();
-  document.getElementById("msg-reinit-colonnes").addEventListener("click", () => {
-    ordreMessages = COLONNES_MESSAGES_DEFAUT.slice(); largeursMessages = Object.assign({}, LARGEURS_MESSAGES_DEFAUT);
-    sauvegarderDispositionMessages(); afficherMessages();
+  // ⚙ colonnes (afficher / masquer, réinitialiser) et ✕ dans les en-têtes, comme dans la liste des demandes
+  construirePopupColonnesMessages();
+  document.getElementById("btn-config-colonnes-messages").addEventListener("click", (e) => {
+    e.stopPropagation();
+    const pop = document.getElementById("popup-config-colonnes-messages");
+    pop.style.display = pop.style.display === "none" ? "block" : "none";
   });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("#conteneur-config-colonnes-messages")) document.getElementById("popup-config-colonnes-messages").style.display = "none";
+  });
+  document.querySelectorAll("#table-messages thead .icone-masquer-colonne").forEach(ic => ic.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const col = ic.closest("th").getAttribute("data-col-msg");
+    if (colonnesVisiblesMessages.size <= 1) return;
+    colonnesVisiblesMessages.delete(col);
+    sauvegarderColonnesMasqueesMessages(); afficherMessages(); construirePopupColonnesMessages();
+  }));
   // Filtres par colonne : icône 🔎 dans l'en-tête, comme dans la liste des demandes
   const fermerPopupFiltre = () => { const p = document.getElementById("popup-filtre-msg"); if (p) p.remove(); };
   const marquerFiltresActifs = () => document.querySelectorAll("#table-messages [data-filtre-msg-icone]").forEach(ic => ic.classList.toggle("filtre-actif", !!(filtresMessages[ic.getAttribute("data-filtre-msg-icone")] || "").trim()));
@@ -8863,7 +8924,7 @@ function ouvrirMessage(index) {
   });
   document.getElementById("msg-actualiser").addEventListener("click", async () => { await chargerMessages(); afficherMessages(); });
   document.querySelectorAll("#table-messages th[data-col-msg]").forEach(th => th.addEventListener("click", (e) => {
-    if (th.dataset.enTrainDeRedimensionner === "1" || e.target.closest("[data-filtre-msg-icone]")) return;
+    if (th.dataset.enTrainDeRedimensionner === "1" || e.target.closest("[data-filtre-msg-icone], .icone-masquer-colonne")) return;
     const c = th.getAttribute("data-col-msg");
     if (triMessages.col === c) triMessages.sens = triMessages.sens === "asc" ? "desc" : "asc"; else triMessages = { col: c, sens: c === "Recu" ? "desc" : "asc" };
     afficherMessages();
@@ -8901,6 +8962,19 @@ function ouvrirMessage(index) {
     rafraichirApresChangementLiens();
   });
   fond.addEventListener("mousedown", (e) => { if (e.target === fond) fermer(); });
+  document.getElementById("msg-detail-supprimer").addEventListener("click", async () => {
+    const m = messagesAffiches[indexMessageOuvert];
+    if (!m) return;
+    const faite = await supprimerMessage(m.id);
+    if (!faite) return;
+    const idx = indexMessageOuvert;
+    afficherMessages();
+    if (document.getElementById("fiche-messages")) rafraichirOngletMessagesFiche();
+    else if (ligneSelectionneeId != null && document.getElementById("rida-tbody")) insererMessagesDansRida(messagesBrut.filter(x => x.demandes.includes(ligneSelectionneeId)));
+    // la liste affichée (filtrée dans l'onglet, ou liée à la fiche) peut avoir changé : on passe au message suivant s'il existe, sinon on ferme
+    messagesAffiches = messagesAffiches.filter(x => x.id !== m.id);
+    if (messagesAffiches.length) ouvrirMessage(Math.min(idx, messagesAffiches.length - 1)); else fermer();
+  });
   document.getElementById("msg-detail-prec").addEventListener("click", () => ouvrirMessage(indexMessageOuvert - 1));
   document.getElementById("msg-detail-suiv").addEventListener("click", () => ouvrirMessage(indexMessageOuvert + 1));
   document.addEventListener("keydown", (e) => {
