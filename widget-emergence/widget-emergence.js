@@ -1,6 +1,6 @@
-// Widget Emergence — v0.138
-// Numéro de release : <majeure>.<build> (0.138 = release majeure 0, build 138).
-const VERSION_WIDGET = "0.138";
+// Widget Emergence — v0.139
+// Numéro de release : <majeure>.<build> (0.139 = release majeure 0, build 139).
+const VERSION_WIDGET = "0.139";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -5800,6 +5800,57 @@ function telechargerBlob(blob, nomFichier) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// ===== Export CSV de la liste des demandes (v0.139) =====
+// Colonnes = colonnes affichées (dans l'ordre courant), lignes = demandes filtrées, dans l'ordre du tri.
+// Séparateur « ; » + BOM UTF-8 pour une ouverture directe dans Excel français. Dates sans heure.
+function echapperCsv(v) {
+  const t = v === null || v === undefined ? "" : String(v);
+  return /[";\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+}
+function valeurCsvColonne(ligne, col) {
+  switch (col) {
+    case "Priorite": return ligne.Priorite || "";
+    case "Statut": return ligne.Statut || "";
+    case "Date_de_derniere_modification": { const t = epochDerniereModifDemande(ligne.id); return t === null ? "" : formaterDate(t); }
+    case "Activite_rida": { const a = (activiteRidaCache && activiteRidaCache.get(ligne.id)) || { sem: 0, mois: 0, avant: 0 };
+      return "7 j : " + a.sem + " / 8-30 j : " + a.mois + " / avant : " + a.avant; }
+    case "Date_de_soumission": case "Date_Go_NoGo_SDID": case "Date_MVP_previsionnelle": case "Date_MVP_realisee":
+      return formaterDate(ligne[col]) || "";
+    case "Date_1er_atelier": return formaterDate(datePremierAtelier(ligne.id)) || "";
+    case "Organisation": return ligne.Organisation || "";
+    case "Sponsor": return nomActeur(ligne.Sponsor) || "";
+    case "Porteurs": return ligne.Porteurs || "";
+    case "Titre": return ligne.Titre || "";
+    case "Ref_BRM": return refBrm(ligne) || "";
+    case "Typologie_de_la_demande": return typologiesDeLigne(ligne).join(", ");
+    case "Tag": return tagsDeLigne(ligne).join(", ");
+    case "Parties_prenantes_concernees": return nomActeur(ligne.Parties_prenantes_concernees) || "";
+    case "Action_ouverte": {
+      const r = ridaAAfficherDansListe(ligne.id);
+      if (!r) return "";
+      const clos = r.RIDA === "A" && !!r.Fait_le;
+      return [r.RIDA || "?", formaterDate(r.Pour_le), r.Porteur ? "(" + r.Porteur + ")" : "", clos ? "[Clos]" : "", r.Description || ""].filter(Boolean).join(" ");
+    }
+    default: return "";
+  }
+}
+function construireCsvListe() {
+  const cols = ORDRE_COLONNES.filter(c => c !== "Ppt" && colonnesVisibles.has(c));
+  activiteRidaCache = activiteRidaParDemande();
+  const lignes = trierLignes(appliquerFiltres(lignesEmergence));
+  const rows = [cols.map(c => echapperCsv(LIBELLES_COLONNES[c] || c)).join(";")];
+  for (const l of lignes) rows.push(cols.map(c => echapperCsv(valeurCsvColonne(l, c))).join(";"));
+  return { texte: "\uFEFF" + rows.join("\r\n"), nbLignes: lignes.length };
+}
+function exporterListeCsv() {
+  const { texte } = construireCsvListe();
+  const d = new Date();
+  const dateTxt = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  telechargerBlob(new Blob([texte], { type: "text/csv;charset=utf-8" }), "demandes_emergence_" + dateTxt + ".csv");
+}
+const btnExportCsvListe = document.getElementById("btn-export-csv-liste");
+if (btnExportCsvListe) btnExportCsvListe.addEventListener("click", exporterListeCsv);
+
 const btnExportPdfActivite = document.getElementById("btn-export-pdf-activite");
 if (btnExportPdfActivite) btnExportPdfActivite.addEventListener("click", exporterPdfActivite);
 
@@ -8479,7 +8530,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.138) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.139) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
