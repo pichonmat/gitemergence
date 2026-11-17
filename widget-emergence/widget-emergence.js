@@ -1,6 +1,6 @@
-// Widget Emergence — v0.133
-// Numéro de release : <majeure>.<build> (0.133 = release majeure 0, build 133).
-const VERSION_WIDGET = "0.133";
+// Widget Emergence — v0.134
+// Numéro de release : <majeure>.<build> (0.134 = release majeure 0, build 134).
+const VERSION_WIDGET = "0.134";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -8456,7 +8456,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.133) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.134) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -8464,6 +8464,32 @@ let messagesBrut = [];        // [{ id, recu (epoch s), expediteur, destinataire
 let messagesCharges = false;
 let colonneDemandesMessagesPresente = true;
 let messagesErreur = "";
+// Colonnes du tableau Messages : ordre et largeurs modifiables (en-têtes déplaçables / poignées), mémorisés dans le navigateur
+const COLONNES_MESSAGES_DEFAUT = ["Recu", "Sens", "Expediteur", "Destinataires", "Sujet", "Demandes"];
+const LARGEURS_MESSAGES_DEFAUT = { Recu: 110, Sens: 80, Expediteur: 220, Destinataires: 220, Sujet: 320, Demandes: 240 };
+let ordreMessages = COLONNES_MESSAGES_DEFAUT.slice();
+let largeursMessages = Object.assign({}, LARGEURS_MESSAGES_DEFAUT);
+(function chargerDispositionMessages() {
+  try {
+    const o = JSON.parse(window.localStorage.getItem("emergence_ordre_messages") || "null");
+    if (Array.isArray(o)) { const v = o.filter((c, i) => COLONNES_MESSAGES_DEFAUT.includes(c) && o.indexOf(c) === i); COLONNES_MESSAGES_DEFAUT.forEach(c => { if (!v.includes(c)) v.push(c); }); ordreMessages = v; }
+    const l = JSON.parse(window.localStorage.getItem("emergence_largeurs_messages") || "null");
+    if (l && typeof l === "object") Object.keys(l).forEach(k => { if (k in LARGEURS_MESSAGES_DEFAUT && Number(l[k]) >= 40) largeursMessages[k] = Number(l[k]); });
+  } catch (e) { /* disposition par défaut */ }
+})();
+function sauvegarderDispositionMessages() {
+  try { window.localStorage.setItem("emergence_ordre_messages", JSON.stringify(ordreMessages)); window.localStorage.setItem("emergence_largeurs_messages", JSON.stringify(largeursMessages)); } catch (e) { /* non mémorisé */ }
+}
+function appliquerDispositionMessages() {
+  const table = document.getElementById("table-messages");
+  if (!table) return;
+  const tr = table.querySelector("thead tr");
+  ordreMessages.forEach(c => { const th = tr.querySelector("th[data-col-msg='" + c + "']"); if (th) tr.appendChild(th); });
+  let total = 0;
+  tr.querySelectorAll("th[data-col-msg]").forEach(th => { const w = largeursMessages[th.getAttribute("data-col-msg")]; th.style.width = w + "px"; total += w; });
+  table.style.width = total + "px";
+  table.style.minWidth = "100%";
+}
 let filtresMessages = {};      // filtres par colonne (🔎 dans les en-têtes) : { Expediteur: "…", … }
 let triMessages = { col: "Recu", sens: "desc" };
 let messagesAffiches = [];    // liste filtrée + triée courante (pour ← →)
@@ -8615,7 +8641,18 @@ function celluleDemandesMessageHtml(m) {
   if (sg.etat === "ambigu") return "<td class='msg-suggestion' title=\"" + escapeHtml("Plusieurs demandes possibles :\n" + sg.candidats.map(titreDemande).join("\n")) + "\">? " + sg.candidats.length + " demandes possibles</td>";
   return "<td></td>";
 }
+function deplacerColonneMessages(col, cible, avant) {
+  const i = ordreMessages.indexOf(col);
+  if (i < 0 || ordreMessages.indexOf(cible) < 0) return;
+  ordreMessages.splice(i, 1);
+  let j = ordreMessages.indexOf(cible);
+  if (!avant) j++;
+  ordreMessages.splice(j, 0, col);
+  sauvegarderDispositionMessages();
+  afficherMessages();
+}
 function afficherMessages() {
+  appliquerDispositionMessages();
   const corps = document.getElementById("corps-messages");
   messagesAffiches = messagesFiltresTries();
   document.querySelectorAll("#table-messages th[data-col-msg]").forEach(th => {
@@ -8626,9 +8663,17 @@ function afficherMessages() {
     messagesAffiches.length + " message" + (messagesAffiches.length > 1 ? "s" : "") + (messagesAffiches.length !== messagesBrut.length ? " sur " + messagesBrut.length : "");
   if (messagesErreur) { corps.innerHTML = "<tr><td colspan='6' class='msg-vide'>" + escapeHtml(messagesErreur) + "</td></tr>"; return; }
   if (!messagesAffiches.length) { corps.innerHTML = "<tr><td colspan='6' class='msg-vide'>Aucun message.</td></tr>"; return; }
-  corps.innerHTML = messagesAffiches.map((m, i) =>
-    "<tr data-msg-index='" + i + "'><td>" + escapeHtml(dateMessage(m.recu)) + "</td><td title='" + (m.sens === "sortant" ? "Message envoyé" : "Message reçu") + "' class='msg-sens msg-sens-" + m.sens + "'>" + (m.sens === "sortant" ? "↑ envoyé" : "↓ reçu") + "</td><td title=\"" + escapeHtml(m.expediteur) + "\">" + escapeHtml(m.expediteur) +
-    "</td><td title=\"" + escapeHtml(m.destinataires) + "\">" + escapeHtml(m.destinataires) + "</td><td title=\"" + escapeHtml(m.sujet) + "\">" + escapeHtml(m.sujet || "(sans sujet)") + "</td>" + celluleDemandesMessageHtml(m) + "</tr>").join("");
+  corps.innerHTML = messagesAffiches.map((m, i) => {
+    const cellules = {
+      Recu: "<td>" + escapeHtml(dateMessage(m.recu)) + "</td>",
+      Sens: "<td title='" + (m.sens === "sortant" ? "Message envoyé" : "Message reçu") + "' class='msg-sens msg-sens-" + m.sens + "'>" + (m.sens === "sortant" ? "↑ envoyé" : "↓ reçu") + "</td>",
+      Expediteur: "<td title=\"" + escapeHtml(m.expediteur) + "\">" + escapeHtml(m.expediteur) + "</td>",
+      Destinataires: "<td title=\"" + escapeHtml(m.destinataires) + "\">" + escapeHtml(m.destinataires) + "</td>",
+      Sujet: "<td title=\"" + escapeHtml(m.sujet) + "\">" + escapeHtml(m.sujet || "(sans sujet)") + "</td>",
+      Demandes: celluleDemandesMessageHtml(m)
+    };
+    return "<tr data-msg-index='" + i + "'>" + ordreMessages.map(c => cellules[c]).join("") + "</tr>";
+  }).join("");
 }
 
 async function ouvrirOngletMessages() {
@@ -8703,6 +8748,58 @@ function ouvrirMessage(index) {
 (function brancherOngletMessages() {
   const re = () => afficherMessages();
   ["msg-recherche", "msg-date-debut", "msg-date-fin", "msg-sens"].forEach(id => { document.getElementById(id).addEventListener("input", re); document.getElementById(id).addEventListener("change", re); });
+  // Redimensionnement (poignée) et déplacement (glisser-déposer) des colonnes
+  document.querySelectorAll("#table-messages thead .poignee").forEach(poignee => poignee.addEventListener("pointerdown", (e) => {
+    const th = poignee.closest("th"), col = th.getAttribute("data-col-msg"), x0 = th.getBoundingClientRect().left;
+    e.preventDefault(); e.stopPropagation();
+    try { poignee.setPointerCapture(e.pointerId); } catch (err) { /* ignoré */ }
+    th.dataset.enTrainDeRedimensionner = "1"; poignee.classList.add("active-resize");
+    document.body.style.userSelect = "none"; document.body.style.cursor = "col-resize";
+    const bouger = (ev) => { largeursMessages[col] = Math.max(50, Math.round(ev.clientX - x0)); appliquerDispositionMessages(); };
+    const fin = (ev) => {
+      try { poignee.releasePointerCapture(ev.pointerId); } catch (err) { /* ignoré */ }
+      poignee.removeEventListener("pointermove", bouger); poignee.removeEventListener("pointerup", fin);
+      poignee.classList.remove("active-resize"); document.body.style.userSelect = ""; document.body.style.cursor = "";
+      sauvegarderDispositionMessages();
+      setTimeout(() => { th.dataset.enTrainDeRedimensionner = "0"; }, 50);
+    };
+    poignee.addEventListener("pointermove", bouger); poignee.addEventListener("pointerup", fin);
+  }));
+  (function () {
+    const ths = document.querySelectorAll("#table-messages thead th[data-col-msg]");
+    let deplacee = null;
+    const nettoyer = () => ths.forEach(t => t.classList.remove("th-deplace", "th-cible-gauche", "th-cible-droite"));
+    ths.forEach(th => {
+      th.setAttribute("draggable", "true");
+      th.addEventListener("dragstart", (e) => {
+        if (th.dataset.enTrainDeRedimensionner === "1" || (e.target && e.target.classList && e.target.classList.contains("poignee"))) { e.preventDefault(); return; }
+        deplacee = th.getAttribute("data-col-msg");
+        e.dataTransfer.effectAllowed = "move";
+        try { e.dataTransfer.setData("text/plain", deplacee); } catch (err) { /* ignoré */ }
+        th.classList.add("th-deplace");
+      });
+      th.addEventListener("dragend", () => { deplacee = null; nettoyer(); });
+      th.addEventListener("dragover", (e) => {
+        if (!deplacee || deplacee === th.getAttribute("data-col-msg")) return;
+        e.preventDefault();
+        const r = th.getBoundingClientRect(), gauche = e.clientX < r.left + r.width / 2;
+        th.classList.toggle("th-cible-gauche", gauche); th.classList.toggle("th-cible-droite", !gauche);
+      });
+      th.addEventListener("dragleave", () => th.classList.remove("th-cible-gauche", "th-cible-droite"));
+      th.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const cible = th.getAttribute("data-col-msg");
+        if (!deplacee || deplacee === cible) { nettoyer(); return; }
+        const r = th.getBoundingClientRect(), avant = e.clientX < r.left + r.width / 2;
+        deplacerColonneMessages(deplacee, cible, avant);
+        deplacee = null; nettoyer();
+      });
+    });
+  })();
+  document.getElementById("msg-reinit-colonnes").addEventListener("click", () => {
+    ordreMessages = COLONNES_MESSAGES_DEFAUT.slice(); largeursMessages = Object.assign({}, LARGEURS_MESSAGES_DEFAUT);
+    sauvegarderDispositionMessages(); afficherMessages();
+  });
   // Filtres par colonne : icône 🔎 dans l'en-tête, comme dans la liste des demandes
   const fermerPopupFiltre = () => { const p = document.getElementById("popup-filtre-msg"); if (p) p.remove(); };
   const marquerFiltresActifs = () => document.querySelectorAll("#table-messages [data-filtre-msg-icone]").forEach(ic => ic.classList.toggle("filtre-actif", !!(filtresMessages[ic.getAttribute("data-filtre-msg-icone")] || "").trim()));
@@ -8731,7 +8828,8 @@ function ouvrirMessage(index) {
     afficherMessages();
   });
   document.getElementById("msg-actualiser").addEventListener("click", async () => { await chargerMessages(); afficherMessages(); });
-  document.querySelectorAll("#table-messages th[data-col-msg]").forEach(th => th.addEventListener("click", () => {
+  document.querySelectorAll("#table-messages th[data-col-msg]").forEach(th => th.addEventListener("click", (e) => {
+    if (th.dataset.enTrainDeRedimensionner === "1" || e.target.closest("[data-filtre-msg-icone]")) return;
     const c = th.getAttribute("data-col-msg");
     if (triMessages.col === c) triMessages.sens = triMessages.sens === "asc" ? "desc" : "asc"; else triMessages = { col: c, sens: c === "Recu" ? "desc" : "asc" };
     afficherMessages();
