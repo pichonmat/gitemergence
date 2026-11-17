@@ -1,6 +1,6 @@
-// Widget Emergence — v0.134
-// Numéro de release : <majeure>.<build> (0.134 = release majeure 0, build 134).
-const VERSION_WIDGET = "0.134";
+// Widget Emergence — v0.135
+// Numéro de release : <majeure>.<build> (0.135 = release majeure 0, build 135).
+const VERSION_WIDGET = "0.135";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -2533,20 +2533,30 @@ document.querySelectorAll("thead th").forEach(th => {
       const rectTh = th.getBoundingClientRect();
 
       th.dataset.enTrainDeRedimensionner = "1";
+
+      const etaitDeplacable = th.getAttribute("draggable") === "true"; // un glisser-déposer natif supprimerait « pointerup »
+
+      if (etaitDeplacable) th.setAttribute("draggable", "false");
+
+      let termine = false;
       poignee.classList.add("active-resize");
       document.body.style.userSelect = "none";
       document.body.style.cursor = "col-resize";
 
       function onPointerMove(ev) {
+        if (ev.buttons === 0) { onPointerUp(ev); return; } // bouton relâché sans évènement de fin
         const nouvelleLargeur = Math.max(50, Math.round(ev.clientX - rectTh.left));
         largeursColonnes[colName] = nouvelleLargeur;
         appliquerLargeursColonnes();
       }
 
       function onPointerUp(ev) {
-        poignee.releasePointerCapture(ev.pointerId);
+        if (termine) return; termine = true;
+        try { poignee.releasePointerCapture(ev.pointerId); } catch (err) { /* ignoré */ }
         poignee.removeEventListener("pointermove", onPointerMove);
-        poignee.removeEventListener("pointerup", onPointerUp);
+        ["pointerup", "pointercancel", "lostpointercapture"].forEach(n => poignee.removeEventListener(n, onPointerUp));
+        document.removeEventListener("pointerup", onPointerUp);
+        if (etaitDeplacable) th.setAttribute("draggable", "true");
         poignee.classList.remove("active-resize");
         document.body.style.userSelect = "";
         document.body.style.cursor = "";
@@ -2554,7 +2564,8 @@ document.querySelectorAll("thead th").forEach(th => {
       }
 
       poignee.addEventListener("pointermove", onPointerMove);
-      poignee.addEventListener("pointerup", onPointerUp);
+      ["pointerup", "pointercancel", "lostpointercapture"].forEach(n => poignee.addEventListener(n, onPointerUp));
+      document.addEventListener("pointerup", onPointerUp);
     });
   });
 })();
@@ -2608,6 +2619,7 @@ document.querySelectorAll("thead th").forEach(th => {
       document.body.style.cursor = "row-resize";
 
       function onPointerMove(ev) {
+        if (ev.buttons === 0) { onPointerUp(ev); return; } // bouton relâché sans évènement de fin
         const hauteurMax = Math.max(200, window.innerHeight - 40);
         const nouvelleHauteur = Math.max(60, Math.min(hauteurMax, hauteurDepart + (ev.clientY - yDepart)));
         conteneurListe.style.height = nouvelleHauteur + "px";
@@ -4380,20 +4392,30 @@ function initRedimensionnementColonnes(selecteurPoignees, attributCol, largeursO
       const rectTh = th.getBoundingClientRect();
 
       th.dataset.enTrainDeRedimensionner = "1";
+
+      const etaitDeplacable = th.getAttribute("draggable") === "true"; // un glisser-déposer natif supprimerait « pointerup »
+
+      if (etaitDeplacable) th.setAttribute("draggable", "false");
+
+      let termine = false;
       poignee.classList.add("active-resize");
       document.body.style.userSelect = "none";
       document.body.style.cursor = "col-resize";
 
       function onPointerMove(ev) {
+        if (ev.buttons === 0) { onPointerUp(ev); return; } // bouton relâché sans évènement de fin
         const nouvelleLargeur = Math.max(50, Math.round(ev.clientX - rectTh.left));
         largeursObj[colName] = nouvelleLargeur;
         fnAppliquer();
       }
 
       function onPointerUp(ev) {
-        poignee.releasePointerCapture(ev.pointerId);
+        if (termine) return; termine = true;
+        try { poignee.releasePointerCapture(ev.pointerId); } catch (err) { /* ignoré */ }
         poignee.removeEventListener("pointermove", onPointerMove);
-        poignee.removeEventListener("pointerup", onPointerUp);
+        ["pointerup", "pointercancel", "lostpointercapture"].forEach(n => poignee.removeEventListener(n, onPointerUp));
+        document.removeEventListener("pointerup", onPointerUp);
+        if (etaitDeplacable) th.setAttribute("draggable", "true");
         poignee.classList.remove("active-resize");
         document.body.style.userSelect = "";
         document.body.style.cursor = "";
@@ -4401,7 +4423,8 @@ function initRedimensionnementColonnes(selecteurPoignees, attributCol, largeursO
       }
 
       poignee.addEventListener("pointermove", onPointerMove);
-      poignee.addEventListener("pointerup", onPointerUp);
+      ["pointerup", "pointercancel", "lostpointercapture"].forEach(n => poignee.addEventListener(n, onPointerUp));
+      document.addEventListener("pointerup", onPointerUp);
     });
   });
 }
@@ -8456,7 +8479,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.134) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.135) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -8754,16 +8777,27 @@ function ouvrirMessage(index) {
     e.preventDefault(); e.stopPropagation();
     try { poignee.setPointerCapture(e.pointerId); } catch (err) { /* ignoré */ }
     th.dataset.enTrainDeRedimensionner = "1"; poignee.classList.add("active-resize");
+    th.setAttribute("draggable", "false"); // sinon le navigateur démarre un glisser-déposer et « pointerup » n'arrive jamais
     document.body.style.userSelect = "none"; document.body.style.cursor = "col-resize";
-    const bouger = (ev) => { largeursMessages[col] = Math.max(50, Math.round(ev.clientX - x0)); appliquerDispositionMessages(); };
+    let termine = false;
+    const bouger = (ev) => {
+      if (ev.buttons === 0) { fin(ev); return; } // bouton relâché sans évènement de fin : on arrête
+      largeursMessages[col] = Math.max(50, Math.round(ev.clientX - x0)); appliquerDispositionMessages();
+    };
     const fin = (ev) => {
+      if (termine) return; termine = true;
       try { poignee.releasePointerCapture(ev.pointerId); } catch (err) { /* ignoré */ }
-      poignee.removeEventListener("pointermove", bouger); poignee.removeEventListener("pointerup", fin);
+      poignee.removeEventListener("pointermove", bouger);
+      ["pointerup", "pointercancel", "lostpointercapture"].forEach(n => poignee.removeEventListener(n, fin));
+      document.removeEventListener("pointerup", fin);
       poignee.classList.remove("active-resize"); document.body.style.userSelect = ""; document.body.style.cursor = "";
+      th.setAttribute("draggable", "true");
       sauvegarderDispositionMessages();
       setTimeout(() => { th.dataset.enTrainDeRedimensionner = "0"; }, 50);
     };
-    poignee.addEventListener("pointermove", bouger); poignee.addEventListener("pointerup", fin);
+    poignee.addEventListener("pointermove", bouger);
+    ["pointerup", "pointercancel", "lostpointercapture"].forEach(n => poignee.addEventListener(n, fin));
+    document.addEventListener("pointerup", fin);
   }));
   (function () {
     const ths = document.querySelectorAll("#table-messages thead th[data-col-msg]");
