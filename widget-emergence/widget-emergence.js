@@ -1,6 +1,6 @@
-// Widget Emergence — v0.136
-// Numéro de release : <majeure>.<build> (0.136 = release majeure 0, build 136).
-const VERSION_WIDGET = "0.136";
+// Widget Emergence — v0.137
+// Numéro de release : <majeure>.<build> (0.137 = release majeure 0, build 137).
+const VERSION_WIDGET = "0.137";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -8479,7 +8479,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.136) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.137) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -8522,7 +8522,10 @@ function appliquerDispositionMessages() {
   const table = document.getElementById("table-messages");
   if (!table) return;
   const tr = table.querySelector("thead tr");
-  ordreMessages.forEach(c => { const th = tr.querySelector("th[data-col-msg='" + c + "']"); if (th) tr.appendChild(th); });
+  // Réordonner les en-têtes seulement si l'ordre a changé : replacer un <th> dans le DOM pendant un redimensionnement
+  // détacherait la poignée (le navigateur perd la capture du pointeur et la colonne « décroche »).
+  const actuel = [...tr.querySelectorAll("th[data-col-msg]")].map(t => t.getAttribute("data-col-msg"));
+  if (actuel.join() !== ordreMessages.join()) ordreMessages.forEach(c => { const th = tr.querySelector("th[data-col-msg='" + c + "']"); if (th) tr.appendChild(th); });
   const elastique = derniereColonneMessagesVisible();
   tr.querySelectorAll("th[data-col-msg]").forEach(th => {
     const c = th.getAttribute("data-col-msg");
