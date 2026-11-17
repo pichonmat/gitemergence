@@ -148,3 +148,5 @@ Le rattachement à une demande se fait par le bouton « Mapping automatique » (
 À partir de v0.132 : colonne `BAL` (Text « entrant » / « sortant », libellé « $BAL ») pour distinguer messages reçus et envoyés (vide = entrant). Un message sortant se rattache aux demandes uniquement d'après ses destinataires ; il s'affiche dans le RIDA comme « Message mail envoyé à … ».
 
 v0.136 : un message peut être supprimé depuis sa fenêtre de lecture (action RemoveRecord sur Emergence_BalInno, après confirmation). Si une automatisation réimporte la boîte aux lettres, un message supprimé peut réapparaître.
+
+v0.138 : l'onglet Messages (et le RIDA / l'onglet « Messages » d'une fiche ouverte) se met à jour automatiquement : relecture de `Emergence_BalInno` toutes les 30 s tant que la page est visible, à l'ouverture de l'onglet et au retour sur la page ; l'affichage n'est refait que si la table a changé.

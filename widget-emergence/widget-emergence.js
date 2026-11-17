@@ -1,6 +1,6 @@
-// Widget Emergence — v0.137
-// Numéro de release : <majeure>.<build> (0.137 = release majeure 0, build 137).
-const VERSION_WIDGET = "0.137";
+// Widget Emergence — v0.138
+// Numéro de release : <majeure>.<build> (0.138 = release majeure 0, build 138).
+const VERSION_WIDGET = "0.138";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -8479,7 +8479,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.137) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.138) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -8525,7 +8525,10 @@ function appliquerDispositionMessages() {
   // Réordonner les en-têtes seulement si l'ordre a changé : replacer un <th> dans le DOM pendant un redimensionnement
   // détacherait la poignée (le navigateur perd la capture du pointeur et la colonne « décroche »).
   const actuel = [...tr.querySelectorAll("th[data-col-msg]")].map(t => t.getAttribute("data-col-msg"));
-  if (actuel.join() !== ordreMessages.join()) ordreMessages.forEach(c => { const th = tr.querySelector("th[data-col-msg='" + c + "']"); if (th) tr.appendChild(th); });
+  if (actuel.join() !== ordreMessages.join()) {
+    ordreMessages.forEach(c => { const th = tr.querySelector("th[data-col-msg='" + c + "']"); if (th) tr.appendChild(th); });
+    const fixe = tr.querySelector("th[data-fixe='corbeille']"); if (fixe) tr.insertBefore(fixe, tr.firstChild);
+  }
   const elastique = derniereColonneMessagesVisible();
   tr.querySelectorAll("th[data-col-msg]").forEach(th => {
     const c = th.getAttribute("data-col-msg");
@@ -8734,8 +8737,8 @@ function afficherMessages() {
   });
   document.getElementById("msg-compteur").textContent = messagesErreur ? "" :
     messagesAffiches.length + " message" + (messagesAffiches.length > 1 ? "s" : "") + (messagesAffiches.length !== messagesBrut.length ? " sur " + messagesBrut.length : "");
-  if (messagesErreur) { corps.innerHTML = "<tr><td colspan='6' class='msg-vide'>" + escapeHtml(messagesErreur) + "</td></tr>"; return; }
-  if (!messagesAffiches.length) { corps.innerHTML = "<tr><td colspan='6' class='msg-vide'>Aucun message.</td></tr>"; return; }
+  if (messagesErreur) { corps.innerHTML = "<tr><td colspan='7' class='msg-vide'>" + escapeHtml(messagesErreur) + "</td></tr>"; return; }
+  if (!messagesAffiches.length) { corps.innerHTML = "<tr><td colspan='7' class='msg-vide'>Aucun message.</td></tr>"; return; }
   corps.innerHTML = messagesAffiches.map((m, i) => {
     const cellules = {
       Recu: "<td>" + escapeHtml(dateMessage(m.recu)) + "</td>",
@@ -8745,12 +8748,40 @@ function afficherMessages() {
       Sujet: "<td title=\"" + escapeHtml(m.sujet) + "\">" + escapeHtml(m.sujet || "(sans sujet)") + "</td>",
       Demandes: celluleDemandesMessageHtml(m)
     };
-    return "<tr data-msg-index='" + i + "'>" + colonnesMessagesVisiblesOrdonnees().map(c => cellules[c]).join("") + "</tr>";
+    return "<tr data-msg-index='" + i + "'><td class='msg-corbeille' title='Supprimer ce message'>🗑</td>" + colonnesMessagesVisiblesOrdonnees().map(c => cellules[c]).join("") + "</tr>";
   }).join("");
 }
 
+// --- Actualisation automatique des messages ---
+// Interrogation périodique (30 s) tant que l'onglet Messages ou une fiche est affiché et que la page est visible, plus une
+// actualisation immédiate à l'ouverture de l'onglet et au retour sur la page. L'affichage n'est refait que si la table a changé
+// (messages ajoutés / supprimés, liens ou sens modifiés) et jamais pendant la lecture d'un message.
+const INTERVALLE_ACTUALISATION_MESSAGES_MS = 30000;
+let actualisationMessagesEnCours = false;
+function signatureMessages(liste) { return liste.map(m => m.id + ":" + m.demandes.join("+") + ":" + m.sens + ":" + m.recu + ":" + m.sujet.length).join("|"); }
+async function actualiserMessagesSilencieusement() {
+  if (actualisationMessagesEnCours || !messagesCharges) return;
+  if (document.getElementById("modale-message-fond").style.display !== "none") return; // lecture en cours
+  actualisationMessagesEnCours = true;
+  try {
+    const avant = signatureMessages(messagesBrut), brutAvant = messagesBrut;
+    await chargerMessages();
+    if (messagesErreur) { messagesBrut = brutAvant; messagesErreur = ""; messagesCharges = true; return; } // erreur passagère : on garde l'affichage
+    if (signatureMessages(messagesBrut) !== avant) {
+      if (document.getElementById("vue-messages").style.display !== "none") afficherMessages();
+      if (document.getElementById("fiche-messages")) rafraichirOngletMessagesFiche();
+      else if (ligneSelectionneeId != null && document.getElementById("rida-tbody")) insererMessagesDansRida(messagesBrut.filter(x => x.demandes.includes(ligneSelectionneeId)));
+    }
+  } finally { actualisationMessagesEnCours = false; }
+}
+setInterval(() => {
+  if (document.visibilityState === "hidden") return;
+  if (document.getElementById("vue-messages").style.display !== "none" || (ligneSelectionneeId != null && document.getElementById("rida-tbody"))) actualiserMessagesSilencieusement();
+}, INTERVALLE_ACTUALISATION_MESSAGES_MS);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") actualiserMessagesSilencieusement(); });
 async function ouvrirOngletMessages() {
-  if (!messagesCharges) { document.getElementById("corps-messages").innerHTML = "<tr><td colspan='6' class='msg-vide'>Chargement…</td></tr>"; await chargerMessages(); }
+  if (!messagesCharges) { document.getElementById("corps-messages").innerHTML = "<tr><td colspan='7' class='msg-vide'>Chargement…</td></tr>"; await chargerMessages(); }
+  else actualiserMessagesSilencieusement(); // déjà chargé : affichage immédiat, puis mise à jour si la table a changé
   afficherMessages();
 }
 
@@ -8932,9 +8963,19 @@ function ouvrirMessage(index) {
     if (triMessages.col === c) triMessages.sens = triMessages.sens === "asc" ? "desc" : "asc"; else triMessages = { col: c, sens: c === "Recu" ? "desc" : "asc" };
     afficherMessages();
   }));
-  document.getElementById("corps-messages").addEventListener("click", (e) => {
+  document.getElementById("corps-messages").addEventListener("click", async (e) => {
     const tr = e.target.closest("tr[data-msg-index]");
-    if (tr) ouvrirMessage(parseInt(tr.getAttribute("data-msg-index"), 10));
+    if (!tr) return;
+    const m = messagesAffiches[parseInt(tr.getAttribute("data-msg-index"), 10)];
+    if (e.target.closest(".msg-corbeille")) { // 🗑 à gauche de la ligne : suppression directe
+      if (m && await supprimerMessage(m.id)) {
+        afficherMessages();
+        if (document.getElementById("fiche-messages")) rafraichirOngletMessagesFiche();
+        else if (ligneSelectionneeId != null && document.getElementById("rida-tbody")) insererMessagesDansRida(messagesBrut.filter(x => x.demandes.includes(ligneSelectionneeId)));
+      }
+      return;
+    }
+    ouvrirMessage(parseInt(tr.getAttribute("data-msg-index"), 10));
   });
   const fond = document.getElementById("modale-message-fond");
   const fermer = () => { fond.style.display = "none"; document.getElementById("msg-detail-corps").innerHTML = ""; };

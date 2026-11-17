@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.137 -->
+<!-- Widget Emergence — v0.138 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -194,13 +194,14 @@
       <button type="button" id="btn-config-colonnes-messages" class="btn-filtre-multi btn-config-colonnes" title="Afficher / masquer, réinitialiser les colonnes">⚙</button>
       <div class="popup-filtre-multi" id="popup-config-colonnes-messages" style="display:none;"></div>
     </div>
-    <button type="button" id="msg-actualiser" class="btn-secondaire" title="Relit la table Emergence_BalInno">↻ Actualiser</button>
+    <button type="button" id="msg-actualiser" class="btn-secondaire" title="Actualiser maintenant (la liste se met aussi à jour automatiquement toutes les 30 s)">↻</button>
     <span id="msg-compteur" class="msg-compteur"></span>
   </div>
   <div class="msg-tableau-conteneur">
     <table id="table-messages">
       <thead>
         <tr>
+          <th data-fixe="corbeille" style="width:34px;min-width:34px;max-width:34px;" title="Supprimer"></th>
           <th data-col-msg="Recu"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span>Date <span class="fleche"></span><span class="poignee"></span></th>
           <th data-col-msg="Sens" title="Reçu ou envoyé"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span>Sens <span class="fleche"></span><span class="poignee"></span></th>
           <th data-col-msg="Expediteur"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" data-filtre-msg-icone="Expediteur" title="Filtrer">🔎</span> Expéditeur <span class="fleche"></span><span class="poignee"></span></th>
@@ -1398,6 +1399,9 @@
   .rida-message-desc { font-style: italic; }
   .msg-sens-entrant { color: #26408b; }
   .msg-sens-sortant { color: #1c7a3d; }
+  #table-messages td.msg-corbeille { text-align: center; cursor: pointer; width: 34px; padding: 0; opacity: 0.55; }
+  #table-messages tbody tr:hover td.msg-corbeille { opacity: 1; }
+  #table-messages td.msg-corbeille:hover { background: #fde8e4 !important; }
   .msg-vide { text-align: center; color: #888; padding: 16px; cursor: default; }
   .msg-entete { flex: 0 0 auto; font-size: 0.88em; color: #444; background: #f7f7fb; border: 1px solid #e8e8ee; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; line-height: 1.5; }
   .msg-entete b { display: inline-block; min-width: 92px; color: #666; font-weight: 600; }
