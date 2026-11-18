@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.139 -->
+<!-- Widget Emergence — v0.140 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -52,7 +52,7 @@
             <th data-col="Titre" data-filtre-champ="titre"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Titre <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Ref_BRM" data-filtre-champ="ref-brm" title="Référence BRM"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Ref BRM <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Typologie_de_la_demande" data-filtre-champ="typologie"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Typologie de la demande <span class="fleche"></span><span class="poignee"></span></th>
-            <th data-col="Tag"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span> Tag <span class="fleche"></span><span class="poignee"></span></th>
+            <th data-col="Tag" data-filtre-champ="tag"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Tag <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Parties_prenantes_concernees" data-filtre-champ="partie-prenante"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span><span class="icone-filtre-action" title="Filtrer">🔎</span> Parties prenantes <span class="fleche"></span><span class="poignee"></span></th>
             <th data-col="Action_ouverte"><span class="icone-masquer-colonne" title="Masquer la colonne">✕</span> RIDA <span class="fleche"></span><span class="poignee"></span></th>
           </tr>
@@ -190,6 +190,7 @@
     <label class="msg-lib-date">Du <input type="date" id="msg-date-debut"></label>
     <label class="msg-lib-date">au <input type="date" id="msg-date-fin"></label>
     <button type="button" id="msg-reinit" class="btn-secondaire" title="Efface tous les filtres">Effacer les filtres</button>
+    <button type="button" id="msg-avance-ouvrir" class="btn-secondaire" title="Hors SDID, corrélation IA avec une demande">🔬 Recherche avancée</button>
     <button type="button" id="msg-mapping-auto" class="btn-secondaire" title="Rattache aux demandes les messages qui n'en ont pas encore, d'après l'expéditeur">⚡ Mapping automatique</button>
     <div class="filtre-multi-conteneur" id="conteneur-config-colonnes-messages">
       <button type="button" id="btn-config-colonnes-messages" class="btn-filtre-multi btn-config-colonnes" title="Afficher / masquer, réinitialiser les colonnes">⚙</button>
@@ -197,6 +198,17 @@
     </div>
     <button type="button" id="msg-actualiser" class="btn-secondaire" title="Actualiser maintenant (la liste se met aussi à jour automatiquement toutes les 30 s)">↻</button>
     <span id="msg-compteur" class="msg-compteur"></span>
+  </div>
+  <div id="msg-avance" class="msg-avance" style="display:none;">
+    <label class="msg-avance-ligne"><input type="checkbox" id="msg-avance-hors-sdid"> Uniquement les messages échangés avec des personnes hors SDID</label>
+    <div class="msg-avance-ligne">
+      <select id="msg-avance-demande" title="Demande servant de requête"><option value="">— Texte libre —</option></select>
+      <select id="msg-avance-profondeur" title="Profondeur de recherche dans le temps"><option value="1">1 mois</option><option value="2" selected>2 mois</option><option value="6">6 mois</option><option value="0">Tout</option></select>
+      <button type="button" id="msg-avance-chercher" class="btn-secondaire">Rechercher (corrélation IA)</button>
+      <button type="button" id="msg-avance-effacer" class="btn-secondaire">Effacer la recherche IA</button>
+    </div>
+    <textarea id="msg-avance-requete" rows="2" placeholder="Objet de la demande ou texte libre à rapprocher du sujet et du corps des messages…"></textarea>
+    <div id="msg-avance-etat" class="msg-avance-etat"></div>
   </div>
   <div class="msg-tableau-conteneur">
     <table id="table-messages">
@@ -1375,6 +1387,11 @@
   .tag-mode-messages.active { background: #8e44ad; color: #fff; }
   .msg-lib-date { font-size: 0.85em; color: #555; white-space: nowrap; }
   .msg-compteur { margin-left: auto; font-size: 0.85em; color: #666; }
+  .msg-avance { flex-direction: column; gap: 6px; padding: 8px 10px; margin: 4px 0; border: 1px solid #ccd; border-radius: 6px; background: #f6f7fb; }
+  .msg-avance-ligne { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .msg-avance textarea { width: 100%; box-sizing: border-box; font: inherit; }
+  .msg-avance-etat { font-size: 12px; color: #555; min-height: 1em; }
+  .msg-score { display: inline-block; padding: 0 5px; border-radius: 8px; background: #2f6fb5; color: #fff; font-size: 11px; }
   .msg-tableau-conteneur { overflow: auto; overflow-x: auto; max-height: calc(100vh - 120px); }
   #table-messages { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: calc(13px * var(--echelle-texte, 1)); }
   #table-messages th { overflow: visible; }

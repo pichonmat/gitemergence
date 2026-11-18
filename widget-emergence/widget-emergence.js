@@ -1,6 +1,6 @@
-// Widget Emergence — v0.139
-// Numéro de release : <majeure>.<build> (0.139 = release majeure 0, build 139).
-const VERSION_WIDGET = "0.139";
+// Widget Emergence — v0.140
+// Numéro de release : <majeure>.<build> (0.140 = release majeure 0, build 140).
+const VERSION_WIDGET = "0.140";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -763,6 +763,7 @@ const DELAI_DOUBLE_CLIC_MS = 400;
 let timerEditionListe = null; // édition en place différée : annulée si un double clic suit
 let filtrePrioriteSelection = new Set();      // vide = toutes les priorités (valeur "" = sans priorité)
 let filtreTypologieSelection = new Set();    // vide = toutes les typologies
+let filtreTagSelection = new Set();          // vide = tous les tags (v0.140)
 let filtreOrganisationSelection = new Set(); // vide = toutes les organisations
 let filtreSponsorTexte = "";          // recherche libre dans le Sponsor
 let filtrePorteurTexte = "";          // recherche libre dans le(s) Porteur(s)
@@ -1388,6 +1389,7 @@ function appliquerFiltres(lignes) {
     if (filtreStatutSelection.size > 0 && !filtreStatutSelection.has(l.Statut)) return false;
     if (filtrePrioriteSelection.size > 0 && !filtrePrioriteSelection.has(l.Priorite || "")) return false;
     if (filtreTypologieSelection.size > 0 && !typologiesDeLigne(l).some(t => filtreTypologieSelection.has(t))) return false;
+    if (filtreTagSelection.size > 0 && !tagsDeLigne(l).some(t => filtreTagSelection.has(t))) return false;
     if (filtreOrganisationSelection.size > 0 && !filtreOrganisationSelection.has(l.Organisation)) return false;
     if (filtreSponsorTexte) {
       if (normaliserTexteRecherche(nomActeurParId(l.Sponsor)).indexOf(normaliserTexteRecherche(filtreSponsorTexte)) === -1) return false;
@@ -1484,6 +1486,7 @@ function filtreListeColonneEstActif(champ) {
   if (champ === "statut") return filtreStatutSelection.size > 0;
   if (champ === "priorite") return filtrePrioriteSelection.size > 0;
   if (champ === "typologie") return filtreTypologieSelection.size > 0;
+  if (champ === "tag") return filtreTagSelection.size > 0;
   if (champ === "organisation") return filtreOrganisationSelection.size > 0;
   if (champ === "sponsor") return !!filtreSponsorTexte;
   if (champ === "porteur") return !!filtrePorteurTexte;
@@ -1506,6 +1509,7 @@ function effacerFiltreListeColonne(champ) {
   if (champ === "statut") filtreStatutSelection.clear();
   else if (champ === "priorite") filtrePrioriteSelection.clear();
   else if (champ === "typologie") filtreTypologieSelection.clear();
+  else if (champ === "tag") filtreTagSelection.clear();
   else if (champ === "organisation") filtreOrganisationSelection.clear();
   else if (champ === "sponsor") filtreSponsorTexte = "";
   else if (champ === "porteur") filtrePorteurTexte = "";
@@ -1601,6 +1605,14 @@ function construireContenuPopupFiltreListeColonne(champ) {
     return valeurs.map(v =>
       "<label><input type='checkbox' class='case-filtre-liste-typologie' value=\"" + escapeHtml(v) + "\"" +
       (filtreTypologieSelection.has(v) ? " checked" : "") + ">" + escapeHtml(v) + "</label>"
+    ).join("");
+  }
+  if (champ === "tag") {
+    const valeurs = [...new Set([...listeTagsDefinis(), ...lignesEmergence.flatMap(l => tagsDeLigne(l))])].sort((a, b) => a.localeCompare(b));
+    if (valeurs.length === 0) return "<span style='font-size:12px;color:#888;'>Aucun tag</span>";
+    return valeurs.map(v =>
+      "<label><input type='checkbox' class='case-filtre-liste-tag' value=\"" + escapeHtml(v) + "\"" +
+      (filtreTagSelection.has(v) ? " checked" : "") + ">" + escapeHtml(v) + "</label>"
     ).join("");
   }
   if (champ === "organisation") {
@@ -1725,6 +1737,14 @@ function ouvrirPopupFiltreListeColonne(th, icone) {
       mettreAJourIconesFiltreListe();
     });
   });
+  popup.querySelectorAll(".case-filtre-liste-tag").forEach(cb => {
+    cb.addEventListener("change", () => {
+      if (cb.checked) filtreTagSelection.add(cb.value);
+      else filtreTagSelection.delete(cb.value);
+      afficherListe();
+      mettreAJourIconesFiltreListe();
+    });
+  });
   popup.querySelectorAll(".case-filtre-liste-organisation").forEach(cb => {
     cb.addEventListener("change", () => {
       if (cb.checked) filtreOrganisationSelection.add(cb.value);
@@ -1772,6 +1792,7 @@ document.getElementById("btn-reset-filtres").addEventListener("click", () => {
   filtreStatutSelection = new Set(STATUTS_ACTIFS_PAR_DEFAUT);
   filtrePrioriteSelection = new Set();
   filtreTypologieSelection = new Set();
+  filtreTagSelection = new Set();
   filtreOrganisationSelection = new Set();
   filtreSponsorTexte = "";
   filtrePorteurTexte = "";
@@ -5800,7 +5821,7 @@ function telechargerBlob(blob, nomFichier) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ===== Export CSV de la liste des demandes (v0.139) =====
+// ===== Export CSV de la liste des demandes (v0.140) =====
 // Colonnes = colonnes affichées (dans l'ordre courant), lignes = demandes filtrées, dans l'ordre du tri.
 // Séparateur « ; » + BOM UTF-8 pour une ouverture directe dans Excel français. Dates sans heure.
 function echapperCsv(v) {
@@ -8530,7 +8551,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.139) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.140) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -8731,6 +8752,16 @@ function dateMessage(epoch) {
 function inputDateVersEpochDebut(v) { return v ? Math.floor(new Date(v + "T00:00:00").getTime() / 1000) : 0; }
 function inputDateVersEpochFin(v) { return v ? Math.floor(new Date(v + "T23:59:59").getTime() / 1000) : 0; }
 
+// État de la recherche avancée (v0.140) : horsSdid = ne garder que les messages avec au moins un interlocuteur non SDID ;
+// scores = Map(id message → proximité 0..1) quand une recherche IA est active (sinon null).
+let rechercheAvancee = { horsSdid: false, scores: null };
+function messageHorsSdid(m) {
+  // interlocuteurs = expéditeur (message reçu) ou destinataires (message envoyé) ; un acteur dont l'organisation contient « SDID » est interne
+  const mails = emailsDeTexte(m.sens === "sortant" ? m.destinataires : m.expediteur);
+  if (!mails.length) return true; // adresse illisible : on garde (non identifiable comme SDID)
+  const sdid = new Set(Object.values(acteursParId).filter(a => /sdid/i.test(String(a.Organisation || "") + " " + String(a.Organisation_Path || ""))).map(a => String(a.mail || "").trim().toLowerCase()).filter(Boolean));
+  return mails.some(x => !sdid.has(x));
+}
 function messagesFiltresTries() {
   const global = normaliserTexteRecherche(document.getElementById("msg-recherche").value || "");
   const sensFiltre = document.getElementById("msg-sens").value;
@@ -8740,7 +8771,10 @@ function messagesFiltresTries() {
   Object.keys(filtresMessages).forEach(k => { const v = normaliserTexteRecherche(filtresMessages[k] || ""); if (v) colonnes[k] = v; });
   const champ = { Expediteur: "expediteur", Destinataires: "destinataires", Sujet: "sujet", Demandes: "demandesTexte" };
   messagesBrut.forEach(m => { m.demandesTexte = m.demandes.map(titreDemande).join(", "); });
+  const av = rechercheAvancee;
   const liste = messagesBrut.filter(m => {
+    if (av.horsSdid && !messageHorsSdid(m)) return false;
+    if (av.scores && !av.scores.has(m.id)) return false;
     if (sensFiltre && m.sens !== sensFiltre) return false;
     if (debut && m.recu < debut) return false;
     if (fin && m.recu > fin) return false;
@@ -8748,6 +8782,7 @@ function messagesFiltresTries() {
     if (global && !normaliserTexteRecherche(m.expediteur + " " + m.destinataires + " " + m.sujet + " " + m.message).includes(global)) return false;
     return true;
   });
+  if (av.scores) { liste.sort((a, b) => av.scores.get(b.id) - av.scores.get(a.id)); return liste; } // recherche IA : meilleur score d'abord
   const cle = { Recu: "recu", Expediteur: "expediteur", Destinataires: "destinataires", Sujet: "sujet", Demandes: "demandesTexte", Sens: "sens" }[triMessages.col] || "recu";
   const sens = triMessages.sens === "asc" ? 1 : -1;
   liste.sort((a, b) => {
@@ -8796,7 +8831,7 @@ function afficherMessages() {
       Sens: "<td title='" + (m.sens === "sortant" ? "Message envoyé" : "Message reçu") + "' class='msg-sens msg-sens-" + m.sens + "'>" + (m.sens === "sortant" ? "↑ envoyé" : "↓ reçu") + "</td>",
       Expediteur: "<td title=\"" + escapeHtml(m.expediteur) + "\">" + escapeHtml(m.expediteur) + "</td>",
       Destinataires: "<td title=\"" + escapeHtml(m.destinataires) + "\">" + escapeHtml(m.destinataires) + "</td>",
-      Sujet: "<td title=\"" + escapeHtml(m.sujet) + "\">" + escapeHtml(m.sujet || "(sans sujet)") + "</td>",
+      Sujet: "<td title=\"" + escapeHtml(m.sujet) + "\">" + (rechercheAvancee.scores && rechercheAvancee.scores.has(m.id) ? "<span class='msg-score' title='Proximité avec la recherche'>" + Math.round(rechercheAvancee.scores.get(m.id) * 100) + " %</span> " : "") + escapeHtml(m.sujet || "(sans sujet)") + "</td>",
       Demandes: celluleDemandesMessageHtml(m)
     };
     return "<tr data-msg-index='" + i + "'><td class='msg-corbeille' title='Supprimer ce message'>🗑</td>" + colonnesMessagesVisiblesOrdonnees().map(c => cellules[c]).join("") + "</tr>";
@@ -8830,6 +8865,140 @@ setInterval(() => {
   if (document.getElementById("vue-messages").style.display !== "none" || (ligneSelectionneeId != null && document.getElementById("rida-tbody"))) actualiserMessagesSilencieusement();
 }, INTERVALLE_ACTUALISATION_MESSAGES_MS);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") actualiserMessagesSilencieusement(); });
+// ===================== Recherche avancée des messages (v0.140) =====================
+// 1) « Hors SDID » : messages échangés avec des personnes non SDID (organisation de l'acteur ; adresse inconnue = externe).
+// 2) Corrélation IA avec une demande (ou un texte libre) : chaque message de la période est vectorisé UNE SEULE FOIS
+//    (sujet + début du corps nettoyé, ~1000 car.) via /embeddings du fournisseur configuré ; les vecteurs restent en
+//    mémoire pour la session et seuls les nouveaux messages sont envoyés ensuite. La recherche elle-même est une
+//    similarité cosinus locale (0 token). Sans modèle d'embeddings disponible : repli TF-IDF local (mots-clés).
+const TAILLE_LOT_EMBEDDINGS = 32;
+const MAX_CAR_EMBEDDING = 1000;
+const MAX_RESULTATS_RECHERCHE_IA = 50;
+let cacheVecteursMessages = new Map();   // id message → { sig, vec } (session seulement)
+let modeleEmbeddingsCache = "";          // modèle pour lequel le cache est valable
+function nettoyerCorpsPourVecteur(brut) {
+  let t = String(brut || "");
+  if (messageEstHtml(t)) t = t.replace(/<(style|script)[\s\S]*?<\/\1>/gi, " ").replace(/<br\s*\/?>|<\/(p|div|tr|li)>/gi, "\n").replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#?\w+;/g, " ");
+  const coupe = t.search(/\n\s*(Le .{5,80} a écrit\s*:|De ?:\s|From:\s|-{3,}\s*(Message d'origine|Original Message))/i);
+  if (coupe > 40) t = t.slice(0, coupe);
+  t = t.split(/\r?\n/).filter(l => !/^\s*>/.test(l)).join(" ").replace(/\s+/g, " ").trim();
+  return t.slice(0, MAX_CAR_EMBEDDING);
+}
+function textePourVecteur(m) { return ((m.sujet || "") + " . " + nettoyerCorpsPourVecteur(m.message)).slice(0, MAX_CAR_EMBEDDING + 200); }
+function signatureTexteMessage(m) { return m.recu + ":" + (m.sujet || "").length + ":" + (m.message || "").length; }
+function urlLlm(cfg, chemin) { return String(cfg.url).replace(/\/+$/, "") + chemin; }
+function entetesLlm(cfg) { const e = { "Content-Type": "application/json" }; if (cfg.cle) e["Authorization"] = "Bearer " + cfg.cle; return e; }
+async function trouverModeleEmbeddings(cfg) {
+  if (cfg.modeleEmbeddings) return cfg.modeleEmbeddings;
+  const r = await fetch(urlLlm(cfg, "/models"), { headers: entetesLlm(cfg) });
+  if (!r.ok) throw new Error("liste des modèles indisponible (" + r.status + ")");
+  const j = await r.json();
+  const liste = Array.isArray(j) ? j : (j && Array.isArray(j.data) ? j.data : []);
+  const emb = liste.find(x => /embed|e5|bge|gte/i.test(String((x && (x.id || x.name)) || "") + " " + String((x && x.type) || "")));
+  if (!emb) throw new Error("aucun modèle d'embeddings sur ce fournisseur");
+  return String(emb.id || emb.name);
+}
+async function calculerEmbeddings(cfg, modele, textes) {
+  const r = await fetch(urlLlm(cfg, "/embeddings"), { method: "POST", headers: entetesLlm(cfg), body: JSON.stringify({ model: modele, input: textes }) });
+  if (!r.ok) { let d = ""; try { d = (await r.text()).slice(0, 200); } catch (e) { /* ignore */ } throw new Error("embeddings " + r.status + (d ? " : " + d : "")); }
+  const j = await r.json();
+  const data = (j && j.data || []).slice().sort((a, b) => (a.index || 0) - (b.index || 0));
+  if (data.length !== textes.length || !data.every(d => Array.isArray(d.embedding))) throw new Error("réponse embeddings inattendue");
+  return data.map(d => Float32Array.from(d.embedding));
+}
+function cosinus(a, b) {
+  let p = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) { p += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+  return na && nb ? p / Math.sqrt(na * nb) : 0;
+}
+const MOTS_VIDES_RECHERCHE = new Set("le la les un une des du de et en au aux ce ces son sa ses mon ma mes ton ta tes pour par sur dans avec sans que qui quoi est sont etre avoir bonjour cordialement merci bien votre vos notre nos je tu il elle nous vous ils elles ne pas plus the and for from this that re tr fw".split(" "));
+function motsRecherche(t) { return normaliserTexteRecherche(t).split(/[^a-z0-9]+/).filter(w => w.length >= 3 && !MOTS_VIDES_RECHERCHE.has(w)); }
+function scoresTfidf(requete, messages) {
+  const docs = messages.map(m => { const mots = motsRecherche(textePourVecteur(m)); const f = new Map(); mots.forEach(w => f.set(w, (f.get(w) || 0) + 1)); return { m, f, n: mots.length || 1 }; });
+  const df = new Map(); docs.forEach(d => d.f.forEach((_, w) => df.set(w, (df.get(w) || 0) + 1)));
+  const N = docs.length || 1, idf = w => Math.log(1 + N / (1 + (df.get(w) || 0)));
+  const q = new Map(); motsRecherche(requete).forEach(w => q.set(w, (q.get(w) || 0) + 1));
+  const vec = f => { const v = new Map(); let n = 0; f.forEach((c, w) => { const x = (1 + Math.log(c)) * idf(w); v.set(w, x); n += x * x; }); return { v, n: Math.sqrt(n) }; };
+  const vq = vec(q);
+  const scores = new Map();
+  docs.forEach(d => { const vd = vec(d.f); let p = 0; vq.v.forEach((x, w) => { if (vd.v.has(w)) p += x * vd.v.get(w); }); const s = vq.n && vd.n ? p / (vq.n * vd.n) : 0; if (s > 0) scores.set(d.m.id, s); });
+  return scores;
+}
+function messagesDansProfondeur(mois) {
+  const limite = mois > 0 ? Math.floor(Date.now() / 1000) - mois * 30.5 * 86400 : 0;
+  return messagesBrut.filter(m => (!limite || m.recu >= limite) && (!rechercheAvancee.horsSdid || messageHorsSdid(m)));
+}
+async function lancerRechercheIa(requete, mois, etat) {
+  const corpus = messagesDansProfondeur(mois);
+  if (!corpus.length) return { scores: new Map(), mode: "aucun", nbCorpus: 0, nbNouveaux: 0 };
+  const cfg = chargerConfigLlm();
+  let mode = "tfidf", raison = "";
+  if (llmEstConfigure(cfg)) {
+    try {
+      const modele = await trouverModeleEmbeddings(cfg);
+      if (modele !== modeleEmbeddingsCache) { cacheVecteursMessages = new Map(); modeleEmbeddingsCache = modele; }
+      const aCalculer = corpus.filter(m => { const c = cacheVecteursMessages.get(m.id); return !c || c.sig !== signatureTexteMessage(m); });
+      for (let i = 0; i < aCalculer.length; i += TAILLE_LOT_EMBEDDINGS) {
+        const lot = aCalculer.slice(i, i + TAILLE_LOT_EMBEDDINGS);
+        etat("Vectorisation des messages : " + Math.min(i + lot.length, aCalculer.length) + " / " + aCalculer.length + "…");
+        const vecs = await calculerEmbeddings(cfg, modele, lot.map(textePourVecteur));
+        lot.forEach((m, k) => cacheVecteursMessages.set(m.id, { sig: signatureTexteMessage(m), vec: vecs[k] }));
+      }
+      const [vq] = await calculerEmbeddings(cfg, modele, [requete.slice(0, MAX_CAR_EMBEDDING + 200)]);
+      const scores = new Map();
+      corpus.forEach(m => scores.set(m.id, cosinus(vq, cacheVecteursMessages.get(m.id).vec)));
+      return { scores, mode: "embeddings", modele, nbCorpus: corpus.length, nbNouveaux: aCalculer.length };
+    } catch (e) { raison = e && e.message || String(e); console.error("Recherche IA : embeddings indisponibles, repli TF-IDF :", e); }
+  } else raison = "assistant IA non configuré";
+  return { scores: scoresTfidf(requete, corpus), mode, raison, nbCorpus: corpus.length, nbNouveaux: 0 };
+}
+function retenirMeilleursScores(scores) {
+  const tri = [...scores.entries()].sort((a, b) => b[1] - a[1]);
+  if (!tri.length) return new Map();
+  const max = tri[0][1];
+  return new Map(tri.filter(([, v]) => v >= max * 0.6).slice(0, MAX_RESULTATS_RECHERCHE_IA));
+}
+function requeteDepuisDemande(id) {
+  const l = lignesEmergence.find(x => x.id === id);
+  if (!l) return "";
+  return [l.Titre, l.Objet_de_la_demande, l.Synthese_de_la_demande].filter(Boolean).join(" . ");
+}
+(function initRechercheAvancee() {
+  const btn = document.getElementById("msg-avance-ouvrir"), panneau = document.getElementById("msg-avance");
+  if (!btn || !panneau) return;
+  const $ = id => document.getElementById(id);
+  const etat = t => { $("msg-avance-etat").textContent = t; };
+  btn.addEventListener("click", () => {
+    const ouvert = panneau.style.display !== "none";
+    panneau.style.display = ouvert ? "none" : "flex";
+    if (!ouvert) {
+      const sel = $("msg-avance-demande"), courante = sel.value;
+      sel.innerHTML = "<option value=''>— Texte libre —</option>" + [...lignesEmergence].sort((a, b) => String(a.Titre || "").localeCompare(String(b.Titre || ""), "fr"))
+        .map(l => "<option value='" + l.id + "'>" + escapeHtml(l.Titre || ("Demande " + l.id)) + "</option>").join("");
+      sel.value = courante;
+    }
+  });
+  $("msg-avance-hors-sdid").addEventListener("change", (e) => { rechercheAvancee.horsSdid = e.target.checked; if (rechercheAvancee.scores) { rechercheAvancee.scores = null; etat("Filtre modifié : relancer la recherche IA."); } afficherMessages(); });
+  $("msg-avance-demande").addEventListener("change", (e) => { const id = parseInt(e.target.value, 10); if (id) $("msg-avance-requete").value = requeteDepuisDemande(id); });
+  $("msg-avance-chercher").addEventListener("click", async () => {
+    const requete = $("msg-avance-requete").value.trim();
+    if (requete.length < 3) { etat("Saisir une requête (ou choisir une demande)."); return; }
+    if (!messagesCharges) await chargerMessages();
+    const b = $("msg-avance-chercher"); b.disabled = true;
+    try {
+      etat("Recherche…");
+      const r = await lancerRechercheIa(requete, parseInt($("msg-avance-profondeur").value, 10) || 0, etat);
+      rechercheAvancee.scores = retenirMeilleursScores(r.scores);
+      afficherMessages();
+      etat(rechercheAvancee.scores.size + " message(s) trouvé(s) sur " + r.nbCorpus + " analysé(s) · " +
+        (r.mode === "embeddings" ? "IA (embeddings " + r.modele + ", " + r.nbNouveaux + " nouveau(x) vectorisé(s), gardés en mémoire pour la session)" :
+          "mots-clés locaux (TF-IDF)" + (r.raison ? " — embeddings indisponibles : " + r.raison : "")));
+    } catch (e) { etat("Erreur : " + (e && e.message || e)); } finally { b.disabled = false; }
+  });
+  $("msg-avance-effacer").addEventListener("click", () => { rechercheAvancee.scores = null; etat(""); afficherMessages(); });
+})();
+
 async function ouvrirOngletMessages() {
   if (!messagesCharges) { document.getElementById("corps-messages").innerHTML = "<tr><td colspan='7' class='msg-vide'>Chargement…</td></tr>"; await chargerMessages(); }
   else actualiserMessagesSilencieusement(); // déjà chargé : affichage immédiat, puis mise à jour si la table a changé
@@ -9004,6 +9173,8 @@ function ouvrirMessage(index) {
   document.getElementById("msg-reinit").addEventListener("click", () => {
     ["msg-recherche", "msg-date-debut", "msg-date-fin", "msg-sens"].forEach(id => { document.getElementById(id).value = ""; });
     filtresMessages = {};
+    rechercheAvancee = { horsSdid: false, scores: null };
+    const chk = document.getElementById("msg-avance-hors-sdid"); if (chk) chk.checked = false;
     marquerFiltresActifs();
     afficherMessages();
   });
