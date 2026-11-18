@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.140 -->
+<!-- Widget Emergence — v0.141 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -190,7 +190,6 @@
     <label class="msg-lib-date">Du <input type="date" id="msg-date-debut"></label>
     <label class="msg-lib-date">au <input type="date" id="msg-date-fin"></label>
     <button type="button" id="msg-reinit" class="btn-secondaire" title="Efface tous les filtres">Effacer les filtres</button>
-    <button type="button" id="msg-avance-ouvrir" class="btn-secondaire" title="Hors SDID, corrélation IA avec une demande">🔬 Recherche avancée</button>
     <button type="button" id="msg-mapping-auto" class="btn-secondaire" title="Rattache aux demandes les messages qui n'en ont pas encore, d'après l'expéditeur">⚡ Mapping automatique</button>
     <div class="filtre-multi-conteneur" id="conteneur-config-colonnes-messages">
       <button type="button" id="btn-config-colonnes-messages" class="btn-filtre-multi btn-config-colonnes" title="Afficher / masquer, réinitialiser les colonnes">⚙</button>
@@ -198,17 +197,6 @@
     </div>
     <button type="button" id="msg-actualiser" class="btn-secondaire" title="Actualiser maintenant (la liste se met aussi à jour automatiquement toutes les 30 s)">↻</button>
     <span id="msg-compteur" class="msg-compteur"></span>
-  </div>
-  <div id="msg-avance" class="msg-avance" style="display:none;">
-    <label class="msg-avance-ligne"><input type="checkbox" id="msg-avance-hors-sdid"> Uniquement les messages échangés avec des personnes hors SDID</label>
-    <div class="msg-avance-ligne">
-      <select id="msg-avance-demande" title="Demande servant de requête"><option value="">— Texte libre —</option></select>
-      <select id="msg-avance-profondeur" title="Profondeur de recherche dans le temps"><option value="1">1 mois</option><option value="2" selected>2 mois</option><option value="6">6 mois</option><option value="0">Tout</option></select>
-      <button type="button" id="msg-avance-chercher" class="btn-secondaire">Rechercher (corrélation IA)</button>
-      <button type="button" id="msg-avance-effacer" class="btn-secondaire">Effacer la recherche IA</button>
-    </div>
-    <textarea id="msg-avance-requete" rows="2" placeholder="Objet de la demande ou texte libre à rapprocher du sujet et du corps des messages…"></textarea>
-    <div id="msg-avance-etat" class="msg-avance-etat"></div>
   </div>
   <div class="msg-tableau-conteneur">
     <table id="table-messages">

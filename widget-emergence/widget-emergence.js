@@ -1,6 +1,6 @@
-// Widget Emergence — v0.140
-// Numéro de release : <majeure>.<build> (0.140 = release majeure 0, build 140).
-const VERSION_WIDGET = "0.140";
+// Widget Emergence — v0.141
+// Numéro de release : <majeure>.<build> (0.141 = release majeure 0, build 141).
+const VERSION_WIDGET = "0.141";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -763,7 +763,7 @@ const DELAI_DOUBLE_CLIC_MS = 400;
 let timerEditionListe = null; // édition en place différée : annulée si un double clic suit
 let filtrePrioriteSelection = new Set();      // vide = toutes les priorités (valeur "" = sans priorité)
 let filtreTypologieSelection = new Set();    // vide = toutes les typologies
-let filtreTagSelection = new Set();          // vide = tous les tags (v0.140)
+let filtreTagSelection = new Set();          // vide = tous les tags (v0.141)
 let filtreOrganisationSelection = new Set(); // vide = toutes les organisations
 let filtreSponsorTexte = "";          // recherche libre dans le Sponsor
 let filtrePorteurTexte = "";          // recherche libre dans le(s) Porteur(s)
@@ -5821,7 +5821,7 @@ function telechargerBlob(blob, nomFichier) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ===== Export CSV de la liste des demandes (v0.140) =====
+// ===== Export CSV de la liste des demandes (v0.141) =====
 // Colonnes = colonnes affichées (dans l'ordre courant), lignes = demandes filtrées, dans l'ordre du tri.
 // Séparateur « ; » + BOM UTF-8 pour une ouverture directe dans Excel français. Dates sans heure.
 function echapperCsv(v) {
@@ -8551,7 +8551,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.140) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.141) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -8752,9 +8752,8 @@ function dateMessage(epoch) {
 function inputDateVersEpochDebut(v) { return v ? Math.floor(new Date(v + "T00:00:00").getTime() / 1000) : 0; }
 function inputDateVersEpochFin(v) { return v ? Math.floor(new Date(v + "T23:59:59").getTime() / 1000) : 0; }
 
-// État de la recherche avancée (v0.140) : horsSdid = ne garder que les messages avec au moins un interlocuteur non SDID ;
-// scores = Map(id message → proximité 0..1) quand une recherche IA est active (sinon null).
-let rechercheAvancee = { horsSdid: false, scores: null };
+// Recherche avancée (v0.141) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
+// au moins un interlocuteur non SDID.
 function messageHorsSdid(m) {
   // interlocuteurs = expéditeur (message reçu) ou destinataires (message envoyé) ; un acteur dont l'organisation contient « SDID » est interne
   const mails = emailsDeTexte(m.sens === "sortant" ? m.destinataires : m.expediteur);
@@ -8771,10 +8770,7 @@ function messagesFiltresTries() {
   Object.keys(filtresMessages).forEach(k => { const v = normaliserTexteRecherche(filtresMessages[k] || ""); if (v) colonnes[k] = v; });
   const champ = { Expediteur: "expediteur", Destinataires: "destinataires", Sujet: "sujet", Demandes: "demandesTexte" };
   messagesBrut.forEach(m => { m.demandesTexte = m.demandes.map(titreDemande).join(", "); });
-  const av = rechercheAvancee;
   const liste = messagesBrut.filter(m => {
-    if (av.horsSdid && !messageHorsSdid(m)) return false;
-    if (av.scores && !av.scores.has(m.id)) return false;
     if (sensFiltre && m.sens !== sensFiltre) return false;
     if (debut && m.recu < debut) return false;
     if (fin && m.recu > fin) return false;
@@ -8782,7 +8778,6 @@ function messagesFiltresTries() {
     if (global && !normaliserTexteRecherche(m.expediteur + " " + m.destinataires + " " + m.sujet + " " + m.message).includes(global)) return false;
     return true;
   });
-  if (av.scores) { liste.sort((a, b) => av.scores.get(b.id) - av.scores.get(a.id)); return liste; } // recherche IA : meilleur score d'abord
   const cle = { Recu: "recu", Expediteur: "expediteur", Destinataires: "destinataires", Sujet: "sujet", Demandes: "demandesTexte", Sens: "sens" }[triMessages.col] || "recu";
   const sens = triMessages.sens === "asc" ? 1 : -1;
   liste.sort((a, b) => {
@@ -8831,7 +8826,7 @@ function afficherMessages() {
       Sens: "<td title='" + (m.sens === "sortant" ? "Message envoyé" : "Message reçu") + "' class='msg-sens msg-sens-" + m.sens + "'>" + (m.sens === "sortant" ? "↑ envoyé" : "↓ reçu") + "</td>",
       Expediteur: "<td title=\"" + escapeHtml(m.expediteur) + "\">" + escapeHtml(m.expediteur) + "</td>",
       Destinataires: "<td title=\"" + escapeHtml(m.destinataires) + "\">" + escapeHtml(m.destinataires) + "</td>",
-      Sujet: "<td title=\"" + escapeHtml(m.sujet) + "\">" + (rechercheAvancee.scores && rechercheAvancee.scores.has(m.id) ? "<span class='msg-score' title='Proximité avec la recherche'>" + Math.round(rechercheAvancee.scores.get(m.id) * 100) + " %</span> " : "") + escapeHtml(m.sujet || "(sans sujet)") + "</td>",
+      Sujet: "<td title=\"" + escapeHtml(m.sujet) + "\">" + escapeHtml(m.sujet || "(sans sujet)") + "</td>",
       Demandes: celluleDemandesMessageHtml(m)
     };
     return "<tr data-msg-index='" + i + "'><td class='msg-corbeille' title='Supprimer ce message'>🗑</td>" + colonnesMessagesVisiblesOrdonnees().map(c => cellules[c]).join("") + "</tr>";
@@ -8865,7 +8860,7 @@ setInterval(() => {
   if (document.getElementById("vue-messages").style.display !== "none" || (ligneSelectionneeId != null && document.getElementById("rida-tbody"))) actualiserMessagesSilencieusement();
 }, INTERVALLE_ACTUALISATION_MESSAGES_MS);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") actualiserMessagesSilencieusement(); });
-// ===================== Recherche avancée des messages (v0.140) =====================
+// ===================== Recherche avancée des messages (v0.141) =====================
 // 1) « Hors SDID » : messages échangés avec des personnes non SDID (organisation de l'acteur ; adresse inconnue = externe).
 // 2) Corrélation IA avec une demande (ou un texte libre) : chaque message de la période est vectorisé UNE SEULE FOIS
 //    (sujet + début du corps nettoyé, ~1000 car.) via /embeddings du fournisseur configuré ; les vecteurs restent en
@@ -8925,12 +8920,12 @@ function scoresTfidf(requete, messages) {
   docs.forEach(d => { const vd = vec(d.f); let p = 0; vq.v.forEach((x, w) => { if (vd.v.has(w)) p += x * vd.v.get(w); }); const s = vq.n && vd.n ? p / (vq.n * vd.n) : 0; if (s > 0) scores.set(d.m.id, s); });
   return scores;
 }
-function messagesDansProfondeur(mois) {
+function messagesDansProfondeur(mois, horsSdid, idDemandeExclue) {
   const limite = mois > 0 ? Math.floor(Date.now() / 1000) - mois * 30.5 * 86400 : 0;
-  return messagesBrut.filter(m => (!limite || m.recu >= limite) && (!rechercheAvancee.horsSdid || messageHorsSdid(m)));
+  return messagesBrut.filter(m => (!limite || m.recu >= limite) && (!horsSdid || messageHorsSdid(m)) && !(idDemandeExclue && m.demandes.includes(idDemandeExclue)));
 }
-async function lancerRechercheIa(requete, mois, etat) {
-  const corpus = messagesDansProfondeur(mois);
+async function lancerRechercheIa(requete, mois, etat, horsSdid, idDemandeExclue) {
+  const corpus = messagesDansProfondeur(mois, horsSdid, idDemandeExclue);
   if (!corpus.length) return { scores: new Map(), mode: "aucun", nbCorpus: 0, nbNouveaux: 0 };
   const cfg = chargerConfigLlm();
   let mode = "tfidf", raison = "";
@@ -8964,40 +8959,6 @@ function requeteDepuisDemande(id) {
   if (!l) return "";
   return [l.Titre, l.Objet_de_la_demande, l.Synthese_de_la_demande].filter(Boolean).join(" . ");
 }
-(function initRechercheAvancee() {
-  const btn = document.getElementById("msg-avance-ouvrir"), panneau = document.getElementById("msg-avance");
-  if (!btn || !panneau) return;
-  const $ = id => document.getElementById(id);
-  const etat = t => { $("msg-avance-etat").textContent = t; };
-  btn.addEventListener("click", () => {
-    const ouvert = panneau.style.display !== "none";
-    panneau.style.display = ouvert ? "none" : "flex";
-    if (!ouvert) {
-      const sel = $("msg-avance-demande"), courante = sel.value;
-      sel.innerHTML = "<option value=''>— Texte libre —</option>" + [...lignesEmergence].sort((a, b) => String(a.Titre || "").localeCompare(String(b.Titre || ""), "fr"))
-        .map(l => "<option value='" + l.id + "'>" + escapeHtml(l.Titre || ("Demande " + l.id)) + "</option>").join("");
-      sel.value = courante;
-    }
-  });
-  $("msg-avance-hors-sdid").addEventListener("change", (e) => { rechercheAvancee.horsSdid = e.target.checked; if (rechercheAvancee.scores) { rechercheAvancee.scores = null; etat("Filtre modifié : relancer la recherche IA."); } afficherMessages(); });
-  $("msg-avance-demande").addEventListener("change", (e) => { const id = parseInt(e.target.value, 10); if (id) $("msg-avance-requete").value = requeteDepuisDemande(id); });
-  $("msg-avance-chercher").addEventListener("click", async () => {
-    const requete = $("msg-avance-requete").value.trim();
-    if (requete.length < 3) { etat("Saisir une requête (ou choisir une demande)."); return; }
-    if (!messagesCharges) await chargerMessages();
-    const b = $("msg-avance-chercher"); b.disabled = true;
-    try {
-      etat("Recherche…");
-      const r = await lancerRechercheIa(requete, parseInt($("msg-avance-profondeur").value, 10) || 0, etat);
-      rechercheAvancee.scores = retenirMeilleursScores(r.scores);
-      afficherMessages();
-      etat(rechercheAvancee.scores.size + " message(s) trouvé(s) sur " + r.nbCorpus + " analysé(s) · " +
-        (r.mode === "embeddings" ? "IA (embeddings " + r.modele + ", " + r.nbNouveaux + " nouveau(x) vectorisé(s), gardés en mémoire pour la session)" :
-          "mots-clés locaux (TF-IDF)" + (r.raison ? " — embeddings indisponibles : " + r.raison : "")));
-    } catch (e) { etat("Erreur : " + (e && e.message || e)); } finally { b.disabled = false; }
-  });
-  $("msg-avance-effacer").addEventListener("click", () => { rechercheAvancee.scores = null; etat(""); afficherMessages(); });
-})();
 
 async function ouvrirOngletMessages() {
   if (!messagesCharges) { document.getElementById("corps-messages").innerHTML = "<tr><td colspan='7' class='msg-vide'>Chargement…</td></tr>"; await chargerMessages(); }
@@ -9173,8 +9134,6 @@ function ouvrirMessage(index) {
   document.getElementById("msg-reinit").addEventListener("click", () => {
     ["msg-recherche", "msg-date-debut", "msg-date-fin", "msg-sens"].forEach(id => { document.getElementById(id).value = ""; });
     filtresMessages = {};
-    rechercheAvancee = { horsSdid: false, scores: null };
-    const chk = document.getElementById("msg-avance-hors-sdid"); if (chk) chk.checked = false;
     marquerFiltresActifs();
     afficherMessages();
   });
@@ -9272,8 +9231,73 @@ async function rafraichirOngletMessagesFiche() {
   zone.innerHTML = (lies.length ? "<table class='tableau-fiche msg-fiche-table'><thead><tr><th style='width:100px;'>Date</th><th style='width:30%;'>Correspondant</th><th>Sujet</th><th style='width:40px;'></th></tr></thead><tbody>" + lignes + "</tbody></table>"
     : "<div class='msg-vide' style='text-align:left;'>Aucun message lié à cette demande.</div>") +
     "<div class='ajout-pp-conteneur' style='margin-top:8px;'><input type='text' id='fiche-msg-saisie' list='fiche-msg-datalist' placeholder='Lier un message (tapez l&#39;expéditeur, le sujet ou la date)…' style='min-width:340px;'><datalist id='fiche-msg-datalist'>" + options + "</datalist><button type='button' id='fiche-msg-ajouter' title='Lier ce message à la demande'>+</button></div>" +
-    "<div class='modale-msg' id='fiche-msg-info'></div>";
+    "<div class='modale-msg' id='fiche-msg-info'></div>" + htmlRechercheAvanceeFiche(idDemande);
 }
+// --- Fiche > Messages > 🔬 Recherche avancée : messages (non encore liés) proches de la demande, par corrélation IA ---
+let rechercheFiche = { idDemande: null, ouvert: false, horsSdid: true, mois: 2, requete: "", resultats: null, etat: "", enCours: false };
+function etatRechercheFiche(idDemande) {
+  if (rechercheFiche.idDemande !== idDemande) rechercheFiche = { idDemande, ouvert: false, horsSdid: true, mois: 2, requete: requeteDepuisDemande(idDemande), resultats: null, etat: "", enCours: false };
+  return rechercheFiche;
+}
+function htmlRechercheAvanceeFiche(idDemande) {
+  const r = etatRechercheFiche(idDemande);
+  let h = "<div style='margin-top:10px;'><button type='button' id='fiche-msg-avance-ouvrir' class='btn-secondaire' title='Retrouver des messages liés à cette demande : hors SDID, corrélation IA avec son objet'>🔬 Recherche avancée" + (r.ouvert ? " ▲" : " ▼") + "</button></div>";
+  if (!r.ouvert) return h;
+  h += "<div class='msg-avance' id='fiche-msg-avance' style='display:flex;'>" +
+    "<label class='msg-avance-ligne'><input type='checkbox' id='fiche-msg-avance-hors-sdid'" + (r.horsSdid ? " checked" : "") + "> Uniquement les messages échangés avec des personnes hors SDID</label>" +
+    "<div class='msg-avance-ligne'><select id='fiche-msg-avance-profondeur' title='Profondeur de recherche dans le temps'>" +
+    [[1, "1 mois"], [2, "2 mois"], [6, "6 mois"], [0, "Tout"]].map(([v, l]) => "<option value='" + v + "'" + (r.mois === v ? " selected" : "") + ">" + l + "</option>").join("") + "</select>" +
+    "<button type='button' id='fiche-msg-avance-chercher' class='btn-secondaire'" + (r.enCours ? " disabled" : "") + ">Rechercher (corrélation IA)</button></div>" +
+    "<textarea id='fiche-msg-avance-requete' rows='2' placeholder='Objet de la demande ou texte libre à rapprocher du sujet et du corps des messages…'>" + escapeHtml(r.requete) + "</textarea>" +
+    "<div class='msg-avance-etat' id='fiche-msg-avance-etat'>" + escapeHtml(r.etat) + "</div>";
+  if (r.resultats) {
+    const lignes = r.resultats.filter(x => { const m = messagesBrut.find(y => y.id === x.id); return m && !m.demandes.includes(idDemande); }).map(x => {
+      const m = messagesBrut.find(y => y.id === x.id);
+      return "<tr data-msg-id='" + m.id + "' class='ligne-resultat-avance'><td>" + escapeHtml(dateMessage(m.recu)) + "</td><td><span class='msg-score' title='Proximité avec la recherche'>" + Math.round(x.score * 100) + " %</span></td>" +
+        "<td title=\"" + escapeHtml(m.sens === "sortant" ? m.destinataires : m.expediteur) + "\">" + (m.sens === "sortant" ? "↑ à " : "↓ de ") + escapeHtml(m.sens === "sortant" ? m.destinataires : m.expediteur) + "</td>" +
+        "<td title=\"" + escapeHtml(m.sujet) + "\">" + escapeHtml(m.sujet || "(sans sujet)") + "</td>" +
+        "<td class='msg-fiche-actions'><button type='button' class='btn-fiche-msg-lier' data-msg-id='" + m.id + "' title='Lier ce message à la demande'>+ Lier</button></td></tr>";
+    }).join("");
+    h += lignes ? "<table class='tableau-fiche msg-fiche-table'><thead><tr><th style='width:100px;'>Date</th><th style='width:60px;'>Score</th><th style='width:30%;'>Correspondant</th><th>Sujet</th><th style='width:70px;'></th></tr></thead><tbody>" + lignes + "</tbody></table>"
+      : "<div class='msg-vide' style='text-align:left;'>Aucun message trouvé.</div>";
+  }
+  return h + "</div>";
+}
+document.getElementById("fiche-container").addEventListener("click", async (e) => {
+  if (e.target.closest("#fiche-msg-avance-ouvrir")) { const r = etatRechercheFiche(ligneSelectionneeId); r.ouvert = !r.ouvert; rafraichirOngletMessagesFiche(); return; }
+  const lier = e.target.closest(".btn-fiche-msg-lier");
+  if (lier) { e.stopPropagation(); const idDemande = ligneSelectionneeId; await modifierLiensMessage(Number(lier.getAttribute("data-msg-id")), l => l.includes(idDemande) ? l : l.concat(idDemande)); return; }
+  const ligneRes = e.target.closest(".ligne-resultat-avance");
+  if (ligneRes) {
+    const r = etatRechercheFiche(ligneSelectionneeId);
+    messagesAffiches = (r.resultats || []).map(x => messagesBrut.find(y => y.id === x.id)).filter(Boolean);
+    ouvrirMessage(messagesAffiches.findIndex(x => x.id === Number(ligneRes.getAttribute("data-msg-id"))));
+    return;
+  }
+  if (e.target.id === "fiche-msg-avance-chercher") {
+    const idDemande = ligneSelectionneeId, r = etatRechercheFiche(idDemande);
+    r.requete = document.getElementById("fiche-msg-avance-requete").value.trim();
+    r.mois = parseInt(document.getElementById("fiche-msg-avance-profondeur").value, 10) || 0;
+    r.horsSdid = document.getElementById("fiche-msg-avance-hors-sdid").checked;
+    if (r.requete.length < 3) { r.etat = "Saisir une requête."; rafraichirOngletMessagesFiche(); return; }
+    r.enCours = true; r.etat = "Recherche…";
+    const majEtat = (t) => { r.etat = t; const el = document.getElementById("fiche-msg-avance-etat"); if (el && rechercheFiche === r) el.textContent = t; };
+    document.getElementById("fiche-msg-avance-chercher").disabled = true;
+    try {
+      const res = await lancerRechercheIa(r.requete, r.mois, majEtat, r.horsSdid, idDemande);
+      r.resultats = [...retenirMeilleursScores(res.scores).entries()].map(([id, score]) => ({ id, score })).sort((a, b) => b.score - a.score);
+      r.etat = r.resultats.length + " message(s) trouvé(s) sur " + res.nbCorpus + " analysé(s) · " +
+        (res.mode === "embeddings" ? "IA (embeddings " + res.modele + ", " + res.nbNouveaux + " nouveau(x) vectorisé(s), gardés en mémoire pour la session)" :
+          "mots-clés locaux (TF-IDF)" + (res.raison ? " — embeddings indisponibles : " + res.raison : ""));
+    } catch (err) { r.etat = "Erreur : " + (err && err.message || err); } finally { r.enCours = false; }
+    if (rechercheFiche === r && document.getElementById("fiche-messages") && idDemande === ligneSelectionneeId) rafraichirOngletMessagesFiche();
+  }
+});
+document.getElementById("fiche-container").addEventListener("change", (e) => {
+  if (e.target.id === "fiche-msg-avance-hors-sdid") { const r = etatRechercheFiche(ligneSelectionneeId); r.horsSdid = e.target.checked; r.resultats = null; r.etat = "Filtre modifié : relancer la recherche."; rafraichirOngletMessagesFiche(); }
+  if (e.target.id === "fiche-msg-avance-profondeur") { const r = etatRechercheFiche(ligneSelectionneeId); r.mois = parseInt(e.target.value, 10) || 0; }
+  if (e.target.id === "fiche-msg-avance-requete") { etatRechercheFiche(ligneSelectionneeId).requete = e.target.value; }
+});
 document.getElementById("fiche-container").addEventListener("click", async (e) => {
   const ouvrir = e.target.closest(".msg-fiche-table tbody tr");
   const delier = e.target.closest(".btn-fiche-msg-delier");
