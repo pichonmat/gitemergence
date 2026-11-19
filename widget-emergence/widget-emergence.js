@@ -1,6 +1,6 @@
-// Widget Emergence — v0.141
-// Numéro de release : <majeure>.<build> (0.141 = release majeure 0, build 141).
-const VERSION_WIDGET = "0.141";
+// Widget Emergence — v0.142
+// Numéro de release : <majeure>.<build> (0.142 = release majeure 0, build 142).
+const VERSION_WIDGET = "0.142";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -763,7 +763,7 @@ const DELAI_DOUBLE_CLIC_MS = 400;
 let timerEditionListe = null; // édition en place différée : annulée si un double clic suit
 let filtrePrioriteSelection = new Set();      // vide = toutes les priorités (valeur "" = sans priorité)
 let filtreTypologieSelection = new Set();    // vide = toutes les typologies
-let filtreTagSelection = new Set();          // vide = tous les tags (v0.141)
+let filtreTagSelection = new Set();          // vide = tous les tags (v0.142)
 let filtreOrganisationSelection = new Set(); // vide = toutes les organisations
 let filtreSponsorTexte = "";          // recherche libre dans le Sponsor
 let filtrePorteurTexte = "";          // recherche libre dans le(s) Porteur(s)
@@ -1424,11 +1424,15 @@ function construirePopupConfigColonnes() {
   ).join("") +
     "<div class='bloc-export-excel'><button type='button' id='btn-reinit-ordre-colonnes' title='Remet les colonnes dans leur ordre d&#39;origine (elles se déplacent en glissant leur en-tête)'>↺ Réinitialiser l'ordre des colonnes</button></div>" +
     "<div class='bloc-export-excel'><button type='button' id='btn-export-excel-zip' title='Un fichier Excel par table Emergence, dans une archive .zip'>📦 Exporter toutes les tables (Excel, .zip)</button>" +
-    "<div id='msg-export-excel' class='msg-export-excel'></div></div>";
+    "<div id='msg-export-excel' class='msg-export-excel'></div></div>" +
+    "<div class='bloc-export-excel'><button type='button' id='btn-export-md-base' title='Toute la base (demandes, RIDA, messages, acteurs) dans un fichier Markdown prêt pour un LLM externe'>📄 Exporter toute la base (Markdown, pour LLM)</button>" +
+    "<div id='msg-export-md' class='msg-export-excel'></div></div>";
 
   brancherBoutonsTailleTexte(popup);
   const btnOrdre = popup.querySelector("#btn-reinit-ordre-colonnes");
   if (btnOrdre) btnOrdre.addEventListener("click", (e) => { e.stopPropagation(); reinitialiserOrdreColonnes(); });
+  const btnMd = popup.querySelector("#btn-export-md-base");
+  if (btnMd) btnMd.addEventListener("click", async (e) => { e.stopPropagation(); btnMd.disabled = true; try { await telechargerBaseMarkdown("msg-export-md"); } finally { btnMd.disabled = false; } });
   const btnExcel = popup.querySelector("#btn-export-excel-zip");
   if (btnExcel) btnExcel.addEventListener("click", (e) => { e.stopPropagation(); exporterExcelZip(); });
   popup.querySelectorAll(".case-config-colonne").forEach(cb => {
@@ -5821,7 +5825,7 @@ function telechargerBlob(blob, nomFichier) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ===== Export CSV de la liste des demandes (v0.141) =====
+// ===== Export CSV de la liste des demandes (v0.142) =====
 // Colonnes = colonnes affichées (dans l'ordre courant), lignes = demandes filtrées, dans l'ordre du tri.
 // Séparateur « ; » + BOM UTF-8 pour une ouverture directe dans Excel français. Dates sans heure.
 function echapperCsv(v) {
@@ -7568,7 +7572,27 @@ function exportLigneRida(r) {
     (estLigneJournalAuto(r) ? " *(journal automatique)*" : "") + (d ? " : " + d : "");
 }
 
-function genererMarkdownBase() {
+// Correspondant d'un message pour l'export : nom connu (acteur), sinon nom affiché, sinon « inconnu@domaine » (jamais l'adresse complète).
+function nomCorrespondantExport(texte) {
+  return String(texte || "").split(/[;,]/).map(x => x.trim()).filter(Boolean).map(x => {
+    const mail = emailsDeTexte(x)[0];
+    const acteur = mail ? Object.values(acteursParId).find(a => String(a.mail || "").trim().toLowerCase() === mail) : null;
+    if (acteur && acteur.Nom_et_Prenom) return acteur.Nom_et_Prenom;
+    const nom = x.replace(/<[^>]*>/g, "").replace(/["']/g, "").trim();
+    if (nom && !/@/.test(nom)) return nom;
+    return mail ? "inconnu@" + mail.split("@")[1] : (nom || "?");
+  }).join(", ");
+}
+const MAX_CAR_MESSAGE_EXPORT = 4000;
+function exportBlocMessage(m) {
+  const corps = (typeof nettoyerCorpsPourVecteur === "function" ? nettoyerCorpsPourVecteur.call(null, m.message) : "").trim();
+  const entete = "- **" + (m.sens === "sortant" ? "Message envoyé" : "Message reçu") + "** le " + formaterDate(m.recu) + " — " +
+    (m.sens === "sortant" ? "à : " + nomCorrespondantExport(m.destinataires) : "de : " + nomCorrespondantExport(m.expediteur)) +
+    " — objet : " + String(m.sujet || "(sans sujet)").replace(/\s+/g, " ");
+  return corps ? entete + "\n  > " + corps.slice(0, MAX_CAR_MESSAGE_EXPORT) + (corps.length > MAX_CAR_MESSAGE_EXPORT ? " […]" : "") : entete;
+}
+async function genererMarkdownBase() {
+  if (!messagesCharges) { try { await chargerMessages(); } catch (e) { /* export sans messages */ } }
   const fiches = lignesEmergence.slice().sort((a, b) => a.id - b.id);
   const ids = new Set(fiches.map(f => f.id));
   const ridaParFiche = new Map();
@@ -7581,7 +7605,7 @@ function genererMarkdownBase() {
   const cleDate = (r) => Number(r.Fait_le || r.Pour_le || 0);
   const maintenant = new Date();
   const L = [];
-  L.push("# Base documentaire Émergence — export du " + formaterDate(aujourdHuiEpoch()) + " " + String(maintenant.getHours()).padStart(2, "0") + ":" + String(maintenant.getMinutes()).padStart(2, "0"));
+  L.push("# Base documentaire Émergence — export du " + formaterDate(aujourdHuiEpoch()));
   L.push("");
   L.push("*Généré par le widget Émergence v" + VERSION_WIDGET + ". " + fiches.length + " demande(s), " + ridaToutes.length + " ligne(s) RIDA, " + Object.keys(acteursParId).length + " acteur(s).*");
   L.push("");
@@ -7591,7 +7615,7 @@ function genererMarkdownBase() {
   L.push("- Chaque demande est identifiée par `#id` (section « Fiche #id »). Cite les fiches sous la forme [#id] pour appuyer tes affirmations.");
   L.push("- RIDA = Information, Décision ou Action. Une action sans date « fait le » est non terminée. Les lignes « journal automatique » sont des traces de modification, sans contenu métier.");
   L.push("- Les statistiques ci-dessous sont calculées : utilise-les pour les comptages plutôt que de recompter.");
-  L.push("- Les adresses mail, téléphones et images ne sont pas inclus (images remplacées par « [image] »).");
+  L.push("- Les messages (mails reçus/envoyés) sont listés par fiche, corps nettoyé (citations et signatures retirées) et tronqué à " + MAX_CAR_MESSAGE_EXPORT + " caractères. Les adresses mail, téléphones et images ne sont pas inclus (images remplacées par « [image] »).");
   L.push("");
   L.push("## Statistiques");
   L.push("");
@@ -7625,7 +7649,17 @@ function genererMarkdownBase() {
       L.push(""); L.push("**RIDA** :"); L.push("");
       rida.forEach(r => L.push(exportLigneRida(r)));
     }
+    const msgsFiche = messagesBrut.filter(m => m.demandes.includes(f.id)).sort((a, b) => a.recu - b.recu);
+    if (msgsFiche.length) {
+      L.push(""); L.push("**Messages liés** (" + msgsFiche.length + ") :"); L.push("");
+      msgsFiche.forEach(m => L.push(exportBlocMessage(m)));
+    }
   });
+  const msgsLibres = messagesBrut.filter(m => !m.demandes.some(id => ids.has(id))).sort((a, b) => a.recu - b.recu);
+  if (msgsLibres.length) {
+    L.push(""); L.push("## Messages non rattachés à une demande (" + msgsLibres.length + ")"); L.push("");
+    msgsLibres.forEach(m => L.push(exportBlocMessage(m)));
+  }
   if (orphelines.length) {
     L.push(""); L.push("## Lignes RIDA sans fiche"); L.push("");
     orphelines.forEach(r => L.push(exportLigneRida(r)));
@@ -7639,10 +7673,11 @@ function genererMarkdownBase() {
   return L.join("\n") + "\n";
 }
 
-function telechargerBaseMarkdown() {
-  const msg = document.getElementById("param-export-msg");
+async function telechargerBaseMarkdown(idMsg) {
+  const msg = document.getElementById(typeof idMsg === "string" ? idMsg : "param-export-msg");
   try {
-    const texte = genererMarkdownBase();
+    if (msg) { msg.className = "modale-msg"; msg.textContent = "Préparation de l'export…"; }
+    const texte = await genererMarkdownBase();
     const d = new Date();
     const nom = "base_emergence_" + d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0") + ".md";
     telechargerBlob(new Blob([texte], { type: "text/markdown;charset=utf-8" }), nom);
@@ -7654,7 +7689,7 @@ function telechargerBaseMarkdown() {
     msg.textContent = "Échec de l'export : " + e.message;
   }
 }
-document.getElementById("param-export-md").addEventListener("click", telechargerBaseMarkdown);
+document.getElementById("param-export-md").addEventListener("click", () => telechargerBaseMarkdown("param-export-msg"));
 
 // ===================== Export PowerPoint d'une fiche (v0.114) =====================
 // Icône « PPT » à gauche de chaque ligne de la liste : ouvre une modale (aperçu simplifié, textes modifiables)
@@ -8551,7 +8586,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.141) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.142) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -8752,7 +8787,7 @@ function dateMessage(epoch) {
 function inputDateVersEpochDebut(v) { return v ? Math.floor(new Date(v + "T00:00:00").getTime() / 1000) : 0; }
 function inputDateVersEpochFin(v) { return v ? Math.floor(new Date(v + "T23:59:59").getTime() / 1000) : 0; }
 
-// Recherche avancée (v0.141) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
+// Recherche avancée (v0.142) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
 // au moins un interlocuteur non SDID.
 function messageHorsSdid(m) {
   // interlocuteurs = expéditeur (message reçu) ou destinataires (message envoyé) ; un acteur dont l'organisation contient « SDID » est interne
@@ -8860,7 +8895,7 @@ setInterval(() => {
   if (document.getElementById("vue-messages").style.display !== "none" || (ligneSelectionneeId != null && document.getElementById("rida-tbody"))) actualiserMessagesSilencieusement();
 }, INTERVALLE_ACTUALISATION_MESSAGES_MS);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") actualiserMessagesSilencieusement(); });
-// ===================== Recherche avancée des messages (v0.141) =====================
+// ===================== Recherche avancée des messages (v0.142) =====================
 // 1) « Hors SDID » : messages échangés avec des personnes non SDID (organisation de l'acteur ; adresse inconnue = externe).
 // 2) Corrélation IA avec une demande (ou un texte libre) : chaque message de la période est vectorisé UNE SEULE FOIS
 //    (sujet + début du corps nettoyé, ~1000 car.) via /embeddings du fournisseur configuré ; les vecteurs restent en
