@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.145 -->
+<!-- Widget Emergence — v0.146 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -825,6 +825,18 @@
     overflow-x: auto;
     border: 1px solid var(--border);
     border-radius: 8px;
+  }
+
+  /* Barres de défilement toujours visibles et grisées (v0.146) — sans elles, les barres « overlay » (macOS, navigateurs
+     récents) restent invisibles tant qu'on ne défile pas et on ne voit pas que le tableau déborde. */
+  .conteneur-liste, .conteneur-tableau-actions, .conteneur-tableau-contacts, .msg-tableau-conteneur { scrollbar-gutter: auto; }
+  .conteneur-liste::-webkit-scrollbar, .conteneur-tableau-actions::-webkit-scrollbar, .conteneur-tableau-contacts::-webkit-scrollbar, .msg-tableau-conteneur::-webkit-scrollbar { width: 14px; height: 14px; }
+  .conteneur-liste::-webkit-scrollbar-track, .conteneur-tableau-actions::-webkit-scrollbar-track, .conteneur-tableau-contacts::-webkit-scrollbar-track, .msg-tableau-conteneur::-webkit-scrollbar-track { background: #eceef1; border-top: 1px solid #dcdfe4; }
+  .conteneur-liste::-webkit-scrollbar-thumb, .conteneur-tableau-actions::-webkit-scrollbar-thumb, .conteneur-tableau-contacts::-webkit-scrollbar-thumb, .msg-tableau-conteneur::-webkit-scrollbar-thumb { background: #a3a9b3; border-radius: 7px; border: 3px solid #eceef1; }
+  .conteneur-liste::-webkit-scrollbar-thumb:hover, .conteneur-tableau-actions::-webkit-scrollbar-thumb:hover, .conteneur-tableau-contacts::-webkit-scrollbar-thumb:hover, .msg-tableau-conteneur::-webkit-scrollbar-thumb:hover { background: #7f8691; }
+  .conteneur-liste::-webkit-scrollbar-corner, .conteneur-tableau-actions::-webkit-scrollbar-corner, .conteneur-tableau-contacts::-webkit-scrollbar-corner, .msg-tableau-conteneur::-webkit-scrollbar-corner { background: #eceef1; }
+  @supports not selector(::-webkit-scrollbar) {
+    .conteneur-liste, .conteneur-tableau-actions, .conteneur-tableau-contacts, .msg-tableau-conteneur { scrollbar-color: #a3a9b3 #eceef1; scrollbar-width: auto; }
   }
 
   .barre-redimension {
