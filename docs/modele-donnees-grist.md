@@ -131,6 +131,8 @@ Clés utilisées : `tags` — liste JSON des tags proposés (ex. `["Urgent","Min
 
 Colonne ajoutée à `Emergence` : `Tag` (`ChoiceList`) — tags de la demande, choisis dans la liste `tags` ci-dessus.
 
+Colonne ajoutée à `Emergence` (v0.143) : `Ref_Emergence` (`Text`, **formule** `"EMG-%04d" % $id`) — référence unique, automatique et réversible de la demande (`EMG-0123` = ligne 123). Créée par l'outil de migration (structure v7). Le widget la calcule aussi lui-même à partir de l'id : la colonne sert aux formules et autres outils. Lien direct vers une fiche : lien d'ancre Grist `…#a1.s<section>.r<id>` ; le modèle (page + section) est saisi dans Paramètres > Général (paramètre `lien_base` de `Emergence_Parametres`), et le widget ouvre la fiche quand le curseur Grist arrive sur la ligne. L'ancienne colonne `ID2` (« ID ») n'est plus utilisée.
+
 ## Ajouts v0.120
 
 Colonnes ajoutées à `Emergence` (type `Date`) : `Date_Go_NoGo_SDID` (Go/noGo SDID), `Date_MVP_previsionnelle` (MVP prévisionnel), `Date_MVP_realisee` (MVP réalisé). `Date_de_soumission` est affichée « Date d'entrée » dans le widget (colonne inchangée).

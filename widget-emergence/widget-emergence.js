@@ -1,6 +1,6 @@
-// Widget Emergence — v0.142
-// Numéro de release : <majeure>.<build> (0.142 = release majeure 0, build 142).
-const VERSION_WIDGET = "0.142";
+// Widget Emergence — v0.143
+// Numéro de release : <majeure>.<build> (0.143 = release majeure 0, build 143).
+const VERSION_WIDGET = "0.143";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -579,6 +579,7 @@ let largeursColonnes = {
   "Porteurs": 130,
   "Titre": 230,
   "Ref_BRM": 110,
+  "Ref_Emergence": 90,
   "Typologie_de_la_demande": 150,
   "Tag": 130,
   "Parties_prenantes_concernees": 200,
@@ -586,7 +587,7 @@ let largeursColonnes = {
 };
 
 const ORDRE_COLONNES = [
-  "Ppt", "Priorite", "Statut", "Date_de_derniere_modification", "Activite_rida", "Date_de_soumission", "Date_Go_NoGo_SDID", "Date_1er_atelier", "Date_MVP_previsionnelle", "Date_MVP_realisee", "Organisation", "Sponsor", "Porteurs",
+  "Ppt", "Ref_Emergence", "Priorite", "Statut", "Date_de_derniere_modification", "Activite_rida", "Date_de_soumission", "Date_Go_NoGo_SDID", "Date_1er_atelier", "Date_MVP_previsionnelle", "Date_MVP_realisee", "Organisation", "Sponsor", "Porteurs",
   "Titre", "Ref_BRM", "Typologie_de_la_demande", "Tag", "Parties_prenantes_concernees", "Action_ouverte"
 ];
 
@@ -618,6 +619,27 @@ function sauvegarderOrdreColonnes() {
 // Référence BRM (colonne texte facultative de la table Emergence, libellé « Ref BRM ») : lue sous
 // son identifiant Grist quel qu'il soit (Ref_BRM, RefBRM, ref_brm...) ; chaîne vide si la colonne
 // n'existe pas ou n'est pas renseignée.
+// Référence d'une demande (v0.143) : « EMG- » + id de ligne Grist sur 4 chiffres (ex. EMG-0123). Calculée ici à partir de
+// l'id, comme la colonne formule Emergence.Ref_Emergence créée par l'outil de migration ("EMG-%04d" % $id) : le widget
+// n'a donc pas besoin que cette colonne existe. La référence est réversible (EMG-0123 ↔ ligne 123).
+const PREFIXE_REF_DEMANDE = "EMG-";
+function refDemande(id) { return PREFIXE_REF_DEMANDE + String(id).padStart(4, "0"); }
+function idDepuisRefDemande(texte) {
+  const m = new RegExp("^\\s*(?:" + PREFIXE_REF_DEMANDE + ")?0*(\\d+)\\s*$", "i").exec(String(texte || ""));
+  return m ? parseInt(m[1], 10) : null;
+}
+// Lien direct vers une fiche : base saisie dans les Paramètres (lien d'ancre Grist d'une ligne de cette vue,
+// « #a1.s7.r12.c5 ») dont on remplace le numéro de ligne.
+const PARAM_LIEN_BASE = "lien_base";
+function lienDemande(id) {
+  const base = String(lireParametreJson(PARAM_LIEN_BASE, "") || "").trim();
+  const m = /^(.*?)#(a\d+\.s\d+)/.exec(base);
+  return m ? m[1] + "#" + m[2] + ".r" + id : "";
+}
+function copierTexteSecours(texte) {
+  const ta = document.createElement("textarea"); ta.value = texte; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch (e) { /* ignore */ } ta.remove();
+}
 function refBrm(ligne) {
   if (!ligne) return "";
   const cle = Object.keys(ligne).find(k => k.replace(/_/g, "").toLowerCase() === "refbrm");
@@ -647,6 +669,7 @@ const LIBELLES_COLONNES = {
   "Porteurs": "Porteur",
   "Titre": "Titre",
   "Ref_BRM": "Ref BRM",
+  "Ref_Emergence": "Réf.",
   "Typologie_de_la_demande": "Typologie de la demande",
   "Tag": "Tag",
   "Parties_prenantes_concernees": "Parties prenantes",
@@ -763,7 +786,7 @@ const DELAI_DOUBLE_CLIC_MS = 400;
 let timerEditionListe = null; // édition en place différée : annulée si un double clic suit
 let filtrePrioriteSelection = new Set();      // vide = toutes les priorités (valeur "" = sans priorité)
 let filtreTypologieSelection = new Set();    // vide = toutes les typologies
-let filtreTagSelection = new Set();          // vide = tous les tags (v0.142)
+let filtreTagSelection = new Set();          // vide = tous les tags (v0.143)
 let filtreOrganisationSelection = new Set(); // vide = toutes les organisations
 let filtreSponsorTexte = "";          // recherche libre dans le Sponsor
 let filtrePorteurTexte = "";          // recherche libre dans le(s) Porteur(s)
@@ -780,7 +803,9 @@ grist.ready({ requiredAccess: 'full' });
 
 // onRecords sert uniquement de signal "les données ont changé" : on recharge ensuite
 // la table principale en données brutes via fetchTable (voir chargerTablePrincipale).
-grist.onRecords(async function () {
+let premierIdVueGrist = null, premierSignalCurseurTraite = false, idCurseurEnAttente = null, premierCurseurTranche = false;
+grist.onRecords(async function (records) {
+  if (premierIdVueGrist === null && records && records.length) premierIdVueGrist = records[0].id; // curseur par défaut (lien direct, plus bas)
   await chargerTablePrincipale();
   remplirOptionsFiltres();
   afficherListe();
@@ -788,9 +813,31 @@ grist.onRecords(async function () {
     const ligne = lignesEmergence.find(l => l.id === ligneSelectionneeId);
     if (ligne) afficherFiche(ligne);
   }
+  if (idCurseurEnAttente !== null) { // signal de curseur reçu avant les données
+    const id = idCurseurEnAttente; idCurseurEnAttente = null;
+    if (!(premierIdVueGrist !== null && id === premierIdVueGrist && !premierCurseurTranche)) ouvrirDepuisCurseurGrist(id);
+    premierCurseurTranche = true;
+  }
 });
 
-grist.onRecord(record => {});
+// Lien direct (v0.143) : un lien Grist « …#a1.sX.r123 » place le curseur sur la ligne 123 ; on ouvre alors sa fiche.
+// Au tout premier signal, le curseur par défaut (première ligne de la vue) n'est pas considéré comme un lien.
+function ouvrirDepuisCurseurGrist(id) {
+  if (!id || id === ligneSelectionneeId) return;
+  if (!lignesEmergence.some(l => l.id === id)) { idCurseurEnAttente = id; return; }
+  idCurseurEnAttente = null;
+  if (vueActuelle !== "demandes") basculerVue("demandes");
+  selectionnerLigne(id);
+}
+grist.onRecord(record => {
+  const id = record && record.id;
+  if (!premierSignalCurseurTraite) {
+    premierSignalCurseurTraite = true;
+    if (id && premierIdVueGrist !== null && id === premierIdVueGrist) { premierCurseurTranche = true; return; } // curseur par défaut
+    if (id && (premierIdVueGrist === null || !lignesEmergence.length)) { idCurseurEnAttente = id; return; } // données pas encore là : tranché au chargement
+  }
+  ouvrirDepuisCurseurGrist(id);
+});
 
 // --- Chargement des données (brutes, via fetchTable) ---
 async function chargerTablePrincipale() {
@@ -1313,7 +1360,7 @@ function cleIgnoreeRecherche(cle) {
 }
 
 function texteRechercheLigne(ligne, ridaDeLaLigne) {
-  const morceaux = [];
+  const morceaux = [normaliserTexteRecherche(refDemande(ligne.id))];
   for (const cle in ligne) {
     if (cleIgnoreeRecherche(cle)) continue;
     const t = valeurVersTexteRecherche(cle, ligne[cle]);
@@ -1911,6 +1958,10 @@ function trierLignes(lignes) {
       vA = rangStatut(a.Statut);
       vB = rangStatut(b.Statut);
     }
+    if (colonneTri === "Ref_Emergence") {
+      vA = a.id;
+      vB = b.id;
+    }
     if (colonneTri === "Ref_BRM") {
       vA = refBrm(a);
       vB = refBrm(b);
@@ -2048,6 +2099,7 @@ function afficherListe() {
     }
     html += "<tr class='" + sel + "' data-id='" + ligne.id + "'>" +
       "<td class='cellule-ppt'><button type='button' class='btn-ppt-ligne' title='Générer la diapo PowerPoint de cette fiche'>PPT</button></td>" +
+      "<td class='cellule-ref-emergence' title=\"" + escapeHtml(refDemande(ligne.id)) + "\">" + escapeHtml(refDemande(ligne.id)) + "</td>" +
       "<td class='cellule-priorite cellule-liste-editable' data-edit='priorite' title='Cliquer sur l\'icône pour modifier la priorité'><span class='texte-cellule-edit'>" + iconePriorite(ligne.Priorite) + "</span></td>" +
       "<td class='cellule-statut-modifiable' title='Cliquer pour changer le statut'>" + badgeStatut(ligne.Statut) + "</td>" +
       "<td class='cellule-derniere-modif' title='Dernière modification de la demande (fiche ou lignes RIDA)'>" + (formaterDerniereModifDemande(ligne.id) || "—") + "</td>" +
@@ -2980,6 +3032,7 @@ function afficherFiche(ligne) {
       <div class="bandeau-ligne bandeau-ligne-titre">
         <div class="champ-editable-inline champ-titre-editable">
           <div class="titre-et-ref-brm">
+            <span class="ref-emergence-bandeau" id="ref-emergence-bandeau" title="Référence de la demande — cliquer pour copier le lien direct vers cette fiche">${escapeHtml(refDemande(ligne.id))} 🔗</span>
             <input type="text" id="titre-input" value="${escapeHtml(ligne.Titre || "")}" placeholder="Titre de la demande">
             ${cleRefBrm(ligne) ? `<input type="text" id="ref-brm-input" class="ref-brm-bandeau" title="Référence BRM" placeholder="Ref BRM" value="${escapeHtml(refBrm(ligne))}">` : ""}
           </div>
@@ -3167,6 +3220,12 @@ function afficherFiche(ligne) {
   });
 
   // --- Édition de la Ref BRM (bandeau : petit champ à côté du titre, sauvegarde à la perte de focus) ---
+  const refEmgBandeau = conteneur.querySelector("#ref-emergence-bandeau");
+  if (refEmgBandeau) refEmgBandeau.addEventListener("click", () => {
+    const lien = lienDemande(ligne.id), texte = lien || refDemande(ligne.id);
+    const ok = () => { refEmgBandeau.textContent = (lien ? "Lien copié ✓" : "Référence copiée ✓ (lien direct : renseigner la base du lien dans les Paramètres)"); setTimeout(() => { refEmgBandeau.textContent = refDemande(ligne.id) + " 🔗"; }, 2500); };
+    try { navigator.clipboard.writeText(texte).then(ok, () => { copierTexteSecours(texte); ok(); }); } catch (e) { copierTexteSecours(texte); ok(); }
+  });
   const refBrmInput = conteneur.querySelector("#ref-brm-input");
   if (refBrmInput) {
     const valeurInitialeRefBrm = refBrm(ligne);
@@ -5825,7 +5884,7 @@ function telechargerBlob(blob, nomFichier) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ===== Export CSV de la liste des demandes (v0.142) =====
+// ===== Export CSV de la liste des demandes (v0.143) =====
 // Colonnes = colonnes affichées (dans l'ordre courant), lignes = demandes filtrées, dans l'ordre du tri.
 // Séparateur « ; » + BOM UTF-8 pour une ouverture directe dans Excel français. Dates sans heure.
 function echapperCsv(v) {
@@ -5847,6 +5906,7 @@ function valeurCsvColonne(ligne, col) {
     case "Porteurs": return ligne.Porteurs || "";
     case "Titre": return ligne.Titre || "";
     case "Ref_BRM": return refBrm(ligne) || "";
+    case "Ref_Emergence": return refDemande(ligne.id);
     case "Typologie_de_la_demande": return typologiesDeLigne(ligne).join(", ");
     case "Tag": return tagsDeLigne(ligne).join(", ");
     case "Parties_prenantes_concernees": return nomActeur(ligne.Parties_prenantes_concernees) || "";
@@ -6694,6 +6754,7 @@ function ouvrirParametres() {
   const cfg = chargerConfigLlm();
   document.getElementById("param-version").textContent = "v" + VERSION_WIDGET;
   document.getElementById("param-journal-rida").checked = journalModificationsActif;
+  document.getElementById("param-lien-base").value = String(lireParametreJson(PARAM_LIEN_BASE, "") || "");
   document.getElementById("param-llm-fournisseur").value = FOURNISSEURS_LLM[cfg.fournisseur] ? cfg.fournisseur : "general";
   document.getElementById("param-llm-url").value = cfg.url || "";
   document.getElementById("param-llm-modele").value = cfg.modele || "";
@@ -7538,7 +7599,7 @@ function afficherIa() {
 // Un seul fichier .md structuré : consignes d'usage, statistiques, index des demandes, puis chaque fiche
 // (tous les champs renseignés + lignes RIDA), les lignes RIDA sans fiche et les acteurs. Pas de mails,
 // de téléphones ni d'images (remplacées par « [image] »).
-const CHAMPS_EXPORT_IGNORES = new Set(["id", "manualSort", "html_fiche", "Titre", "Date_de_modification"]);
+const CHAMPS_EXPORT_IGNORES = new Set(["id", "manualSort", "html_fiche", "Titre", "Ref_Emergence", "Date_de_modification"]);
 const CHAMPS_EXPORT_DATES = new Set(["Date_de_soumission", "Date_Go_NoGo_SDID", "Date_MVP_previsionnelle", "Date_MVP_realisee", "Date_de_cloture"]);
 
 function exportTexteMarkdown(v) {
@@ -7612,7 +7673,7 @@ async function genererMarkdownBase() {
   L.push("## Consignes d'usage pour le LLM");
   L.push("");
   L.push("- Ce document est la base des demandes accompagnées par l'équipe Émergence (ministère de l'Intérieur). Réponds uniquement à partir de son contenu ; si une information n'y figure pas, indique « non renseigné ».");
-  L.push("- Chaque demande est identifiée par `#id` (section « Fiche #id »). Cite les fiches sous la forme [#id] pour appuyer tes affirmations.");
+  L.push("- Chaque demande est identifiée par sa référence `EMG-0123` (section « Fiche EMG-0123 »). Cite les fiches sous la forme [EMG-0123] pour appuyer tes affirmations.");
   L.push("- RIDA = Information, Décision ou Action. Une action sans date « fait le » est non terminée. Les lignes « journal automatique » sont des traces de modification, sans contenu métier.");
   L.push("- Les statistiques ci-dessous sont calculées : utilise-les pour les comptages plutôt que de recompter.");
   L.push("- Les messages (mails reçus/envoyés) sont listés par fiche, corps nettoyé (citations et signatures retirées) et tronqué à " + MAX_CAR_MESSAGE_EXPORT + " caractères. Les adresses mail, téléphones et images ne sont pas inclus (images remplacées par « [image] »).");
@@ -7623,16 +7684,16 @@ async function genererMarkdownBase() {
   L.push("");
   L.push("## Index des demandes");
   L.push("");
-  L.push("| # | Titre | Statut | Priorité | Typologie | Organisation | Date d'entrée |");
+  L.push("| Réf. | Titre | Statut | Priorité | Typologie | Organisation | Date d'entrée |");
   L.push("|---|---|---|---|---|---|---|");
   const cellule = (t) => String(t || "—").replace(/\|/g, "\\|").replace(/\s+/g, " ");
-  fiches.forEach(f => L.push("| " + f.id + " | " + cellule(f.Titre) + " | " + cellule(f.Statut) + " | " + cellule(f.Priorite) + " | " +
+  fiches.forEach(f => L.push("| " + refDemande(f.id) + " | " + cellule(f.Titre) + " | " + cellule(f.Statut) + " | " + cellule(f.Priorite) + " | " +
     cellule(typologiesDeLigne(f).join(", ")) + " | " + cellule(f.Organisation) + " | " + (formaterDate(f.Date_de_soumission) || "—") + " |"));
   L.push("");
   L.push("## Fiches");
   fiches.forEach(f => {
     L.push("");
-    L.push("### Fiche #" + f.id + " — " + (String(f.Titre || "Sans titre").replace(/\s+/g, " ")));
+    L.push("### Fiche " + refDemande(f.id) + " — " + (String(f.Titre || "Sans titre").replace(/\s+/g, " ")));
     L.push("");
     const simples = [], longs = [];
     Object.keys(f).forEach(cle => {
@@ -7689,6 +7750,12 @@ async function telechargerBaseMarkdown(idMsg) {
     msg.textContent = "Échec de l'export : " + e.message;
   }
 }
+document.getElementById("param-lien-base").addEventListener("change", async (e) => {
+  const msg = document.getElementById("param-lien-msg"), v = e.target.value.trim();
+  if (v && !/#a\d+\.s\d+/.test(v)) { msg.className = "modale-msg erreur"; msg.textContent = "Lien non reconnu : il doit contenir « #a1.s7… » (lien d'ancre Grist d'une ligne)."; return; }
+  try { await ecrireParametreJson(PARAM_LIEN_BASE, v, "Modèle de lien direct vers une fiche (lien d'ancre Grist)"); msg.className = "modale-msg"; msg.textContent = "Enregistré."; }
+  catch (err) { msg.className = "modale-msg erreur"; msg.textContent = "Échec : " + (err && err.message || err); }
+});
 document.getElementById("param-export-md").addEventListener("click", () => telechargerBaseMarkdown("param-export-msg"));
 
 // ===================== Export PowerPoint d'une fiche (v0.114) =====================
@@ -8586,7 +8653,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.142) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.143) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -8787,7 +8854,7 @@ function dateMessage(epoch) {
 function inputDateVersEpochDebut(v) { return v ? Math.floor(new Date(v + "T00:00:00").getTime() / 1000) : 0; }
 function inputDateVersEpochFin(v) { return v ? Math.floor(new Date(v + "T23:59:59").getTime() / 1000) : 0; }
 
-// Recherche avancée (v0.142) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
+// Recherche avancée (v0.143) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
 // au moins un interlocuteur non SDID.
 function messageHorsSdid(m) {
   // interlocuteurs = expéditeur (message reçu) ou destinataires (message envoyé) ; un acteur dont l'organisation contient « SDID » est interne
@@ -8895,7 +8962,7 @@ setInterval(() => {
   if (document.getElementById("vue-messages").style.display !== "none" || (ligneSelectionneeId != null && document.getElementById("rida-tbody"))) actualiserMessagesSilencieusement();
 }, INTERVALLE_ACTUALISATION_MESSAGES_MS);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") actualiserMessagesSilencieusement(); });
-// ===================== Recherche avancée des messages (v0.142) =====================
+// ===================== Recherche avancée des messages (v0.143) =====================
 // 1) « Hors SDID » : messages échangés avec des personnes non SDID (organisation de l'acteur ; adresse inconnue = externe).
 // 2) Corrélation IA avec une demande (ou un texte libre) : chaque message de la période est vectorisé UNE SEULE FOIS
 //    (sujet + début du corps nettoyé, ~1000 car.) via /embeddings du fournisseur configuré ; les vecteurs restent en
