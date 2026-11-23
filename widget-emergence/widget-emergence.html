@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.153 -->
+<!-- Widget Emergence — v0.154 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -168,11 +168,11 @@
 
 <div id="vue-reporting" style="display:none;">
   <div class="sous-onglets-reporting" id="sous-onglets-reporting">
-    <button type="button" class="sous-onglet-reporting actif" data-sous-onglet="semaine">Cette semaine</button>
-    <button type="button" class="sous-onglet-reporting" data-sous-onglet="aujourdhui" title="Situation à date">Aujourd'hui</button>
+    <button type="button" class="sous-onglet-reporting" data-sous-onglet="semaine">Cette semaine</button>
+    <button type="button" class="sous-onglet-reporting actif" data-sous-onglet="aujourdhui" title="Situation à date">Aujourd'hui</button>
     <button type="button" class="sous-onglet-reporting" data-sous-onglet="evolution" title="Évolution dans le temps">Évolution</button>
   </div>
-  <div id="reporting-pane-semaine">
+  <div id="reporting-pane-semaine" style="display:none;">
   <div class="barre-reporting">
     <button type="button" id="reporting-precedente" title="Semaine précédente">◀</button>
     <span id="reporting-libelle-semaine" class="reporting-libelle-semaine"></span>
@@ -187,7 +187,7 @@
   <div id="reporting-synthese-zone" class="reporting-synthese" style="display:none;"></div>
   <div id="contenu-reporting" class="contenu-reporting"></div>
   </div>
-  <div id="reporting-pane-aujourdhui" style="display:none;">
+  <div id="reporting-pane-aujourdhui">
   <div class="barre-export-activite">
     <button type="button" id="btn-export-pdf-activite" class="btn-export-activite" title="Télécharger les graphiques (Aujourd'hui et Évolution) au format PDF">📄 Exporter en PDF</button>
     <span id="msg-export-pdf-activite" class="msg-export-activite"></span>
@@ -203,17 +203,6 @@
         <div id="parcours-statuts" class="graphique-conteneur"></div>
       </div>
     </div>
-    <div class="ligne-activite-haut">
-      <div class="carte-activite">
-        <div class="carte-activite-titre">Actions à faire par porteur</div>
-        <div id="graphique-activite-porteurs" class="graphique-conteneur"></div>
-      </div>
-      <div class="carte-activite carte-activite-indicateur">
-        <div class="carte-activite-titre">Demandes nouvelles ou en cours, sans aucune action</div>
-        <div id="indicateur-activite-sans-action" class="indicateur-nombre">—</div>
-        <div class="indicateur-sous-texte">Statut Nouveau ou Accompagnement, sans aucune ligne RIDA de type Action</div>
-      </div>
-    </div>
     <div class="carte-activite carte-activite-large">
       <div class="carte-activite-titre"><button type="button" class="btn-repli-kanban" data-cible="kanban-activite" aria-expanded="true" title="Masquer / afficher le contenu du kanban">▾</button> Kanban des demandes par statut <span class="kanban-legende"><span class="kanban-pastille kanban-p1"></span>P1 <span class="kanban-pastille kanban-p2"></span>P2 <span class="kanban-pastille kanban-p3"></span>P3 <span class="kanban-pastille kanban-p0"></span>sans priorité</span>
         <button type="button" id="btn-filtre-kanban" class="btn-filtre-kanban" title="Filtrer le kanban (colonnes, priorité, organisation, partie prenante)">🔎 Filtrer</button>
@@ -224,6 +213,17 @@
       <div class="carte-activite-titre"><button type="button" class="btn-repli-kanban" data-cible="kanban-jalons" aria-expanded="true" title="Masquer / afficher le contenu du kanban">▾</button> Kanban des demandes par jalon <span class="kanban-legende" style="font-weight:400;">(mêmes filtres 🔎 que le kanban par statut ; durées en jours ouvrés)</span>
         <span id="kanban-jalons-info" class="kanban-filtre-info"></span></div>
       <div id="kanban-jalons" class="kanban-jalons"></div>
+    </div>
+    <div class="ligne-activite-haut">
+      <div class="carte-activite">
+        <div class="carte-activite-titre">Actions à faire par porteur</div>
+        <div id="graphique-activite-porteurs" class="graphique-conteneur"></div>
+      </div>
+      <div class="carte-activite carte-activite-indicateur">
+        <div class="carte-activite-titre">Demandes nouvelles ou en cours, sans aucune action</div>
+        <div id="indicateur-activite-sans-action" class="indicateur-nombre">—</div>
+        <div class="indicateur-sous-texte">Statut Nouveau ou Accompagnement, sans aucune ligne RIDA de type Action</div>
+      </div>
     </div>
   </div>
   </div>
@@ -848,7 +848,7 @@
     border-radius: 8px;
   }
 
-  /* Barres de défilement toujours visibles et grisées (v0.153) — sans elles, les barres « overlay » (macOS, navigateurs
+  /* Barres de défilement toujours visibles et grisées (v0.154) — sans elles, les barres « overlay » (macOS, navigateurs
      récents) restent invisibles tant qu'on ne défile pas et on ne voit pas que le tableau déborde. */
   .conteneur-liste, .conteneur-tableau-actions, .conteneur-tableau-contacts, .msg-tableau-conteneur { scrollbar-gutter: auto; }
   .conteneur-liste::-webkit-scrollbar, .conteneur-tableau-actions::-webkit-scrollbar, .conteneur-tableau-contacts::-webkit-scrollbar, .msg-tableau-conteneur::-webkit-scrollbar { width: 14px; height: 14px; }
