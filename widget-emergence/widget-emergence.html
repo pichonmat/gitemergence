@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.150 -->
+<!-- Widget Emergence — v0.151 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -195,7 +195,7 @@
   <div class="grille-activite">
     <div class="ligne-activite-haut">
       <div class="carte-activite">
-        <div class="carte-activite-titre">Demandes par statut</div>
+        <div class="carte-activite-titre">Demandes par statut <span id="activite-statuts-total" class="kanban-filtre-info"></span></div>
         <div id="graphique-activite-statuts" class="graphique-conteneur"></div>
       </div>
       <div class="carte-activite">
@@ -841,7 +841,7 @@
     border-radius: 8px;
   }
 
-  /* Barres de défilement toujours visibles et grisées (v0.150) — sans elles, les barres « overlay » (macOS, navigateurs
+  /* Barres de défilement toujours visibles et grisées (v0.151) — sans elles, les barres « overlay » (macOS, navigateurs
      récents) restent invisibles tant qu'on ne défile pas et on ne voit pas que le tableau déborde. */
   .conteneur-liste, .conteneur-tableau-actions, .conteneur-tableau-contacts, .msg-tableau-conteneur { scrollbar-gutter: auto; }
   .conteneur-liste::-webkit-scrollbar, .conteneur-tableau-actions::-webkit-scrollbar, .conteneur-tableau-contacts::-webkit-scrollbar, .msg-tableau-conteneur::-webkit-scrollbar { width: 14px; height: 14px; }
