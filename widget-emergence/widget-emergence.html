@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.152 -->
+<!-- Widget Emergence — v0.153 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -193,11 +193,17 @@
     <span id="msg-export-pdf-activite" class="msg-export-activite"></span>
   </div>
   <div class="grille-activite">
-    <div class="ligne-activite-haut">
+    <div class="ligne-activite-statuts">
       <div class="carte-activite">
         <div class="carte-activite-titre">Demandes par statut <span id="activite-statuts-total" class="kanban-filtre-info"></span></div>
         <div id="graphique-activite-statuts" class="graphique-conteneur"></div>
       </div>
+      <div class="carte-activite">
+        <div class="carte-activite-titre">Parcours d'une demande Émergence</div>
+        <div id="parcours-statuts" class="graphique-conteneur"></div>
+      </div>
+    </div>
+    <div class="ligne-activite-haut">
       <div class="carte-activite">
         <div class="carte-activite-titre">Actions à faire par porteur</div>
         <div id="graphique-activite-porteurs" class="graphique-conteneur"></div>
@@ -691,8 +697,9 @@
   }
   .carte-activite-titre { font-size: calc(13px * var(--echelle-texte)); font-weight: 600; color: #1a3a6b; margin-bottom: 10px; }
   .carte-activite-large { grid-column: 1 / -1; }
-  .ligne-activite-haut { grid-column: 1 / -1; display: grid; gap: 16px; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.1fr) minmax(0, 1fr); align-items: stretch; }
-  @media (max-width: 900px) { .ligne-activite-haut { grid-template-columns: 1fr; } }
+  .ligne-activite-statuts { grid-column: 1 / -1; display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); align-items: stretch; }
+  .ligne-activite-haut { grid-column: 1 / -1; display: grid; gap: 16px; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: stretch; }
+  @media (max-width: 900px) { .ligne-activite-haut, .ligne-activite-statuts { grid-template-columns: 1fr; } }
   .barre-export-activite { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
   .btn-export-activite { cursor: pointer; padding: 6px 12px; border-radius: 6px; border: 1px solid #1a3a6b; background: #1a3a6b; color: #fff; font-size: calc(12px * var(--echelle-texte)); font-weight: 600; }
   .btn-export-activite:disabled { opacity: 0.6; cursor: default; }
@@ -841,7 +848,7 @@
     border-radius: 8px;
   }
 
-  /* Barres de défilement toujours visibles et grisées (v0.152) — sans elles, les barres « overlay » (macOS, navigateurs
+  /* Barres de défilement toujours visibles et grisées (v0.153) — sans elles, les barres « overlay » (macOS, navigateurs
      récents) restent invisibles tant qu'on ne défile pas et on ne voit pas que le tableau déborde. */
   .conteneur-liste, .conteneur-tableau-actions, .conteneur-tableau-contacts, .msg-tableau-conteneur { scrollbar-gutter: auto; }
   .conteneur-liste::-webkit-scrollbar, .conteneur-tableau-actions::-webkit-scrollbar, .conteneur-tableau-contacts::-webkit-scrollbar, .msg-tableau-conteneur::-webkit-scrollbar { width: 14px; height: 14px; }

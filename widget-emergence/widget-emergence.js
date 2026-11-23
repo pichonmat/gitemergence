@@ -1,6 +1,6 @@
-// Widget Emergence — v0.152
-// Numéro de release : <majeure>.<build> (0.152 = release majeure 0, build 152).
-const VERSION_WIDGET = "0.152";
+// Widget Emergence — v0.153
+// Numéro de release : <majeure>.<build> (0.153 = release majeure 0, build 153).
+const VERSION_WIDGET = "0.153";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -484,7 +484,7 @@ const ANCIENS_LIBELLES_STATUT = {
   "5 - Transférer": "En cours de transfert", "6 - En attente": "Accompagnement", "7 - Clôturer": "Clôturer",
   "1- En cours": "Accompagnement", "2- En attente": "Accompagnement", "3- Clôturé": "Clôturer",
   "4- Transféré": "En cours de transfert", "5- A qualifier": "Qualifier", "9 - A qualifier": "Qualifier",
-  // v0.152 : statuts supprimés (relus comme les nouveaux jusqu'à la migration des données)
+  // v0.153 : statuts supprimés (relus comme les nouveaux jusqu'à la migration des données)
   "Roadmap produit": "Nouveau", "Initialisation projet": "Nouveau", "Recherche cause racine": "Qualifier"
 };
 function normaliserStatut(statut) {
@@ -615,7 +615,7 @@ function sauvegarderOrdreColonnes() {
 // Référence BRM (colonne texte facultative de la table Emergence, libellé « Ref BRM ») : lue sous
 // son identifiant Grist quel qu'il soit (Ref_BRM, RefBRM, ref_brm...) ; chaîne vide si la colonne
 // n'existe pas ou n'est pas renseignée.
-// Référence d'une demande (v0.152) : « EMG- » + id de ligne Grist sur 4 chiffres (ex. EMG-0123). Calculée ici à partir de
+// Référence d'une demande (v0.153) : « EMG- » + id de ligne Grist sur 4 chiffres (ex. EMG-0123). Calculée ici à partir de
 // l'id, comme la colonne formule Emergence.Ref_Emergence créée par l'outil de migration ("EMG-%04d" % $id) : le widget
 // n'a donc pas besoin que cette colonne existe. La référence est réversible (EMG-0123 ↔ ligne 123).
 const PREFIXE_REF_DEMANDE = "EMG-";
@@ -782,7 +782,7 @@ const DELAI_DOUBLE_CLIC_MS = 400;
 let timerEditionListe = null; // édition en place différée : annulée si un double clic suit
 let filtrePrioriteSelection = new Set();      // vide = toutes les priorités (valeur "" = sans priorité)
 let filtreTypologieSelection = new Set();    // vide = toutes les typologies
-let filtreTagSelection = new Set();          // vide = tous les tags (v0.152)
+let filtreTagSelection = new Set();          // vide = tous les tags (v0.153)
 let filtreOrganisationSelection = new Set(); // vide = toutes les organisations
 let filtreSponsorTexte = "";          // recherche libre dans le Sponsor
 let filtrePorteurTexte = "";          // recherche libre dans le(s) Porteur(s)
@@ -816,7 +816,7 @@ grist.onRecords(async function (records) {
   }
 });
 
-// Lien direct (v0.152) : un lien Grist « …#a1.sX.r123 » place le curseur sur la ligne 123 ; on ouvre alors sa fiche.
+// Lien direct (v0.153) : un lien Grist « …#a1.sX.r123 » place le curseur sur la ligne 123 ; on ouvre alors sa fiche.
 // Au tout premier signal, le curseur par défaut (première ligne de la vue) n'est pas considéré comme un lien.
 function ouvrirDepuisCurseurGrist(id) {
   if (!id || id === ligneSelectionneeId) return;
@@ -5056,7 +5056,7 @@ document.getElementById("tag-planning").addEventListener("click", () => basculer
 document.getElementById("tag-ia").addEventListener("click", () => basculerVue("ia"));
 document.getElementById("tag-messages").addEventListener("click", () => basculerVue("messages"));
 
-// --- Reporting : 3 sous-onglets (v0.152) ---
+// --- Reporting : 3 sous-onglets (v0.153) ---
 // « Cette semaine » = reporting hebdomadaire ; « Aujourd'hui » = situation à date (statuts, porteurs, kanbans) ;
 // « Évolution » = évolution dans le temps (actions par semaine, délais de traitement). L'ancien onglet Activité est absorbé.
 let sousOngletReporting = "semaine";
@@ -5338,6 +5338,49 @@ function construireGraphiqueBarresEmpileesSemaines(categories, semaines, faites,
   return { svg, xAujourdhui, largeurTotale: largeur };
 }
 
+// Parcours d'une demande (v0.153) : schéma du cycle de vie avec le nombre de demandes par statut.
+function construireParcoursStatuts(statuts, comptages) {
+  const n = {}; statuts.forEach((st, i) => { n[st] = comptages[i] || 0; });
+  const coul = st => COULEURS_STATUT[st] || { fond: "#eee", texte: "#444" };
+  const Y = 153, YR = 277, XC = 714, XS = 472;
+  const etapes = [["Nouveau", 51], ["Contacter", 156], ["Qualifier", 262], ["Accompagnement", 367], ["En cours de transfert", 578]];
+  const pastille = (x, y, v, fond) => "<rect x='" + (x - 19) + "' y='" + y + "' width='38' height='20' rx='10' fill='" + fond + "'/>" +
+    "<text x='" + x + "' y='" + (y + 14) + "' text-anchor='middle' font-size='12' font-weight='700' fill='#333'>" + v + "</text>";
+  let svg = "<svg viewBox='0 22 790 322' width='100%' xmlns='http://www.w3.org/2000/svg' font-family='sans-serif' role='img' aria-label='Parcours d\\'une demande'>";
+  // sortie vers Clôturer : pointillés verticaux + rail
+  const xs = etapes.map(e => e[1]).concat([XS]).sort((a, b) => a - b);
+  xs.forEach(x => { svg += "<line x1='" + x + "' y1='" + (x === XS ? 94 : 215) + "' x2='" + x + "' y2='" + YR + "' stroke='#b0b0bc' stroke-width='2.5' stroke-dasharray='5 5'/>"; });
+  svg += "<path d='M51 " + YR + " H" + (XC - 34) + " Q" + XC + " " + YR + " " + XC + " " + (YR - 34) + " V" + (Y + 20) + "' fill='none' stroke='#b9b6cc' stroke-width='7' stroke-linecap='round'/>";
+  xs.forEach(x => { svg += "<circle cx='" + x + "' cy='" + YR + "' r='6' fill='#fff' stroke='#b0b0bc' stroke-width='3'/>"; });
+  // parcours principal
+  svg += "<line x1='51' y1='" + Y + "' x2='" + XC + "' y2='" + Y + "' stroke='#1a1a9c' stroke-width='9'/>";
+  // étape optionnelle (Support)
+  svg += "<path d='M380 148 C425 132 435 78 " + XS + " 78 C510 78 525 132 566 148' fill='none' stroke='#1e7e34' stroke-width='7' stroke-dasharray='13 9' stroke-linecap='round'/>";
+  const cs = coul("Support");
+  svg += "<circle cx='" + XS + "' cy='78' r='13' fill='#fff' stroke='" + cs.texte + "' stroke-width='6'/>" +
+    "<text x='" + (XS - 18) + "' y='44' text-anchor='middle' font-size='14' font-weight='700' fill='" + cs.texte + "'>Support</text>" +
+    "<text x='" + (XS - 18) + "' y='57' text-anchor='middle' font-size='10' font-style='italic' fill='" + cs.texte + "'>optionnel</text>" +
+    pastille(XS + 40, 28, n["Support"] || 0, cs.fond);
+  etapes.forEach(([st, x]) => {
+    const c = coul(st);
+    svg += "<circle cx='" + x + "' cy='" + Y + "' r='13' fill='#fff' stroke='" + c.texte + "' stroke-width='6'/>" +
+      "<text x='" + x + "' y='" + (Y + 32) + "' text-anchor='middle' font-size='14' font-weight='700' fill='" + c.texte + "'>" + escapeHtml(st) + "</text>" +
+      pastille(x, Y + 42, n[st] || 0, c.fond);
+  });
+  // Clôturer
+  svg += "<circle cx='" + XC + "' cy='" + Y + "' r='16' fill='#fff' stroke='#444' stroke-width='7'/><circle cx='" + XC + "' cy='" + Y + "' r='7' fill='#444'/>" +
+    "<text x='" + XC + "' y='" + (Y - 32) + "' text-anchor='middle' font-size='14' font-weight='700' fill='#444'>Clôturer</text>" +
+    "<rect x='" + (XC + 26) + "' y='" + (Y - 10) + "' width='38' height='20' rx='10' fill='#e5e5e5'/><text x='" + (XC + 45) + "' y='" + (Y + 4) + "' text-anchor='middle' font-size='12' font-weight='700' fill='#333'>" + (n["Clôturer"] || 0) + "</text>" +
+    "<text x='390' y='" + (YR + 20) + "' text-anchor='middle' font-size='12' font-style='italic' fill='#666'>Sortie possible à chaque étape vers Clôturer</text>";
+  // légende
+  const ly = 330;
+  svg += "<line x1='10' y1='" + ly + "' x2='50' y2='" + ly + "' stroke='#1a1a9c' stroke-width='7' stroke-linecap='round'/><text x='58' y='" + (ly + 4) + "' font-size='11' fill='#333'>Parcours principal</text>" +
+    "<line x1='170' y1='" + ly + "' x2='210' y2='" + ly + "' stroke='#1e7e34' stroke-width='6' stroke-dasharray='9 6' stroke-linecap='round'/><text x='218' y='" + (ly + 4) + "' font-size='11' fill='#333'>Étape optionnelle</text>" +
+    "<line x1='330' y1='" + ly + "' x2='370' y2='" + ly + "' stroke='#b0b0bc' stroke-width='2.5' stroke-dasharray='5 5'/><text x='378' y='" + (ly + 4) + "' font-size='11' fill='#333'>Sortie vers Clôturer</text>" +
+    "<rect x='500' y='" + (ly - 9) + "' width='30' height='18' rx='9' fill='#e5e5e5'/><text x='515' y='" + (ly + 4) + "' text-anchor='middle' font-size='11' font-weight='700' fill='#333'>n</text><text x='538' y='" + (ly + 4) + "' font-size='11' fill='#333'>Nombre de demandes dans le statut</text>";
+  return svg + "</svg>";
+}
+
 function afficherActivite() {
   const conteneurStatuts = document.getElementById("graphique-activite-statuts");
   const conteneurSemaines = document.getElementById("graphique-activite-semaines");
@@ -5349,6 +5392,8 @@ function afficherActivite() {
 
   const couleursStatuts = donnees.statuts.map(s => (COULEURS_STATUT[s] && COULEURS_STATUT[s].texte) || "#3b5bdb");
   conteneurStatuts.innerHTML = construireGraphiqueBarresSimple(donnees.statuts, donnees.comptagesStatuts, couleursStatuts);
+  const parcours = document.getElementById("parcours-statuts");
+  if (parcours) parcours.innerHTML = construireParcoursStatuts(donnees.statuts, donnees.comptagesStatuts);
 
   const resultatSemaines = construireGraphiqueBarresEmpileesSemaines(
     donnees.semainesLabels, donnees.semaines, donnees.semainesFaites, donnees.semainesNonFaites, donnees.semaineAujourdhui
@@ -5404,7 +5449,7 @@ function ligneCorrespondFiltreKanban(l) {
   }
   return true;
 }
-// Repli des kanban (v0.152) : seul le bandeau des colonnes (titre + compteur) reste visible.
+// Repli des kanban (v0.153) : seul le bandeau des colonnes (titre + compteur) reste visible.
 const kanbansReplies = new Set(["kanban-activite", "kanban-jalons"]);   // repliés par défaut
 function appliquerReplisKanban() {
   document.querySelectorAll(".btn-repli-kanban").forEach(b => {
@@ -5531,7 +5576,7 @@ function construireKanban() {
   }).join("");
 }
 
-// ===== Kanban par jalons (v0.152) =====
+// ===== Kanban par jalons (v0.153) =====
 // Une demande = UNE colonne : celle du jalon le plus avancé atteint (Entrée → Go/NoGo → 1er atelier → MVP réalisée).
 // Mêmes filtres que le kanban par statut. Sous chaque titre : durée moyenne / min / max (jours ouvrés) pour atteindre le
 // jalon depuis le précédent, sur les demandes du périmètre ayant les deux dates (dates incohérentes ignorées).
@@ -5966,7 +6011,7 @@ function telechargerBlob(blob, nomFichier) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ===== Export CSV de la liste des demandes (v0.152) =====
+// ===== Export CSV de la liste des demandes (v0.153) =====
 // Colonnes = colonnes affichées (dans l'ordre courant), lignes = demandes filtrées, dans l'ordre du tri.
 // Séparateur « ; » + BOM UTF-8 pour une ouverture directe dans Excel français. Dates sans heure.
 function echapperCsv(v) {
@@ -8748,7 +8793,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.152) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.153) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -8949,7 +8994,7 @@ function dateMessage(epoch) {
 function inputDateVersEpochDebut(v) { return v ? Math.floor(new Date(v + "T00:00:00").getTime() / 1000) : 0; }
 function inputDateVersEpochFin(v) { return v ? Math.floor(new Date(v + "T23:59:59").getTime() / 1000) : 0; }
 
-// Recherche avancée (v0.152) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
+// Recherche avancée (v0.153) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
 // au moins un interlocuteur non SDID.
 function messageHorsSdid(m) {
   // interlocuteurs = expéditeur (message reçu) ou destinataires (message envoyé) ; un acteur dont l'organisation contient « SDID » est interne
@@ -9057,7 +9102,7 @@ setInterval(() => {
   if (document.getElementById("vue-messages").style.display !== "none" || (ligneSelectionneeId != null && document.getElementById("rida-tbody"))) actualiserMessagesSilencieusement();
 }, INTERVALLE_ACTUALISATION_MESSAGES_MS);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") actualiserMessagesSilencieusement(); });
-// ===================== Recherche avancée des messages (v0.152) =====================
+// ===================== Recherche avancée des messages (v0.153) =====================
 // 1) « Hors SDID » : messages échangés avec des personnes non SDID (organisation de l'acteur ; adresse inconnue = externe).
 // 2) Corrélation IA avec une demande (ou un texte libre) : chaque message de la période est vectorisé UNE SEULE FOIS
 //    (sujet + début du corps nettoyé, ~1000 car.) via /embeddings du fournisseur configuré ; les vecteurs restent en
