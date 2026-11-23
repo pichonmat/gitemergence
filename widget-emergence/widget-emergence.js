@@ -1,6 +1,6 @@
-// Widget Emergence — v0.155
-// Numéro de release : <majeure>.<build> (0.155 = release majeure 0, build 155).
-const VERSION_WIDGET = "0.155";
+// Widget Emergence — v0.156
+// Numéro de release : <majeure>.<build> (0.156 = release majeure 0, build 156).
+const VERSION_WIDGET = "0.156";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -484,7 +484,7 @@ const ANCIENS_LIBELLES_STATUT = {
   "5 - Transférer": "En cours de transfert", "6 - En attente": "Accompagnement", "7 - Clôturer": "Clôturer",
   "1- En cours": "Accompagnement", "2- En attente": "Accompagnement", "3- Clôturé": "Clôturer",
   "4- Transféré": "En cours de transfert", "5- A qualifier": "Qualifier", "9 - A qualifier": "Qualifier",
-  // v0.155 : statuts supprimés (relus comme les nouveaux jusqu'à la migration des données)
+  // v0.156 : statuts supprimés (relus comme les nouveaux jusqu'à la migration des données)
   "Roadmap produit": "Nouveau", "Initialisation projet": "Nouveau", "Recherche cause racine": "Qualifier"
 };
 function normaliserStatut(statut) {
@@ -615,7 +615,7 @@ function sauvegarderOrdreColonnes() {
 // Référence BRM (colonne texte facultative de la table Emergence, libellé « Ref BRM ») : lue sous
 // son identifiant Grist quel qu'il soit (Ref_BRM, RefBRM, ref_brm...) ; chaîne vide si la colonne
 // n'existe pas ou n'est pas renseignée.
-// Référence d'une demande (v0.155) : « EMG- » + id de ligne Grist sur 4 chiffres (ex. EMG-0123). Calculée ici à partir de
+// Référence d'une demande (v0.156) : « EMG- » + id de ligne Grist sur 4 chiffres (ex. EMG-0123). Calculée ici à partir de
 // l'id, comme la colonne formule Emergence.Ref_Emergence créée par l'outil de migration ("EMG-%04d" % $id) : le widget
 // n'a donc pas besoin que cette colonne existe. La référence est réversible (EMG-0123 ↔ ligne 123).
 const PREFIXE_REF_DEMANDE = "EMG-";
@@ -782,7 +782,7 @@ const DELAI_DOUBLE_CLIC_MS = 400;
 let timerEditionListe = null; // édition en place différée : annulée si un double clic suit
 let filtrePrioriteSelection = new Set();      // vide = toutes les priorités (valeur "" = sans priorité)
 let filtreTypologieSelection = new Set();    // vide = toutes les typologies
-let filtreTagSelection = new Set();          // vide = tous les tags (v0.155)
+let filtreTagSelection = new Set();          // vide = tous les tags (v0.156)
 let filtreOrganisationSelection = new Set(); // vide = toutes les organisations
 let filtreSponsorTexte = "";          // recherche libre dans le Sponsor
 let filtrePorteurTexte = "";          // recherche libre dans le(s) Porteur(s)
@@ -816,7 +816,7 @@ grist.onRecords(async function (records) {
   }
 });
 
-// Lien direct (v0.155) : un lien Grist « …#a1.sX.r123 » place le curseur sur la ligne 123 ; on ouvre alors sa fiche.
+// Lien direct (v0.156) : un lien Grist « …#a1.sX.r123 » place le curseur sur la ligne 123 ; on ouvre alors sa fiche.
 // Au tout premier signal, le curseur par défaut (première ligne de la vue) n'est pas considéré comme un lien.
 function ouvrirDepuisCurseurGrist(id) {
   if (!id || id === ligneSelectionneeId) return;
@@ -5056,7 +5056,7 @@ document.getElementById("tag-planning").addEventListener("click", () => basculer
 document.getElementById("tag-ia").addEventListener("click", () => basculerVue("ia"));
 document.getElementById("tag-messages").addEventListener("click", () => basculerVue("messages"));
 
-// --- Reporting : 3 sous-onglets (v0.155) ---
+// --- Reporting : 3 sous-onglets (v0.156) ---
 // « Cette semaine » = reporting hebdomadaire ; « Aujourd'hui » = situation à date (statuts, porteurs, kanbans) ;
 // « Évolution » = évolution dans le temps (actions par semaine, délais de traitement). L'ancien onglet Activité est absorbé.
 let sousOngletReporting = "aujourdhui";
@@ -5338,7 +5338,7 @@ function construireGraphiqueBarresEmpileesSemaines(categories, semaines, faites,
   return { svg, xAujourdhui, largeurTotale: largeur };
 }
 
-// Parcours d'une demande (v0.155) : plan de métro. Ligne Émergence (statuts + jalons datés, nombre de demandes par statut),
+// Parcours d'une demande (v0.156) : plan de métro. Ligne Émergence (statuts + jalons datés, nombre de demandes par statut),
 // ligne BRM (entrants → Arbitrage → suivi hebdo en Compil, avec un point par semaine) et ligne Autres offres DTNUM.
 // Coordonnées : 1 unité = 1/100 de pouce de la maquette (viewBox 1333 x 740).
 function construireParcoursStatuts(statuts, comptages) {
@@ -5350,15 +5350,15 @@ function construireParcoursStatuts(statuts, comptages) {
   const INDIGO = "#1a1a9c", SLATE = "#1f2a44", AMB = "#b45309", GRY = "#6b7280";
   const Y0 = Math.round(Y(Yl));
   const etapes = [["Nouveau", 51], ["Contacter", 150], ["Qualifier", XQ], ["Accompagnement", XA], ["En cours de transfert", XE]];
+  const libelle = st => st === "En cours de transfert" ? "Transfert" : st;
   const t = (x, y, txt, o) => { o = o || {};
     return "<text x='" + Math.round(x) + "' y='" + Math.round(y) + "' text-anchor='" + (o.a || "middle") + "' dominant-baseline='central' font-size='" + (o.fs || 18) + "'" +
       (o.b ? " font-weight='700'" : "") + (o.i ? " font-style='italic'" : "") + " fill='" + (o.c || "#333") + "'" + (o.ls ? " letter-spacing='" + o.ls + "'" : "") + ">" + escapeHtml(txt) + "</text>"; };
   const pill = (cx, cy, v, fond) => "<rect x='" + Math.round(cx - 25) + "' y='" + Math.round(cy - 13.5) + "' width='50' height='27' rx='13.5' fill='" + fond + "'/>" + t(cx, cy, String(v), { fs: 17, b: 1, c: "#2b2b2b" });
   const ligne = (x1, y1, x2, y2, c, w, dash) => "<line x1='" + Math.round(x1) + "' y1='" + Math.round(y1) + "' x2='" + Math.round(x2) + "' y2='" + Math.round(y2) + "' stroke='" + c + "' stroke-width='" + w + "'" + (dash ? " stroke-dasharray='" + dash + "'" : "") + "/>";
   const rond = (x, y, r, c, w, fill) => "<circle cx='" + Math.round(x) + "' cy='" + Math.round(y) + "' r='" + r + "' fill='" + (fill || "#fff") + "' stroke='" + c + "' stroke-width='" + w + "'/>";
-  let g = "<svg viewBox='40 5 1275 725' width='100%' xmlns='http://www.w3.org/2000/svg' font-family='sans-serif' role='img' aria-label='Parcours d’une demande : ligne Émergence, ligne BRM, ligne Autres offres'>";
+  let g = "<svg viewBox='40 5 1275 665' width='100%' xmlns='http://www.w3.org/2000/svg' font-family='sans-serif' role='img' aria-label='Parcours d’une demande : ligne Émergence, ligne BRM, ligne Autres offres'>";
   g += "<rect x='430' y='140' width='875' height='445' rx='25' fill='#f6f7ff' stroke='" + INDIGO + "' stroke-width='2.8' stroke-dasharray='10 7'/>" + t(455, 163, "Process Émergence · projets et accompagnement", { a: "start", fs: 19, b: 1, i: 1, c: INDIGO });
-  g += "<rect x='430' y='610' width='875' height='110' rx='25' fill='#fff' stroke='" + GRY + "' stroke-width='2.8' stroke-dasharray='10 7'/>";
   g += t(160, 214, "ENTRANTS", { a: "end", fs: 14, b: 1, c: GRY, ls: 2 });
   [["DN", 250], ["Mail Inno", 305], ["SDID", 395], ["MI & ATE", 450]].forEach(([nom, y]) => {
     g += "<path d='M160 " + y + " L200 " + y + " L265 " + Y0 + "' fill='none' stroke='" + SLATE + "' stroke-width='7' stroke-linejoin='round'/>" + rond(160, y, 11, SLATE, 4.5) + t(143, y, nom, { a: "end", fs: 18, b: 1, c: SLATE }); });
@@ -5368,8 +5368,8 @@ function construireParcoursStatuts(statuts, comptages) {
   g += rond(1235, 85, 20, AMB, 6.5) + "<path d='M1223 85 A12 12 0 1 1 1235 97' fill='none' stroke='" + AMB + "' stroke-width='4'/><path d='M1226 76 L1222 87 L1232 84 Z' fill='" + AMB + "'/>";
   g += t(1235, 30, "Suivi hebdo de l’avancement", { a: "end", fs: 19, b: 1, c: "#78350f" }) + t(1235, 54, "chaque semaine, en Compil", { a: "end", fs: 15, i: 1, c: "#78350f" });
   g += ligne(1235, 140, 1235, 118, AMB, 3, "6 4") + "<path d='M1235 108 L1228 120 L1242 120 Z' fill='" + AMB + "'/>";
-  g += "<path d='M335 " + (Y0 + 28) + " L335 600 Q335 665 400 665 L460 665' fill='none' stroke='" + GRY + "' stroke-width='9' stroke-linejoin='round'/>" + rond(460, 665, 20, GRY, 6.5);
-  g += t(500, 650, "Autres offres DTNUM", { a: "start", fs: 21, b: 1, c: "#374151" }) + t(500, 684, "N8N ; MIRAI API, Assistant IA, …", { a: "start", fs: 19, c: "#4b5563" });
+  g += "<path d='M335 " + (Y0 + 28) + " L335 600 Q335 625 360 625 L460 625' fill='none' stroke='" + GRY + "' stroke-width='9' stroke-linejoin='round'/>" + rond(460, 625, 20, GRY, 6.5);
+  g += t(500, 614, "Autres offres DTNUM", { a: "start", fs: 20, b: 1, c: "#374151" }) + t(500, 640, "N8N ; MIRAI API, Assistant IA, …", { a: "start", fs: 17, c: "#4b5563" });
   g += ligne(400, Y0, X(51), Y0, INDIGO, 11);
   g += "<rect x='265' y='" + (Y0 - 28) + "' width='140' height='56' rx='28' fill='#fff' stroke='" + SLATE + "' stroke-width='5.5'/>" + t(335, Y0, "Arbitrage BRM", { fs: 17, b: 1, c: SLATE });
   const xs = etapes.map(e => e[1]).concat([XG, XS]).sort((a, b) => a - b);
@@ -5379,15 +5379,18 @@ function construireParcoursStatuts(statuts, comptages) {
   g += ligne(X(51), Y(Yl), X(XC), Y(Yl), INDIGO, 11);
   g += "<path d='M" + Math.round(X(XA + 13)) + " " + Math.round(Y(148)) + " C" + Math.round(X(XA + 58)) + " " + Math.round(Y(132)) + " " + Math.round(X(XS - 37)) + " " + Math.round(Y(78)) + " " + Math.round(X(XS)) + " " + Math.round(Y(78)) +
        " C" + Math.round(X(XS + 38)) + " " + Math.round(Y(78)) + " " + Math.round(X(XE - 53)) + " " + Math.round(Y(132)) + " " + Math.round(X(XE - 12)) + " " + Math.round(Y(148)) + "' fill='none' stroke='#1e7e34' stroke-width='7.6' stroke-dasharray='9 7' stroke-linecap='round'/>";
+  // ligne vers Industrialisation (depuis Transfert)
+  const VIO = "#6b21a8", xt = Math.round(X(XE));
+  g += "<path d='M" + xt + " " + (Y0 - 18) + " Q" + xt + " 245 " + (xt + 40) + " 245 L1252 245' fill='none' stroke='" + VIO + "' stroke-width='9' stroke-linejoin='round'/>" + rond(1268, 245, 14, VIO, 5) + t(1292, 218, "Industrialisation", { a: "end", fs: 17, b: 1, c: VIO });
   [[51, "Entrée", "soumission"], [XG, "Go/NoGo", "Go/NoGo SDID"], [XQ, "1er atelier", "atelier RIDA"], [XA, "MVP", "MVP réalisée"]].forEach(([x, titre, sous]) => {
     const yd = Y(Yl - 60);
     g += ligne(X(x), Y(Yl - 15), X(x), Y(Yl - 52), "#6b7280", 1.8) + "<rect x='" + Math.round(X(x) - 12) + "' y='" + Math.round(yd - 12) + "' width='24' height='24' fill='" + INDIGO + "' transform='rotate(45 " + Math.round(X(x)) + " " + Math.round(yd) + ")'/>" +
-      t(X(x), yd - 40, titre, { fs: 18, b: 1, c: INDIGO }) + t(X(x), yd - 62, sous, { fs: 15, i: 1, c: "#555a66" }); });
+      t(X(x), yd - 36, titre, { fs: 15, b: 1, c: INDIGO }) + t(X(x), yd - 55, sous, { fs: 13, i: 1, c: "#555a66" }); });
   etapes.forEach(([st, x]) => { const c = coul(st);
-    g += rond(X(x), Y(Yl), 17, c.texte, 5.5) + t(X(x), Y(Yl) + 39, st, { fs: 16, b: 1, c: c.texte }) + pill(X(x), Y(Yl) + 73, n[st] || 0, c.fond); });
+    g += rond(X(x), Y(Yl), 17, c.texte, 5.5) + t(X(x), Y(Yl) + 39, libelle(st), { fs: 16, b: 1, c: c.texte }) + pill(X(x), Y(Yl) + 73, n[st] || 0, c.fond); });
   g += "<circle cx='" + Math.round(X(XG)) + "' cy='" + Y0 + "' r='14' fill='" + INDIGO + "' stroke='#fff' stroke-width='3'/>" + t(X(XG), Y(Yl) + 36, "Comité", { fs: 18, b: 1, c: INDIGO }) + t(X(XG), Y(Yl) + 56, "émergence", { fs: 18, b: 1, c: INDIGO });
   const cs = coul("Support");
-  g += rond(X(XS), Y(78), 17, cs.texte, 5.5) + t(X(XS - 10), Y(78) - 58, "Support", { fs: 18, b: 1, c: cs.texte }) + t(X(XS - 10), Y(78) - 36, "optionnel", { fs: 15, i: 1, c: cs.texte }) + pill(X(XS + 45), Y(78) - 58, n["Support"] || 0, cs.fond);
+  g += rond(X(XS), Y(78), 17, cs.texte, 5.5) + t(X(XS), Y(78) - 50, "Support", { fs: 18, b: 1, c: cs.texte }) + t(X(XS), Y(78) - 30, "optionnel", { fs: 15, i: 1, c: cs.texte }) + pill(X(XS), Y(Yl) + 73, n["Support"] || 0, cs.fond);
   g += rond(X(XC), Y(Yl), 16, "#444", 8) + "<circle cx='" + Math.round(X(XC)) + "' cy='" + Y0 + "' r='8' fill='#444'/>" + t(X(XC), Y(Yl) - 41, "Clôturer", { fs: 18, b: 1, c: "#444" }) + pill(X(XC) + 50, Y(Yl), n["Clôturer"] || 0, "#e5e5e5");
   g += t(X(390), Y(YR) + 26, "Sortie possible à chaque étape vers Clôturer", { fs: 15, i: 1, c: "#666b78" });
   const ly = Math.round(Y(YR) + 62);
@@ -5465,7 +5468,7 @@ function ligneCorrespondFiltreKanban(l) {
   }
   return true;
 }
-// Repli des kanban (v0.155) : seul le bandeau des colonnes (titre + compteur) reste visible.
+// Repli des kanban (v0.156) : seul le bandeau des colonnes (titre + compteur) reste visible.
 const kanbansReplies = new Set(["kanban-activite", "kanban-jalons"]);   // repliés par défaut
 function appliquerReplisKanban() {
   document.querySelectorAll(".btn-repli-kanban").forEach(b => {
@@ -5592,7 +5595,7 @@ function construireKanban() {
   }).join("");
 }
 
-// ===== Kanban par jalons (v0.155) =====
+// ===== Kanban par jalons (v0.156) =====
 // Une demande = UNE colonne : celle du jalon le plus avancé atteint (Entrée → Go/NoGo → 1er atelier → MVP réalisée).
 // Mêmes filtres que le kanban par statut. Sous chaque titre : durée moyenne / min / max (jours ouvrés) pour atteindre le
 // jalon depuis le précédent, sur les demandes du périmètre ayant les deux dates (dates incohérentes ignorées).
@@ -6027,7 +6030,7 @@ function telechargerBlob(blob, nomFichier) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ===== Export CSV de la liste des demandes (v0.155) =====
+// ===== Export CSV de la liste des demandes (v0.156) =====
 // Colonnes = colonnes affichées (dans l'ordre courant), lignes = demandes filtrées, dans l'ordre du tri.
 // Séparateur « ; » + BOM UTF-8 pour une ouverture directe dans Excel français. Dates sans heure.
 function echapperCsv(v) {
@@ -8809,7 +8812,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.155) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.156) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -9010,7 +9013,7 @@ function dateMessage(epoch) {
 function inputDateVersEpochDebut(v) { return v ? Math.floor(new Date(v + "T00:00:00").getTime() / 1000) : 0; }
 function inputDateVersEpochFin(v) { return v ? Math.floor(new Date(v + "T23:59:59").getTime() / 1000) : 0; }
 
-// Recherche avancée (v0.155) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
+// Recherche avancée (v0.156) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
 // au moins un interlocuteur non SDID.
 function messageHorsSdid(m) {
   // interlocuteurs = expéditeur (message reçu) ou destinataires (message envoyé) ; un acteur dont l'organisation contient « SDID » est interne
@@ -9118,7 +9121,7 @@ setInterval(() => {
   if (document.getElementById("vue-messages").style.display !== "none" || (ligneSelectionneeId != null && document.getElementById("rida-tbody"))) actualiserMessagesSilencieusement();
 }, INTERVALLE_ACTUALISATION_MESSAGES_MS);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") actualiserMessagesSilencieusement(); });
-// ===================== Recherche avancée des messages (v0.155) =====================
+// ===================== Recherche avancée des messages (v0.156) =====================
 // 1) « Hors SDID » : messages échangés avec des personnes non SDID (organisation de l'acteur ; adresse inconnue = externe).
 // 2) Corrélation IA avec une demande (ou un texte libre) : chaque message de la période est vectorisé UNE SEULE FOIS
 //    (sujet + début du corps nettoyé, ~1000 car.) via /embeddings du fournisseur configuré ; les vecteurs restent en
