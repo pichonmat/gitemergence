@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.147 -->
+<!-- Widget Emergence — v0.148 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -172,7 +172,7 @@
     <button type="button" class="sous-onglet-reporting" data-sous-onglet="aujourdhui" title="Situation à date">Aujourd'hui</button>
     <button type="button" class="sous-onglet-reporting" data-sous-onglet="evolution" title="Évolution dans le temps">Évolution</button>
   </div>
-  <div id="reporting-semaine">
+  <div id="reporting-pane-semaine">
   <div class="barre-reporting">
     <button type="button" id="reporting-precedente" title="Semaine précédente">◀</button>
     <span id="reporting-libelle-semaine" class="reporting-libelle-semaine"></span>
@@ -187,7 +187,7 @@
   <div id="reporting-synthese-zone" class="reporting-synthese" style="display:none;"></div>
   <div id="contenu-reporting" class="contenu-reporting"></div>
   </div>
-  <div id="reporting-aujourdhui" style="display:none;">
+  <div id="reporting-pane-aujourdhui" style="display:none;">
   <div class="barre-export-activite">
     <button type="button" id="btn-export-pdf-activite" class="btn-export-activite" title="Télécharger les graphiques (Aujourd'hui et Évolution) au format PDF">📄 Exporter en PDF</button>
     <span id="msg-export-pdf-activite" class="msg-export-activite"></span>
@@ -221,7 +221,7 @@
     </div>
   </div>
   </div>
-  <div id="reporting-evolution" style="display:none;">
+  <div id="reporting-pane-evolution" style="display:none;">
   <div class="grille-activite">
     <div class="carte-activite carte-activite-large">
       <div class="carte-activite-titre">Actions faites / à faire par semaine</div>
@@ -841,7 +841,7 @@
     border-radius: 8px;
   }
 
-  /* Barres de défilement toujours visibles et grisées (v0.147) — sans elles, les barres « overlay » (macOS, navigateurs
+  /* Barres de défilement toujours visibles et grisées (v0.148) — sans elles, les barres « overlay » (macOS, navigateurs
      récents) restent invisibles tant qu'on ne défile pas et on ne voit pas que le tableau déborde. */
   .conteneur-liste, .conteneur-tableau-actions, .conteneur-tableau-contacts, .msg-tableau-conteneur { scrollbar-gutter: auto; }
   .conteneur-liste::-webkit-scrollbar, .conteneur-tableau-actions::-webkit-scrollbar, .conteneur-tableau-contacts::-webkit-scrollbar, .msg-tableau-conteneur::-webkit-scrollbar { width: 14px; height: 14px; }
