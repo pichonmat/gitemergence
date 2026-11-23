@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.149 -->
+<!-- Widget Emergence — v0.150 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -209,13 +209,13 @@
       </div>
     </div>
     <div class="carte-activite carte-activite-large">
-      <div class="carte-activite-titre">Kanban des demandes par statut <span class="kanban-legende"><span class="kanban-pastille kanban-p1"></span>P1 <span class="kanban-pastille kanban-p2"></span>P2 <span class="kanban-pastille kanban-p3"></span>P3 <span class="kanban-pastille kanban-p0"></span>sans priorité</span>
+      <div class="carte-activite-titre"><button type="button" class="btn-repli-kanban" data-cible="kanban-activite" aria-expanded="true" title="Masquer / afficher le contenu du kanban">▾</button> Kanban des demandes par statut <span class="kanban-legende"><span class="kanban-pastille kanban-p1"></span>P1 <span class="kanban-pastille kanban-p2"></span>P2 <span class="kanban-pastille kanban-p3"></span>P3 <span class="kanban-pastille kanban-p0"></span>sans priorité</span>
         <button type="button" id="btn-filtre-kanban" class="btn-filtre-kanban" title="Filtrer le kanban (colonnes, priorité, organisation, partie prenante)">🔎 Filtrer</button>
         <span id="kanban-filtre-info" class="kanban-filtre-info"></span></div>
       <div id="kanban-activite" class="kanban"></div>
     </div>
     <div class="carte-activite carte-activite-large">
-      <div class="carte-activite-titre">Kanban des demandes par jalon <span class="kanban-legende" style="font-weight:400;">(mêmes filtres 🔎 que le kanban par statut ; durées en jours ouvrés)</span>
+      <div class="carte-activite-titre"><button type="button" class="btn-repli-kanban" data-cible="kanban-jalons" aria-expanded="true" title="Masquer / afficher le contenu du kanban">▾</button> Kanban des demandes par jalon <span class="kanban-legende" style="font-weight:400;">(mêmes filtres 🔎 que le kanban par statut ; durées en jours ouvrés)</span>
         <span id="kanban-jalons-info" class="kanban-filtre-info"></span></div>
       <div id="kanban-jalons" class="kanban-jalons"></div>
     </div>
@@ -841,7 +841,7 @@
     border-radius: 8px;
   }
 
-  /* Barres de défilement toujours visibles et grisées (v0.149) — sans elles, les barres « overlay » (macOS, navigateurs
+  /* Barres de défilement toujours visibles et grisées (v0.150) — sans elles, les barres « overlay » (macOS, navigateurs
      récents) restent invisibles tant qu'on ne défile pas et on ne voit pas que le tableau déborde. */
   .conteneur-liste, .conteneur-tableau-actions, .conteneur-tableau-contacts, .msg-tableau-conteneur { scrollbar-gutter: auto; }
   .conteneur-liste::-webkit-scrollbar, .conteneur-tableau-actions::-webkit-scrollbar, .conteneur-tableau-contacts::-webkit-scrollbar, .msg-tableau-conteneur::-webkit-scrollbar { width: 14px; height: 14px; }
@@ -857,6 +857,10 @@
   .sous-onglet-reporting { border: 0; background: transparent; padding: 6px 14px; cursor: pointer; font: inherit; font-weight: 600; color: #666; border-bottom: 3px solid transparent; margin-bottom: -1px; }
   .sous-onglet-reporting:hover { color: #222; }
   .sous-onglet-reporting.actif { color: #0f5f5a; border-bottom-color: #14a39a; }
+  .btn-repli-kanban { border: 1px solid #c8cdd6; background: #fff; border-radius: 4px; cursor: pointer; font-size: 12px; line-height: 1; padding: 2px 6px; margin-right: 4px; color: #374151; }
+  .btn-repli-kanban:hover { background: #f3f4f6; }
+  .kanban-replie .kanban-cartes { display: none; }
+  .kanban-replie .kanban-colonne { align-self: flex-start; }
   .kanban-jalons { overflow-x: auto; padding-bottom: 6px; }
   .kj-interieur { min-width: 800px; }
   .kj-ponts { position: relative; height: 50px; margin-bottom: 4px; }
