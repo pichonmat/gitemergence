@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.156 -->
+<!-- Widget Emergence — v0.157 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -695,7 +695,7 @@
   }
   .carte-activite-titre { font-size: calc(13px * var(--echelle-texte)); font-weight: 600; color: #1a3a6b; margin-bottom: 10px; }
   .carte-activite-large { grid-column: 1 / -1; }
-  #parcours-statuts svg { display: block; max-width: 1150px; margin: 0 auto; }
+  #parcours-statuts svg { display: block; max-width: 920px; margin: 0 auto; }
   .ligne-activite-statuts { grid-column: 1 / -1; display: grid; gap: 16px; grid-template-columns: minmax(0, 0.85fr) minmax(0, 2fr); align-items: stretch; }
   .ligne-activite-haut { grid-column: 1 / -1; display: grid; gap: 16px; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) minmax(0, 1fr); align-items: stretch; }
   @media (max-width: 900px) { .ligne-activite-haut, .ligne-activite-statuts { grid-template-columns: 1fr; } }
@@ -847,7 +847,7 @@
     border-radius: 8px;
   }
 
-  /* Barres de défilement toujours visibles et grisées (v0.156) — sans elles, les barres « overlay » (macOS, navigateurs
+  /* Barres de défilement toujours visibles et grisées (v0.157) — sans elles, les barres « overlay » (macOS, navigateurs
      récents) restent invisibles tant qu'on ne défile pas et on ne voit pas que le tableau déborde. */
   .conteneur-liste, .conteneur-tableau-actions, .conteneur-tableau-contacts, .msg-tableau-conteneur { scrollbar-gutter: auto; }
   .conteneur-liste::-webkit-scrollbar, .conteneur-tableau-actions::-webkit-scrollbar, .conteneur-tableau-contacts::-webkit-scrollbar, .msg-tableau-conteneur::-webkit-scrollbar { width: 14px; height: 14px; }
