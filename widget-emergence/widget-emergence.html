@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.148 -->
+<!-- Widget Emergence — v0.149 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -217,7 +217,7 @@
     <div class="carte-activite carte-activite-large">
       <div class="carte-activite-titre">Kanban des demandes par jalon <span class="kanban-legende" style="font-weight:400;">(mêmes filtres 🔎 que le kanban par statut ; durées en jours ouvrés)</span>
         <span id="kanban-jalons-info" class="kanban-filtre-info"></span></div>
-      <div id="kanban-jalons" class="kanban"></div>
+      <div id="kanban-jalons" class="kanban-jalons"></div>
     </div>
   </div>
   </div>
@@ -841,7 +841,7 @@
     border-radius: 8px;
   }
 
-  /* Barres de défilement toujours visibles et grisées (v0.148) — sans elles, les barres « overlay » (macOS, navigateurs
+  /* Barres de défilement toujours visibles et grisées (v0.149) — sans elles, les barres « overlay » (macOS, navigateurs
      récents) restent invisibles tant qu'on ne défile pas et on ne voit pas que le tableau déborde. */
   .conteneur-liste, .conteneur-tableau-actions, .conteneur-tableau-contacts, .msg-tableau-conteneur { scrollbar-gutter: auto; }
   .conteneur-liste::-webkit-scrollbar, .conteneur-tableau-actions::-webkit-scrollbar, .conteneur-tableau-contacts::-webkit-scrollbar, .msg-tableau-conteneur::-webkit-scrollbar { width: 14px; height: 14px; }
@@ -857,6 +857,19 @@
   .sous-onglet-reporting { border: 0; background: transparent; padding: 6px 14px; cursor: pointer; font: inherit; font-weight: 600; color: #666; border-bottom: 3px solid transparent; margin-bottom: -1px; }
   .sous-onglet-reporting:hover { color: #222; }
   .sous-onglet-reporting.actif { color: #0f5f5a; border-bottom-color: #14a39a; }
+  .kanban-jalons { overflow-x: auto; padding-bottom: 6px; }
+  .kj-interieur { min-width: 800px; }
+  .kj-ponts { position: relative; height: 50px; margin-bottom: 4px; }
+  .kj-pont { position: absolute; top: 2px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; text-align: center; white-space: nowrap;
+    background: #fff; border: 1px solid #c8cdd6; border-radius: 12px; padding: 2px 10px; font-size: calc(11px * var(--echelle-texte)); color: #374151; line-height: 1.25; z-index: 1; }
+  .kj-pont b { font-size: calc(12px * var(--echelle-texte)); }
+  .kj-pont span { font-size: calc(10px * var(--echelle-texte)); color: #6b7280; }
+  .kj-ponts::before { content: ""; position: absolute; left: 12.5%; right: 12.5%; top: 24px; border-top: 1px dashed #c8cdd6; }
+  .kj-grille { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; align-items: start; }
+  .kj-grille .kanban-colonne { min-width: 0; width: auto; }
+  .kj-titre { flex-direction: column; justify-content: flex-start; gap: 0; height: 46px; box-sizing: border-box; }
+  .kj-titre-ligne { display: flex; justify-content: space-between; gap: 6px; width: 100%; }
+  .kj-sans { font-size: calc(10px * var(--echelle-texte)); font-weight: 400; text-transform: lowercase; min-height: 1.2em; opacity: .85; }
   .kanban-jalon-stats { font-size: calc(10.5px * var(--echelle-texte)); font-weight: 400; margin-top: 2px; opacity: .9; line-height: 1.3; }
   .barre-redimension {
     display: flex;

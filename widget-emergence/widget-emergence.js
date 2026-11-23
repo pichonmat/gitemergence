@@ -1,6 +1,6 @@
-// Widget Emergence — v0.148
-// Numéro de release : <majeure>.<build> (0.148 = release majeure 0, build 148).
-const VERSION_WIDGET = "0.148";
+// Widget Emergence — v0.149
+// Numéro de release : <majeure>.<build> (0.149 = release majeure 0, build 149).
+const VERSION_WIDGET = "0.149";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -484,7 +484,7 @@ const ANCIENS_LIBELLES_STATUT = {
   "5 - Transférer": "En cours de transfert", "6 - En attente": "Accompagnement", "7 - Clôturer": "Clôturer",
   "1- En cours": "Accompagnement", "2- En attente": "Accompagnement", "3- Clôturé": "Clôturer",
   "4- Transféré": "En cours de transfert", "5- A qualifier": "Qualifier", "9 - A qualifier": "Qualifier",
-  // v0.148 : statuts supprimés (relus comme les nouveaux jusqu'à la migration des données)
+  // v0.149 : statuts supprimés (relus comme les nouveaux jusqu'à la migration des données)
   "Roadmap produit": "Nouveau", "Initialisation projet": "Nouveau", "Recherche cause racine": "Qualifier"
 };
 function normaliserStatut(statut) {
@@ -615,7 +615,7 @@ function sauvegarderOrdreColonnes() {
 // Référence BRM (colonne texte facultative de la table Emergence, libellé « Ref BRM ») : lue sous
 // son identifiant Grist quel qu'il soit (Ref_BRM, RefBRM, ref_brm...) ; chaîne vide si la colonne
 // n'existe pas ou n'est pas renseignée.
-// Référence d'une demande (v0.148) : « EMG- » + id de ligne Grist sur 4 chiffres (ex. EMG-0123). Calculée ici à partir de
+// Référence d'une demande (v0.149) : « EMG- » + id de ligne Grist sur 4 chiffres (ex. EMG-0123). Calculée ici à partir de
 // l'id, comme la colonne formule Emergence.Ref_Emergence créée par l'outil de migration ("EMG-%04d" % $id) : le widget
 // n'a donc pas besoin que cette colonne existe. La référence est réversible (EMG-0123 ↔ ligne 123).
 const PREFIXE_REF_DEMANDE = "EMG-";
@@ -782,7 +782,7 @@ const DELAI_DOUBLE_CLIC_MS = 400;
 let timerEditionListe = null; // édition en place différée : annulée si un double clic suit
 let filtrePrioriteSelection = new Set();      // vide = toutes les priorités (valeur "" = sans priorité)
 let filtreTypologieSelection = new Set();    // vide = toutes les typologies
-let filtreTagSelection = new Set();          // vide = tous les tags (v0.148)
+let filtreTagSelection = new Set();          // vide = tous les tags (v0.149)
 let filtreOrganisationSelection = new Set(); // vide = toutes les organisations
 let filtreSponsorTexte = "";          // recherche libre dans le Sponsor
 let filtrePorteurTexte = "";          // recherche libre dans le(s) Porteur(s)
@@ -816,7 +816,7 @@ grist.onRecords(async function (records) {
   }
 });
 
-// Lien direct (v0.148) : un lien Grist « …#a1.sX.r123 » place le curseur sur la ligne 123 ; on ouvre alors sa fiche.
+// Lien direct (v0.149) : un lien Grist « …#a1.sX.r123 » place le curseur sur la ligne 123 ; on ouvre alors sa fiche.
 // Au tout premier signal, le curseur par défaut (première ligne de la vue) n'est pas considéré comme un lien.
 function ouvrirDepuisCurseurGrist(id) {
   if (!id || id === ligneSelectionneeId) return;
@@ -5056,7 +5056,7 @@ document.getElementById("tag-planning").addEventListener("click", () => basculer
 document.getElementById("tag-ia").addEventListener("click", () => basculerVue("ia"));
 document.getElementById("tag-messages").addEventListener("click", () => basculerVue("messages"));
 
-// --- Reporting : 3 sous-onglets (v0.148) ---
+// --- Reporting : 3 sous-onglets (v0.149) ---
 // « Cette semaine » = reporting hebdomadaire ; « Aujourd'hui » = situation à date (statuts, porteurs, kanbans) ;
 // « Évolution » = évolution dans le temps (actions par semaine, délais de traitement). L'ancien onglet Activité est absorbé.
 let sousOngletReporting = "semaine";
@@ -5512,15 +5512,15 @@ function construireKanban() {
   }).join("");
 }
 
-// ===== Kanban par jalons (v0.148) =====
+// ===== Kanban par jalons (v0.149) =====
 // Une demande = UNE colonne : celle du jalon le plus avancé atteint (Entrée → Go/NoGo → 1er atelier → MVP réalisée).
 // Mêmes filtres que le kanban par statut. Sous chaque titre : durée moyenne / min / max (jours ouvrés) pour atteindre le
 // jalon depuis le précédent, sur les demandes du périmètre ayant les deux dates (dates incohérentes ignorées).
 const JALONS_KANBAN = [
-  { cle: "entree", titre: "Entrée, sans Go/NoGo", fond: "#e0f2fe", texte: "#075985", de: null, vers: null },
-  { cle: "gonogo", titre: "Go/NoGo, sans 1er atelier", fond: "#fef3c7", texte: "#92400e", de: "entree", vers: "gonogo" },
-  { cle: "atelier", titre: "1er atelier, sans MVP", fond: "#ede9fe", texte: "#5b21b6", de: "gonogo", vers: "atelier" },
-  { cle: "mvp", titre: "MVP réalisée", fond: "#dcfce7", texte: "#166534", de: "atelier", vers: "mvp" }
+  { cle: "entree", titre: "Entrée", sans: "sans Go/NoGo", fond: "#e0f2fe", texte: "#075985", de: null, vers: null },
+  { cle: "gonogo", titre: "Go/NoGo", sans: "sans 1er atelier", fond: "#fef3c7", texte: "#92400e", de: "entree", vers: "gonogo" },
+  { cle: "atelier", titre: "1er atelier", sans: "sans MVP", fond: "#ede9fe", texte: "#5b21b6", de: "gonogo", vers: "atelier" },
+  { cle: "mvp", titre: "MVP réalisée", sans: "", fond: "#dcfce7", texte: "#166534", de: "atelier", vers: "mvp" }
 ];
 function datesJalonsDemande(l) {
   return { entree: Number(l.Date_de_soumission) || 0, gonogo: Number(l.Date_Go_NoGo_SDID) || 0, atelier: Number(datePremierAtelier(l.id)) || 0, mvp: Number(l.Date_MVP_realisee) || 0 };
@@ -5539,22 +5539,30 @@ function construireKanbanJalons() {
   if (info) info.textContent = sansDate ? sansDate + " demande(s) sans aucune date, non affichée(s)" : "";
   const rang = (l) => l.Priorite ? String(l.Priorite).trim() : "P9";
   const fmt = (x) => (Math.round(x * 10) / 10).toLocaleString("fr-FR");
-  return JALONS_KANBAN.map(j => {
+  const colonnes = JALONS_KANBAN.map(j => {
     const lignes = perimetre.filter(x => jalonAtteint(x.d) === j.cle).map(x => x.l)
       .sort((a, b) => rang(a).localeCompare(rang(b)) || String(a.Titre || "").localeCompare(String(b.Titre || "")));
-    const st = j.de ? statsDureesJalon(perimetre, j.de, j.vers) : null;
-    const stats = j.de ? (st ? "⏱ moy. " + fmt(st.moy) + " j · min " + st.min + " · max " + st.max + " <span title='Nombre de demandes ayant les deux dates'>(" + st.n + ")</span>" : "⏱ pas assez de dates") : "";
     const cartes = lignes.map(l => {
       const detail = [l.Porteurs, l.Organisation].filter(Boolean).join(" · ");
       return "<div class='kanban-carte " + classePrioriteKanban(l.Priorite) + "' data-id='" + l.id + "' title=\"" + escapeHtml((l.Titre || "Sans titre") + (l.Priorite ? " — " + l.Priorite : "")) + "\">" +
         "<div class='kanban-carte-titre'>" + escapeHtml(l.Titre || "Sans titre") + "</div>" +
         (detail ? "<div class='kanban-carte-detail'>" + escapeHtml(detail) + "</div>" : "") + "</div>";
     }).join("");
-    return "<div class='kanban-colonne'><div class='kanban-colonne-titre' style='background:" + j.fond + "; color:" + j.texte + "; flex-direction:column; align-items:flex-start;'>" +
-      "<div style='display:flex;justify-content:space-between;gap:6px;width:100%;'><span>" + escapeHtml(j.titre) + "</span><span>" + lignes.length + "</span></div>" +
-      (stats ? "<span class='kanban-jalon-stats'>" + stats + "</span>" : "") + "</div>" +
+    return "<div class='kanban-colonne'><div class='kanban-colonne-titre kj-titre' style='background:" + j.fond + "; color:" + j.texte + ";'>" +
+      "<div class='kj-titre-ligne'><span>" + escapeHtml(j.titre) + "</span><span>" + lignes.length + "</span></div>" +
+      "<div class='kj-sans'>" + escapeHtml(j.sans) + "</div></div>" +
       "<div class='kanban-cartes'>" + (cartes || "<div class='kanban-carte-detail' style='padding:4px;'>—</div>") + "</div></div>";
   }).join("");
+  // Durées de transition, « à cheval » sur la frontière entre deux colonnes (jalon précédent → jalon suivant).
+  const ponts = JALONS_KANBAN.slice(1).map((j, k) => {
+    const st = statsDureesJalon(perimetre, j.de, j.vers);
+    const nomDe = JALONS_KANBAN[k].titre, nomVers = j.titre;
+    const contenu = st
+      ? "<b>⏱ moy. " + fmt(st.moy) + " j</b><span>min " + st.min + " · max " + st.max + " · " + st.n + " dem.</span>"
+      : "<b>⏱</b><span>pas assez de dates</span>";
+    return "<div class='kj-pont' style='left:calc((100% + 8px) * " + (k + 1) + " / 4 - 4px);' title=\"" + escapeHtml("Durée entre « " + nomDe + " » et « " + nomVers + " » (jours ouvrés, demandes ayant les deux dates)") + "\">" + contenu + "</div>";
+  }).join("");
+  return "<div class='kj-interieur'><div class='kj-ponts'>" + ponts + "</div><div class='kj-grille'>" + colonnes + "</div></div>";
 }
 
 // ===================== Export PDF de l'activité =====================
@@ -5935,7 +5943,7 @@ function telechargerBlob(blob, nomFichier) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ===== Export CSV de la liste des demandes (v0.148) =====
+// ===== Export CSV de la liste des demandes (v0.149) =====
 // Colonnes = colonnes affichées (dans l'ordre courant), lignes = demandes filtrées, dans l'ordre du tri.
 // Séparateur « ; » + BOM UTF-8 pour une ouverture directe dans Excel français. Dates sans heure.
 function echapperCsv(v) {
@@ -8717,7 +8725,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.148) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.149) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -8918,7 +8926,7 @@ function dateMessage(epoch) {
 function inputDateVersEpochDebut(v) { return v ? Math.floor(new Date(v + "T00:00:00").getTime() / 1000) : 0; }
 function inputDateVersEpochFin(v) { return v ? Math.floor(new Date(v + "T23:59:59").getTime() / 1000) : 0; }
 
-// Recherche avancée (v0.148) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
+// Recherche avancée (v0.149) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
 // au moins un interlocuteur non SDID.
 function messageHorsSdid(m) {
   // interlocuteurs = expéditeur (message reçu) ou destinataires (message envoyé) ; un acteur dont l'organisation contient « SDID » est interne
@@ -9026,7 +9034,7 @@ setInterval(() => {
   if (document.getElementById("vue-messages").style.display !== "none" || (ligneSelectionneeId != null && document.getElementById("rida-tbody"))) actualiserMessagesSilencieusement();
 }, INTERVALLE_ACTUALISATION_MESSAGES_MS);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") actualiserMessagesSilencieusement(); });
-// ===================== Recherche avancée des messages (v0.148) =====================
+// ===================== Recherche avancée des messages (v0.149) =====================
 // 1) « Hors SDID » : messages échangés avec des personnes non SDID (organisation de l'acteur ; adresse inconnue = externe).
 // 2) Corrélation IA avec une demande (ou un texte libre) : chaque message de la période est vectorisé UNE SEULE FOIS
 //    (sujet + début du corps nettoyé, ~1000 car.) via /embeddings du fournisseur configuré ; les vecteurs restent en
