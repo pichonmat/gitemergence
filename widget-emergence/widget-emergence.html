@@ -1,9 +1,8 @@
-<!-- Widget Emergence — v0.146 -->
+<!-- Widget Emergence — v0.147 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
   <button type="button" id="tag-contacts" class="tag-mode tag-mode-contacts">Contacts</button>
-  <button type="button" id="tag-activite" class="tag-mode tag-mode-activite">Activité</button>
   <button type="button" id="tag-planning" class="tag-mode tag-mode-planning">Planning</button>
   <button type="button" id="tag-reporting" class="tag-mode tag-mode-reporting">Reporting</button>
   <button type="button" id="tag-ia" class="tag-mode tag-mode-ia">IA</button>
@@ -168,6 +167,12 @@
 </div>
 
 <div id="vue-reporting" style="display:none;">
+  <div class="sous-onglets-reporting" id="sous-onglets-reporting">
+    <button type="button" class="sous-onglet-reporting actif" data-sous-onglet="semaine">Cette semaine</button>
+    <button type="button" class="sous-onglet-reporting" data-sous-onglet="aujourdhui" title="Situation à date">Aujourd'hui</button>
+    <button type="button" class="sous-onglet-reporting" data-sous-onglet="evolution" title="Évolution dans le temps">Évolution</button>
+  </div>
+  <div id="reporting-semaine">
   <div class="barre-reporting">
     <button type="button" id="reporting-precedente" title="Semaine précédente">◀</button>
     <span id="reporting-libelle-semaine" class="reporting-libelle-semaine"></span>
@@ -181,6 +186,59 @@
   </div>
   <div id="reporting-synthese-zone" class="reporting-synthese" style="display:none;"></div>
   <div id="contenu-reporting" class="contenu-reporting"></div>
+  </div>
+  <div id="reporting-aujourdhui" style="display:none;">
+  <div class="barre-export-activite">
+    <button type="button" id="btn-export-pdf-activite" class="btn-export-activite" title="Télécharger les graphiques (Aujourd'hui et Évolution) au format PDF">📄 Exporter en PDF</button>
+    <span id="msg-export-pdf-activite" class="msg-export-activite"></span>
+  </div>
+  <div class="grille-activite">
+    <div class="ligne-activite-haut">
+      <div class="carte-activite">
+        <div class="carte-activite-titre">Demandes par statut</div>
+        <div id="graphique-activite-statuts" class="graphique-conteneur"></div>
+      </div>
+      <div class="carte-activite">
+        <div class="carte-activite-titre">Actions à faire par porteur</div>
+        <div id="graphique-activite-porteurs" class="graphique-conteneur"></div>
+      </div>
+      <div class="carte-activite carte-activite-indicateur">
+        <div class="carte-activite-titre">Demandes nouvelles ou en cours, sans aucune action</div>
+        <div id="indicateur-activite-sans-action" class="indicateur-nombre">—</div>
+        <div class="indicateur-sous-texte">Statut Nouveau ou Accompagnement, sans aucune ligne RIDA de type Action</div>
+      </div>
+    </div>
+    <div class="carte-activite carte-activite-large">
+      <div class="carte-activite-titre">Kanban des demandes par statut <span class="kanban-legende"><span class="kanban-pastille kanban-p1"></span>P1 <span class="kanban-pastille kanban-p2"></span>P2 <span class="kanban-pastille kanban-p3"></span>P3 <span class="kanban-pastille kanban-p0"></span>sans priorité</span>
+        <button type="button" id="btn-filtre-kanban" class="btn-filtre-kanban" title="Filtrer le kanban (colonnes, priorité, organisation, partie prenante)">🔎 Filtrer</button>
+        <span id="kanban-filtre-info" class="kanban-filtre-info"></span></div>
+      <div id="kanban-activite" class="kanban"></div>
+    </div>
+    <div class="carte-activite carte-activite-large">
+      <div class="carte-activite-titre">Kanban des demandes par jalon <span class="kanban-legende" style="font-weight:400;">(mêmes filtres 🔎 que le kanban par statut ; durées en jours ouvrés)</span>
+        <span id="kanban-jalons-info" class="kanban-filtre-info"></span></div>
+      <div id="kanban-jalons" class="kanban"></div>
+    </div>
+  </div>
+  </div>
+  <div id="reporting-evolution" style="display:none;">
+  <div class="grille-activite">
+    <div class="carte-activite carte-activite-large">
+      <div class="carte-activite-titre">Actions faites / à faire par semaine</div>
+      <div id="graphique-activite-semaines" class="graphique-conteneur"></div>
+    </div>
+    <div class="carte-activite carte-activite-large">
+      <div class="carte-activite-titre">Délais de traitement (jours ouvrés)</div>
+      <div class="delais-barre">
+        <label>Entrées à partir du <input type="date" id="delais-debut"></label>
+        <label>sur <input type="number" id="delais-duree" min="1" max="120" value="12" style="width:60px;"> mois</label>
+        <label>Tag <select id="delais-tag"></select></label>
+        <span id="delais-resume" style="color:#666;"></span>
+      </div>
+      <div id="delais-histogrammes" class="delais-grille"></div>
+    </div>
+  </div>
+  </div>
 </div>
 
 <!-- Onglet Messages : boîte aux lettres (table Emergence_BalInno) -->
@@ -246,50 +304,6 @@
     </div>
   </div>
   <div id="ia-msg" class="ia-msg-erreur"></div>
-</div>
-
-<div id="vue-activite" style="display:none;">
-  <div class="barre-export-activite">
-    <button type="button" id="btn-export-pdf-activite" class="btn-export-activite" title="Télécharger l'activité au format PDF">📄 Exporter en PDF</button>
-    <span id="msg-export-pdf-activite" class="msg-export-activite"></span>
-  </div>
-  <div class="grille-activite">
-    <div class="ligne-activite-haut">
-      <div class="carte-activite">
-        <div class="carte-activite-titre">Demandes par statut</div>
-        <div id="graphique-activite-statuts" class="graphique-conteneur"></div>
-      </div>
-      <div class="carte-activite">
-        <div class="carte-activite-titre">Actions à faire par porteur</div>
-        <div id="graphique-activite-porteurs" class="graphique-conteneur"></div>
-      </div>
-      <div class="carte-activite carte-activite-indicateur">
-        <div class="carte-activite-titre">Demandes nouvelles ou en cours, sans aucune action</div>
-        <div id="indicateur-activite-sans-action" class="indicateur-nombre">—</div>
-        <div class="indicateur-sous-texte">Statut Nouveau ou Accompagnement, sans aucune ligne RIDA de type Action</div>
-      </div>
-    </div>
-    <div class="carte-activite carte-activite-large">
-      <div class="carte-activite-titre">Actions faites / à faire par semaine</div>
-      <div id="graphique-activite-semaines" class="graphique-conteneur"></div>
-    </div>
-    <div class="carte-activite carte-activite-large">
-      <div class="carte-activite-titre">Délais de traitement (jours ouvrés)</div>
-      <div class="delais-barre">
-        <label>Entrées à partir du <input type="date" id="delais-debut"></label>
-        <label>sur <input type="number" id="delais-duree" min="1" max="120" value="12" style="width:60px;"> mois</label>
-        <label>Tag <select id="delais-tag"></select></label>
-        <span id="delais-resume" style="color:#666;"></span>
-      </div>
-      <div id="delais-histogrammes" class="delais-grille"></div>
-    </div>
-    <div class="carte-activite carte-activite-large">
-      <div class="carte-activite-titre">Kanban des demandes par statut <span class="kanban-legende"><span class="kanban-pastille kanban-p1"></span>P1 <span class="kanban-pastille kanban-p2"></span>P2 <span class="kanban-pastille kanban-p3"></span>P3 <span class="kanban-pastille kanban-p0"></span>sans priorité</span>
-        <button type="button" id="btn-filtre-kanban" class="btn-filtre-kanban" title="Filtrer le kanban (colonnes, priorité, organisation, partie prenante)">🔎 Filtrer</button>
-        <span id="kanban-filtre-info" class="kanban-filtre-info"></span></div>
-      <div id="kanban-activite" class="kanban"></div>
-    </div>
-  </div>
 </div>
 
 <!-- Modale : créer un nouvel acteur -->
@@ -827,7 +841,7 @@
     border-radius: 8px;
   }
 
-  /* Barres de défilement toujours visibles et grisées (v0.146) — sans elles, les barres « overlay » (macOS, navigateurs
+  /* Barres de défilement toujours visibles et grisées (v0.147) — sans elles, les barres « overlay » (macOS, navigateurs
      récents) restent invisibles tant qu'on ne défile pas et on ne voit pas que le tableau déborde. */
   .conteneur-liste, .conteneur-tableau-actions, .conteneur-tableau-contacts, .msg-tableau-conteneur { scrollbar-gutter: auto; }
   .conteneur-liste::-webkit-scrollbar, .conteneur-tableau-actions::-webkit-scrollbar, .conteneur-tableau-contacts::-webkit-scrollbar, .msg-tableau-conteneur::-webkit-scrollbar { width: 14px; height: 14px; }
@@ -839,6 +853,11 @@
     .conteneur-liste, .conteneur-tableau-actions, .conteneur-tableau-contacts, .msg-tableau-conteneur { scrollbar-color: #a3a9b3 #eceef1; scrollbar-width: auto; }
   }
 
+  .sous-onglets-reporting { display: flex; gap: 4px; margin: 0 0 8px; border-bottom: 1px solid #ddd; }
+  .sous-onglet-reporting { border: 0; background: transparent; padding: 6px 14px; cursor: pointer; font: inherit; font-weight: 600; color: #666; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+  .sous-onglet-reporting:hover { color: #222; }
+  .sous-onglet-reporting.actif { color: #0f5f5a; border-bottom-color: #14a39a; }
+  .kanban-jalon-stats { font-size: calc(10.5px * var(--echelle-texte)); font-weight: 400; margin-top: 2px; opacity: .9; line-height: 1.3; }
   .barre-redimension {
     display: flex;
     align-items: center;

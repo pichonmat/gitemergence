@@ -152,3 +152,12 @@ Le rattachement à une demande se fait par le bouton « Mapping automatique » (
 v0.136 : un message peut être supprimé depuis sa fenêtre de lecture (action RemoveRecord sur Emergence_BalInno, après confirmation). Si une automatisation réimporte la boîte aux lettres, un message supprimé peut réapparaître.
 
 v0.138 : l'onglet Messages (et le RIDA / l'onglet « Messages » d'une fiche ouverte) se met à jour automatiquement : relecture de `Emergence_BalInno` toutes les 30 s tant que la page est visible, à l'ouverture de l'onglet et au retour sur la page ; l'affichage n'est refait que si la table a changé.
+
+
+## Statuts des demandes (v0.147)
+
+Liste des statuts de `Emergence.Statut` : Nouveau, Contacter, Qualifier, Accompagnement, Support, En cours de transfert, Clôturer. Supprimés : « Roadmap produit » et « Initialisation projet » (→ Nouveau), « Recherche cause racine » (→ Qualifier). Le widget relit les anciens libellés comme les nouveaux ; l'outil de migration (v8) réécrit les fiches et retire les 3 choix de la colonne.
+
+## Reporting (v0.147)
+
+L'onglet Activité est absorbé par l'onglet Reporting, en 3 sous-onglets : **Cette semaine** (reporting hebdomadaire), **Aujourd'hui** (situation à date : demandes par statut, actions à faire par porteur, demandes sans action, kanban par statut, kanban par jalon) et **Évolution** (actions par semaine, délais de traitement). Kanban par jalon : une demande dans la colonne de son jalon le plus avancé (Entrée sans Go/NoGo, Go/NoGo sans 1er atelier, 1er atelier sans MVP, MVP réalisée) ; sous chaque titre, durée moyenne/min/max (jours ouvrés) depuis le jalon précédent.

@@ -1,6 +1,6 @@
-// Widget Emergence — v0.146
-// Numéro de release : <majeure>.<build> (0.146 = release majeure 0, build 146).
-const VERSION_WIDGET = "0.146";
+// Widget Emergence — v0.147
+// Numéro de release : <majeure>.<build> (0.147 = release majeure 0, build 147).
+const VERSION_WIDGET = "0.147";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -458,12 +458,6 @@ const STATUTS = [
     description: "On entre en contact pour avoir un minimum d'info et valider qu'il y a bien une demande." },
   { nom: "Qualifier", fond: "#fee2e2", texte: "#991b1b", actif: true,
     description: "On prend le temps de comprendre la demande et de mettre en place un plan d'action court terme." },
-  { nom: "Roadmap produit", fond: "#ccfbf1", texte: "#115e59", actif: true,
-    description: "Nécessite l'évolution d'un produit existant." },
-  { nom: "Initialisation projet", fond: "#fce7f3", texte: "#9d174d", actif: true,
-    description: "Une nouvelle ligne est ajoutée au backlog des sujets SDID. On passe la demande à Clôturer dès que c'est fait." },
-  { nom: "Recherche cause racine", fond: "#ede9fe", texte: "#5b21b6", actif: true,
-    description: "On cherche la cause racine du problème à l'origine de la demande." },
   { nom: "Accompagnement", fond: "#dbeafe", texte: "#1e40af", actif: true,
     description: "On met à disposition les outils sur étagère et on aide à la résolution. Quand la demande est en attente, on agit seulement si on est contacté." },
   { nom: "Support", fond: "#dcfce7", texte: "#166534", actif: true,
@@ -486,10 +480,12 @@ const STATUT_EN_COURS = "Accompagnement";
 // fonctionne avant, pendant et après la migration de la table.
 const ANCIENS_LIBELLES_STATUT = {
   "0-Nouveau": "Nouveau", "1 - Collecter": "Contacter", "2 - Qualifier": "Qualifier",
-  "3 - Approfondir": "Recherche cause racine", "4 - En cours": "Accompagnement",
+  "3 - Approfondir": "Qualifier", "4 - En cours": "Accompagnement",
   "5 - Transférer": "En cours de transfert", "6 - En attente": "Accompagnement", "7 - Clôturer": "Clôturer",
   "1- En cours": "Accompagnement", "2- En attente": "Accompagnement", "3- Clôturé": "Clôturer",
-  "4- Transféré": "En cours de transfert", "5- A qualifier": "Qualifier", "9 - A qualifier": "Qualifier"
+  "4- Transféré": "En cours de transfert", "5- A qualifier": "Qualifier", "9 - A qualifier": "Qualifier",
+  // v0.147 : statuts supprimés (relus comme les nouveaux jusqu'à la migration des données)
+  "Roadmap produit": "Nouveau", "Initialisation projet": "Nouveau", "Recherche cause racine": "Qualifier"
 };
 function normaliserStatut(statut) {
   return Object.prototype.hasOwnProperty.call(ANCIENS_LIBELLES_STATUT, statut) ? ANCIENS_LIBELLES_STATUT[statut] : statut;
@@ -619,7 +615,7 @@ function sauvegarderOrdreColonnes() {
 // Référence BRM (colonne texte facultative de la table Emergence, libellé « Ref BRM ») : lue sous
 // son identifiant Grist quel qu'il soit (Ref_BRM, RefBRM, ref_brm...) ; chaîne vide si la colonne
 // n'existe pas ou n'est pas renseignée.
-// Référence d'une demande (v0.146) : « EMG- » + id de ligne Grist sur 4 chiffres (ex. EMG-0123). Calculée ici à partir de
+// Référence d'une demande (v0.147) : « EMG- » + id de ligne Grist sur 4 chiffres (ex. EMG-0123). Calculée ici à partir de
 // l'id, comme la colonne formule Emergence.Ref_Emergence créée par l'outil de migration ("EMG-%04d" % $id) : le widget
 // n'a donc pas besoin que cette colonne existe. La référence est réversible (EMG-0123 ↔ ligne 123).
 const PREFIXE_REF_DEMANDE = "EMG-";
@@ -786,7 +782,7 @@ const DELAI_DOUBLE_CLIC_MS = 400;
 let timerEditionListe = null; // édition en place différée : annulée si un double clic suit
 let filtrePrioriteSelection = new Set();      // vide = toutes les priorités (valeur "" = sans priorité)
 let filtreTypologieSelection = new Set();    // vide = toutes les typologies
-let filtreTagSelection = new Set();          // vide = tous les tags (v0.146)
+let filtreTagSelection = new Set();          // vide = tous les tags (v0.147)
 let filtreOrganisationSelection = new Set(); // vide = toutes les organisations
 let filtreSponsorTexte = "";          // recherche libre dans le Sponsor
 let filtrePorteurTexte = "";          // recherche libre dans le(s) Porteur(s)
@@ -820,7 +816,7 @@ grist.onRecords(async function (records) {
   }
 });
 
-// Lien direct (v0.146) : un lien Grist « …#a1.sX.r123 » place le curseur sur la ligne 123 ; on ouvre alors sa fiche.
+// Lien direct (v0.147) : un lien Grist « …#a1.sX.r123 » place le curseur sur la ligne 123 ; on ouvre alors sa fiche.
 // Au tout premier signal, le curseur par défaut (première ligne de la vue) n'est pas considéré comme un lien.
 function ouvrirDepuisCurseurGrist(id) {
   if (!id || id === ligneSelectionneeId) return;
@@ -5014,7 +5010,6 @@ function basculerVue(mode) {
     demandes: document.getElementById("vue-demandes"),
     actions: document.getElementById("vue-actions"),
     contacts: document.getElementById("vue-contacts"),
-    activite: document.getElementById("vue-activite"),
     planning: document.getElementById("vue-planning"),
     reporting: document.getElementById("vue-reporting"),
     ia: document.getElementById("vue-ia"),
@@ -5024,7 +5019,6 @@ function basculerVue(mode) {
     demandes: document.getElementById("tag-demandes"),
     actions: document.getElementById("tag-actions"),
     contacts: document.getElementById("tag-contacts"),
-    activite: document.getElementById("tag-activite"),
     planning: document.getElementById("tag-planning"),
     reporting: document.getElementById("tag-reporting"),
     ia: document.getElementById("tag-ia"),
@@ -5043,12 +5037,10 @@ function basculerVue(mode) {
     afficherTableauActions();
   } else if (mode === "contacts") {
     chargerPageContacts();
-  } else if (mode === "activite") {
-    afficherActivite();
   } else if (mode === "planning") {
     afficherPlanning();
   } else if (mode === "reporting") {
-    afficherReporting();
+    afficherSousOngletReporting();
   } else if (mode === "ia") {
     afficherIa();
   } else if (mode === "messages") {
@@ -5059,13 +5051,25 @@ function basculerVue(mode) {
 document.getElementById("tag-demandes").addEventListener("click", () => basculerVue("demandes"));
 document.getElementById("tag-actions").addEventListener("click", () => basculerVue("actions"));
 document.getElementById("tag-contacts").addEventListener("click", () => basculerVue("contacts"));
-document.getElementById("tag-activite").addEventListener("click", () => basculerVue("activite"));
 document.getElementById("tag-reporting").addEventListener("click", () => basculerVue("reporting"));
 document.getElementById("tag-planning").addEventListener("click", () => basculerVue("planning"));
 document.getElementById("tag-ia").addEventListener("click", () => basculerVue("ia"));
 document.getElementById("tag-messages").addEventListener("click", () => basculerVue("messages"));
 
-// --- Onglet Activité : indicateurs et graphiques de synthèse ---
+// --- Reporting : 3 sous-onglets (v0.147) ---
+// « Cette semaine » = reporting hebdomadaire ; « Aujourd'hui » = situation à date (statuts, porteurs, kanbans) ;
+// « Évolution » = évolution dans le temps (actions par semaine, délais de traitement). L'ancien onglet Activité est absorbé.
+let sousOngletReporting = "semaine";
+function afficherSousOngletReporting(choix) {
+  if (choix) sousOngletReporting = choix;
+  const panneaux = { semaine: "reporting-semaine", aujourdhui: "reporting-aujourdhui", evolution: "reporting-evolution" };
+  Object.keys(panneaux).forEach(k => { const el = document.getElementById(panneaux[k]); if (el) el.style.display = k === sousOngletReporting ? "" : "none"; });
+  document.querySelectorAll("#sous-onglets-reporting .sous-onglet-reporting").forEach(b => b.classList.toggle("actif", b.getAttribute("data-sous-onglet") === sousOngletReporting));
+  if (sousOngletReporting === "semaine") afficherReporting(); else afficherActivite();
+}
+document.querySelectorAll("#sous-onglets-reporting .sous-onglet-reporting").forEach(b => b.addEventListener("click", () => afficherSousOngletReporting(b.getAttribute("data-sous-onglet"))));
+
+// --- Graphiques de synthèse (sous-onglets Aujourd'hui et Évolution) ---
 
 // Lundi 00:00 (UTC) de la semaine contenant l'epoch (secondes) donné.
 function lundiDeSemaineEpoch(epochSecondes) {
@@ -5401,6 +5405,8 @@ function ligneCorrespondFiltreKanban(l) {
 function rafraichirKanban() {
   const kanban = document.getElementById("kanban-activite");
   if (kanban) kanban.innerHTML = construireKanban();
+  const jalons = document.getElementById("kanban-jalons");
+  if (jalons) jalons.innerHTML = construireKanbanJalons();
   const btn = document.getElementById("btn-filtre-kanban");
   if (btn) btn.classList.toggle("filtre-actif", kanbanFiltreActif());
   const info = document.getElementById("kanban-filtre-info");
@@ -5502,6 +5508,51 @@ function construireKanban() {
     }).join("");
     return "<div class='kanban-colonne'>" +
       "<div class='kanban-colonne-titre' title=\"" + escapeHtml(descriptionStatut(col.statut)) + "\" style='background:" + c.fond + "; color:" + c.texte + ";'><span>" + escapeHtml(col.statut) + "</span><span>" + col.lignes.length + "</span></div>" +
+      "<div class='kanban-cartes'>" + (cartes || "<div class='kanban-carte-detail' style='padding:4px;'>—</div>") + "</div></div>";
+  }).join("");
+}
+
+// ===== Kanban par jalons (v0.147) =====
+// Une demande = UNE colonne : celle du jalon le plus avancé atteint (Entrée → Go/NoGo → 1er atelier → MVP réalisée).
+// Mêmes filtres que le kanban par statut. Sous chaque titre : durée moyenne / min / max (jours ouvrés) pour atteindre le
+// jalon depuis le précédent, sur les demandes du périmètre ayant les deux dates (dates incohérentes ignorées).
+const JALONS_KANBAN = [
+  { cle: "entree", titre: "Entrée, sans Go/NoGo", fond: "#e0f2fe", texte: "#075985", de: null, vers: null },
+  { cle: "gonogo", titre: "Go/NoGo, sans 1er atelier", fond: "#fef3c7", texte: "#92400e", de: "entree", vers: "gonogo" },
+  { cle: "atelier", titre: "1er atelier, sans MVP", fond: "#ede9fe", texte: "#5b21b6", de: "gonogo", vers: "atelier" },
+  { cle: "mvp", titre: "MVP réalisée", fond: "#dcfce7", texte: "#166534", de: "atelier", vers: "mvp" }
+];
+function datesJalonsDemande(l) {
+  return { entree: Number(l.Date_de_soumission) || 0, gonogo: Number(l.Date_Go_NoGo_SDID) || 0, atelier: Number(datePremierAtelier(l.id)) || 0, mvp: Number(l.Date_MVP_realisee) || 0 };
+}
+function jalonAtteint(d) { return d.mvp ? "mvp" : d.atelier ? "atelier" : d.gonogo ? "gonogo" : d.entree ? "entree" : null; }
+function statsDureesJalon(lignes, de, vers) {
+  const v = [];
+  lignes.forEach(({ d }) => { if (d[de] && d[vers]) { const n = joursOuvresEntre(d[de], d[vers]); if (n !== null) v.push(n); } });
+  if (!v.length) return null;
+  return { n: v.length, moy: v.reduce((a, b) => a + b, 0) / v.length, min: Math.min(...v), max: Math.max(...v) };
+}
+function construireKanbanJalons() {
+  const perimetre = lignesEmergence.filter(l => !kanbanColonnesMasquees.has(l.Statut) && ligneCorrespondFiltreKanban(l)).map(l => ({ l, d: datesJalonsDemande(l) }));
+  const sansDate = perimetre.filter(x => !jalonAtteint(x.d)).length;
+  const info = document.getElementById("kanban-jalons-info");
+  if (info) info.textContent = sansDate ? sansDate + " demande(s) sans aucune date, non affichée(s)" : "";
+  const rang = (l) => l.Priorite ? String(l.Priorite).trim() : "P9";
+  const fmt = (x) => (Math.round(x * 10) / 10).toLocaleString("fr-FR");
+  return JALONS_KANBAN.map(j => {
+    const lignes = perimetre.filter(x => jalonAtteint(x.d) === j.cle).map(x => x.l)
+      .sort((a, b) => rang(a).localeCompare(rang(b)) || String(a.Titre || "").localeCompare(String(b.Titre || "")));
+    const st = j.de ? statsDureesJalon(perimetre, j.de, j.vers) : null;
+    const stats = j.de ? (st ? "⏱ moy. " + fmt(st.moy) + " j · min " + st.min + " · max " + st.max + " <span title='Nombre de demandes ayant les deux dates'>(" + st.n + ")</span>" : "⏱ pas assez de dates") : "";
+    const cartes = lignes.map(l => {
+      const detail = [l.Porteurs, l.Organisation].filter(Boolean).join(" · ");
+      return "<div class='kanban-carte " + classePrioriteKanban(l.Priorite) + "' data-id='" + l.id + "' title=\"" + escapeHtml((l.Titre || "Sans titre") + (l.Priorite ? " — " + l.Priorite : "")) + "\">" +
+        "<div class='kanban-carte-titre'>" + escapeHtml(l.Titre || "Sans titre") + "</div>" +
+        (detail ? "<div class='kanban-carte-detail'>" + escapeHtml(detail) + "</div>" : "") + "</div>";
+    }).join("");
+    return "<div class='kanban-colonne'><div class='kanban-colonne-titre' style='background:" + j.fond + "; color:" + j.texte + "; flex-direction:column; align-items:flex-start;'>" +
+      "<div style='display:flex;justify-content:space-between;gap:6px;width:100%;'><span>" + escapeHtml(j.titre) + "</span><span>" + lignes.length + "</span></div>" +
+      (stats ? "<span class='kanban-jalon-stats'>" + stats + "</span>" : "") + "</div>" +
       "<div class='kanban-cartes'>" + (cartes || "<div class='kanban-carte-detail' style='padding:4px;'>—</div>") + "</div></div>";
   }).join("");
 }
@@ -5884,7 +5935,7 @@ function telechargerBlob(blob, nomFichier) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ===== Export CSV de la liste des demandes (v0.146) =====
+// ===== Export CSV de la liste des demandes (v0.147) =====
 // Colonnes = colonnes affichées (dans l'ordre courant), lignes = demandes filtrées, dans l'ordre du tri.
 // Séparateur « ; » + BOM UTF-8 pour une ouverture directe dans Excel français. Dates sans heure.
 function echapperCsv(v) {
@@ -7273,6 +7324,11 @@ async function exporterExcelZip() {
 }
 
 // Clic sur une tuile du kanban : ouvre la fiche de la demande dans l'onglet Demandes.
+const kanbanJalonsConteneur = document.getElementById("kanban-jalons");
+if (kanbanJalonsConteneur) kanbanJalonsConteneur.addEventListener("click", (e) => {
+  const carte = e.target.closest(".kanban-carte[data-id]");
+  if (carte) { basculerVue("demandes"); selectionnerLigne(Number(carte.getAttribute("data-id"))); }
+});
 const kanbanConteneur = document.getElementById("kanban-activite");
 if (kanbanConteneur) {
   kanbanConteneur.addEventListener("click", (e) => {
@@ -8661,7 +8717,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.146) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.147) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -8862,7 +8918,7 @@ function dateMessage(epoch) {
 function inputDateVersEpochDebut(v) { return v ? Math.floor(new Date(v + "T00:00:00").getTime() / 1000) : 0; }
 function inputDateVersEpochFin(v) { return v ? Math.floor(new Date(v + "T23:59:59").getTime() / 1000) : 0; }
 
-// Recherche avancée (v0.146) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
+// Recherche avancée (v0.147) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
 // au moins un interlocuteur non SDID.
 function messageHorsSdid(m) {
   // interlocuteurs = expéditeur (message reçu) ou destinataires (message envoyé) ; un acteur dont l'organisation contient « SDID » est interne
@@ -8970,7 +9026,7 @@ setInterval(() => {
   if (document.getElementById("vue-messages").style.display !== "none" || (ligneSelectionneeId != null && document.getElementById("rida-tbody"))) actualiserMessagesSilencieusement();
 }, INTERVALLE_ACTUALISATION_MESSAGES_MS);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") actualiserMessagesSilencieusement(); });
-// ===================== Recherche avancée des messages (v0.146) =====================
+// ===================== Recherche avancée des messages (v0.147) =====================
 // 1) « Hors SDID » : messages échangés avec des personnes non SDID (organisation de l'acteur ; adresse inconnue = externe).
 // 2) Corrélation IA avec une demande (ou un texte libre) : chaque message de la période est vectorisé UNE SEULE FOIS
 //    (sujet + début du corps nettoyé, ~1000 car.) via /embeddings du fournisseur configuré ; les vecteurs restent en

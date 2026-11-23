@@ -1,7 +1,7 @@
-// Migration de la structure — v7
+// Migration de la structure — v8
 // Outil à usage unique : widget personnalisé (accès complet) à ajouter temporairement dans Grist.
 // Compare le document au modèle attendu par le widget Émergence et crée ce qui manque. Ne supprime rien.
-const VERSION_OUTIL = "7";
+const VERSION_OUTIL = "8";
 grist.ready({ requiredAccess: 'full' });
 
 // Modèle attendu. creer:true = la table est créée si elle manque ; sinon elle doit déjà exister.
@@ -42,6 +42,33 @@ const STRUCTURE = [
 ];
 // Colonne à convertir en Choice List (sélection multiple de la typologie).
 const COLONNE_CONVERSION = { table: "Emergence", colonne: "Typologie_de_la_demande", type: "ChoiceList" };
+
+// v8 : statuts supprimés des demandes (Roadmap produit, Initialisation projet → Nouveau ; Recherche cause racine → Qualifier)
+const STATUTS_SUPPRIMES = { "Roadmap produit": "Nouveau", "Initialisation projet": "Nouveau", "Recherche cause racine": "Qualifier" };
+const COLONNE_STATUT = { table: "Emergence", colonne: "Statut" };
+function choixStatutObsoletes(options) {
+  try { const o = JSON.parse(options || "{}") || {}; return (o.choices || []).filter(c => Object.prototype.hasOwnProperty.call(STATUTS_SUPPRIMES, c)); } catch (e) { return []; }
+}
+async function migrerStatuts(meta) {
+  const t = await grist.docApi.fetchTable(COLONNE_STATUT.table);
+  const actions = [];
+  (t.id || []).forEach((id, i) => {
+    const v = t[COLONNE_STATUT.colonne] ? t[COLONNE_STATUT.colonne][i] : null;
+    if (Object.prototype.hasOwnProperty.call(STATUTS_SUPPRIMES, v)) actions.push(["UpdateRecord", COLONNE_STATUT.table, id, { [COLONNE_STATUT.colonne]: STATUTS_SUPPRIMES[v] }]);
+  });
+  if (actions.length) await grist.docApi.applyUserActions(actions);
+  let retires = 0;
+  const colS = meta[COLONNE_STATUT.table] && meta[COLONNE_STATUT.table].colonnes[COLONNE_STATUT.colonne];
+  if (colS && colS.options) {
+    const o = JSON.parse(colS.options || "{}") || {};
+    const avant = (o.choices || []).length;
+    o.choices = (o.choices || []).filter(c => !Object.prototype.hasOwnProperty.call(STATUTS_SUPPRIMES, c));
+    if (o.choiceOptions) Object.keys(STATUTS_SUPPRIMES).forEach(c => { delete o.choiceOptions[c]; });
+    retires = avant - o.choices.length;
+    if (retires) await grist.docApi.applyUserActions([["ModifyColumn", COLONNE_STATUT.table, COLONNE_STATUT.colonne, { widgetOptions: JSON.stringify(o) }]]);
+  }
+  return { fiches: actions.length, choixRetires: retires };
+}
 
 const el = (id) => document.getElementById(id);
 const baseType = (t) => String(t || "").split(":")[0];
@@ -108,6 +135,17 @@ async function analyser() {
     lignes.push({ cle: "conversion", libelle: c.table + "." + c.colonne, detail: "Choice → Choice List (sélection multiple) ; les valeurs existantes sont conservées", etat: "a-faire", conversion: true, actions: [] });
   } else if (colT) {
     lignes.push({ cle: "conversion", libelle: c.table + "." + c.colonne, detail: colT.type === "ChoiceList" ? "déjà en Choice List" : "type " + colT.type + " — non modifié", etat: colT.type === "ChoiceList" ? "ok" : "alerte", actions: [] });
+  }
+  // v8 : statuts supprimés
+  {
+    const colS = meta[COLONNE_STATUT.table] && meta[COLONNE_STATUT.table].colonnes[COLONNE_STATUT.colonne];
+    if (colS) {
+      const tS = await grist.docApi.fetchTable(COLONNE_STATUT.table);
+      const nbFiches = (tS[COLONNE_STATUT.colonne] || []).filter(v => Object.prototype.hasOwnProperty.call(STATUTS_SUPPRIMES, v)).length;
+      const nbChoix = choixStatutObsoletes(colS.options).length;
+      const detail = nbFiches + " fiche(s) à réaffecter (Roadmap produit / Initialisation projet → Nouveau ; Recherche cause racine → Qualifier), " + nbChoix + " choix à retirer de la colonne";
+      lignes.push({ cle: "statuts", libelle: COLONNE_STATUT.table + "." + COLONNE_STATUT.colonne, detail: nbFiches || nbChoix ? detail : "statuts à jour", etat: nbFiches || nbChoix ? "a-faire" : "ok", statuts: true, actions: [] });
+    }
   }
   return { lignes, alertes, meta };
 }
@@ -199,12 +237,14 @@ el("btn-appliquer").addEventListener("click", async () => {
     const meta = await lireMeta();
     // 1) tables, 2) colonnes (les tables référencées existent), 3) conversion
     for (const l of coches.filter(x => x.cle.startsWith("table:"))) { await grist.docApi.applyUserActions(l.actions); journal.push(l.libelle + " créée"); }
-    for (const l of coches.filter(x => !x.cle.startsWith("table:") && !x.conversion)) { await grist.docApi.applyUserActions(l.actions); journal.push(l.libelle + " créée"); }
+    for (const l of coches.filter(x => !x.cle.startsWith("table:") && !x.conversion && !x.statuts)) { await grist.docApi.applyUserActions(l.actions); journal.push(l.libelle + " créée"); }
     const conv = coches.find(x => x.conversion);
     if (conv) {
       const r = await convertirTypologie(meta);
       journal.push("Typologie convertie en Choice List (" + r.total + " fiche(s), " + r.corrigees + " valeur(s) réécrite(s)" + (r.perdues ? ", " + r.perdues + " valeur(s) à vérifier" : "") + ")");
     }
+    const st = coches.find(x => x.statuts);
+    if (st) { const r = await migrerStatuts(meta); journal.push("Statuts : " + r.fiches + " fiche(s) réaffectée(s), " + r.choixRetires + " choix retiré(s)"); }
     el("resultat").className = "statut ok";
     el("resultat").textContent = "Terminé : " + journal.join(" ; ") + ". Vous pouvez retirer cet outil du document.";
   } catch (e) {
