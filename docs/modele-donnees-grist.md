@@ -66,6 +66,8 @@ Généré automatiquement le 22/09/2026 09:29:33
 | `mail` | mail | `Text` | Non |  |
 | `Role` | Role | `Text` | Non |  |
 
+**Import / export CSV (widget, onglet Contacts, v0.158)** : format de l'annuaire SDID (`;`, UTF-8 avec BOM) — `Prénom;Nom;Nom affiché;Email;Email 2;Tél. bureau;Mobile;Organisation;Fonction;Notes;Divers 1..4`. Correspondances : `Nom_et_Prenom` ↔ Nom + Prénom, `mail` ↔ Email, `Organisation_Path` ↔ Organisation (`DTNUM/SDID`), `Role` ↔ Fonction, `Telephone` ↔ Tél. bureau / Mobile, `Notes` ↔ Notes. À l'export, `Divers 1..4` = les 4 demandes liées (sponsor, partie prenante ou porteur) les plus récemment modifiées, au format `EMERGENCE-<ID sur 4 chiffres>-<TITRE>` ; ignorés à l'import. L'import ne crée que les contacts inconnus (rapprochement par e-mail puis par nom) et complète seulement les champs vides des existants.
+
 ## Table `Emergence_PJ`
 
 | Colonne (colId) | Libellé | Type | Formule | Détails |

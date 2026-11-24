@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.157 -->
+<!-- Widget Emergence — v0.158 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -121,6 +121,9 @@
     <input type="text" id="recherche-acteur-nom" placeholder="Rechercher un nom, prénom...">
     <input type="text" id="recherche-acteur-organisation" placeholder="Rechercher une organisation...">
     <button type="button" id="btn-ajouter-acteur-gestion" class="btn-ajouter-rida">+ Ajouter un acteur</button>
+    <button type="button" id="btn-export-contacts-csv" class="btn-ajouter-rida" title="Exporte les contacts affichés au format CSV de l'annuaire SDID (Divers 1-4 = demandes liées)">⬇ Exporter CSV</button>
+    <button type="button" id="btn-import-contacts-csv" class="btn-ajouter-rida" title="Importe un CSV au format annuaire SDID (les contacts existants sont seulement complétés)">⬆ Importer CSV</button>
+    <input type="file" id="input-import-contacts-csv" accept=".csv,text/csv" style="display:none;">
   </div>
   <div class="modale-msg" id="modale-acteurs-msg"></div>
   <div class="conteneur-tableau-contacts">
@@ -847,7 +850,7 @@
     border-radius: 8px;
   }
 
-  /* Barres de défilement toujours visibles et grisées (v0.157) — sans elles, les barres « overlay » (macOS, navigateurs
+  /* Barres de défilement toujours visibles et grisées (v0.158) — sans elles, les barres « overlay » (macOS, navigateurs
      récents) restent invisibles tant qu'on ne défile pas et on ne voit pas que le tableau déborde. */
   .conteneur-liste, .conteneur-tableau-actions, .conteneur-tableau-contacts, .msg-tableau-conteneur { scrollbar-gutter: auto; }
   .conteneur-liste::-webkit-scrollbar, .conteneur-tableau-actions::-webkit-scrollbar, .conteneur-tableau-contacts::-webkit-scrollbar, .msg-tableau-conteneur::-webkit-scrollbar { width: 14px; height: 14px; }

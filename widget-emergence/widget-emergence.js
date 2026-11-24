@@ -1,6 +1,6 @@
-// Widget Emergence — v0.157
-// Numéro de release : <majeure>.<build> (0.157 = release majeure 0, build 157).
-const VERSION_WIDGET = "0.157";
+// Widget Emergence — v0.158
+// Numéro de release : <majeure>.<build> (0.158 = release majeure 0, build 158).
+const VERSION_WIDGET = "0.158";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -484,7 +484,7 @@ const ANCIENS_LIBELLES_STATUT = {
   "5 - Transférer": "En cours de transfert", "6 - En attente": "Accompagnement", "7 - Clôturer": "Clôturer",
   "1- En cours": "Accompagnement", "2- En attente": "Accompagnement", "3- Clôturé": "Clôturer",
   "4- Transféré": "En cours de transfert", "5- A qualifier": "Qualifier", "9 - A qualifier": "Qualifier",
-  // v0.157 : statuts supprimés (relus comme les nouveaux jusqu'à la migration des données)
+  // v0.158 : statuts supprimés (relus comme les nouveaux jusqu'à la migration des données)
   "Roadmap produit": "Nouveau", "Initialisation projet": "Nouveau", "Recherche cause racine": "Qualifier"
 };
 function normaliserStatut(statut) {
@@ -615,7 +615,7 @@ function sauvegarderOrdreColonnes() {
 // Référence BRM (colonne texte facultative de la table Emergence, libellé « Ref BRM ») : lue sous
 // son identifiant Grist quel qu'il soit (Ref_BRM, RefBRM, ref_brm...) ; chaîne vide si la colonne
 // n'existe pas ou n'est pas renseignée.
-// Référence d'une demande (v0.157) : « EMG- » + id de ligne Grist sur 4 chiffres (ex. EMG-0123). Calculée ici à partir de
+// Référence d'une demande (v0.158) : « EMG- » + id de ligne Grist sur 4 chiffres (ex. EMG-0123). Calculée ici à partir de
 // l'id, comme la colonne formule Emergence.Ref_Emergence créée par l'outil de migration ("EMG-%04d" % $id) : le widget
 // n'a donc pas besoin que cette colonne existe. La référence est réversible (EMG-0123 ↔ ligne 123).
 const PREFIXE_REF_DEMANDE = "EMG-";
@@ -782,7 +782,7 @@ const DELAI_DOUBLE_CLIC_MS = 400;
 let timerEditionListe = null; // édition en place différée : annulée si un double clic suit
 let filtrePrioriteSelection = new Set();      // vide = toutes les priorités (valeur "" = sans priorité)
 let filtreTypologieSelection = new Set();    // vide = toutes les typologies
-let filtreTagSelection = new Set();          // vide = tous les tags (v0.157)
+let filtreTagSelection = new Set();          // vide = tous les tags (v0.158)
 let filtreOrganisationSelection = new Set(); // vide = toutes les organisations
 let filtreSponsorTexte = "";          // recherche libre dans le Sponsor
 let filtrePorteurTexte = "";          // recherche libre dans le(s) Porteur(s)
@@ -816,7 +816,7 @@ grist.onRecords(async function (records) {
   }
 });
 
-// Lien direct (v0.157) : un lien Grist « …#a1.sX.r123 » place le curseur sur la ligne 123 ; on ouvre alors sa fiche.
+// Lien direct (v0.158) : un lien Grist « …#a1.sX.r123 » place le curseur sur la ligne 123 ; on ouvre alors sa fiche.
 // Au tout premier signal, le curseur par défaut (première ligne de la vue) n'est pas considéré comme un lien.
 function ouvrirDepuisCurseurGrist(id) {
   if (!id || id === ligneSelectionneeId) return;
@@ -866,6 +866,7 @@ async function chargerTablesAnnexes() {
         Organisation: acteurs.Organisation ? acteurs.Organisation[i] : "",
         Organisation_Path: acteurs.Organisation_Path ? acteurs.Organisation_Path[i] : "",
         Role: acteurs.Role ? acteurs.Role[i] : "",
+        Notes: acteurs.Notes ? acteurs.Notes[i] : "",
         mail: acteurs.mail ? acteurs.mail[i] : "",
         Telephone: acteurs.Telephone ? acteurs.Telephone[i] : ""
       };
@@ -3787,6 +3788,202 @@ document.getElementById("btn-ajouter-acteur-gestion").addEventListener("click", 
   ouvrirModaleActeur("gestion-acteurs", "");
 });
 
+// ===== Import / export CSV des contacts (v0.158) =====
+// Format compatible avec le fichier annuaire SDID :
+// « Prénom;Nom;Nom affiché;Email;Email 2;Tél. bureau;Mobile;Organisation;Fonction;Notes;Divers 1;Divers 2;Divers 3;Divers 4 »
+// (séparateur « ; », première ligne = en-têtes). « Divers 1..4 » reçoit à l'export les demandes liées au contact
+// (sponsor, partie prenante ou porteur), au format « EMERGENCE-<ID>-<TITRE> », les 4 plus récemment modifiées.
+const ENTETES_CSV_CONTACTS = ["Prénom", "Nom", "Nom affiché", "Email", "Email 2", "Tél. bureau", "Mobile", "Organisation", "Fonction", "Notes", "Divers 1", "Divers 2", "Divers 3", "Divers 4"];
+const MAX_DEMANDES_CSV_CONTACT = 4;
+
+// « NOM Prénom » -> { nom, prenom } : les premiers mots entièrement en majuscules forment le nom, le reste le prénom.
+function separerNomPrenomActeur(nomEtPrenom) {
+  const mots = String(nomEtPrenom || "").trim().split(/\s+/).filter(Boolean);
+  let i = 0;
+  while (i < mots.length && motEstMajuscule(mots[i])) i++;
+  if (i === 0) return { nom: "", prenom: mots.join(" ") };
+  return { nom: mots.slice(0, i).join(" "), prenom: mots.slice(i).join(" ") };
+}
+
+function cleTriMotsNom(texte) {
+  return normaliserTexteRecherche(texte).split(/[^a-z0-9]+/).filter(Boolean).sort().join(" ");
+}
+
+// Demandes liées à un contact : sponsor, partie prenante concernée, ou porteur (texte libre, comparé sans tenir compte de l'ordre des mots).
+function demandesDuContact(acteurId) {
+  const cle = cleTriMotsNom(nomActeurParId(acteurId));
+  return lignesEmergence.filter(l => {
+    if (refListVersIds(l.Sponsor).map(Number).includes(Number(acteurId)) || Number(l.Sponsor) === Number(acteurId)) return true;
+    if (refListVersIds(l.Parties_prenantes_concernees).map(Number).includes(Number(acteurId))) return true;
+    if (!cle) return false;
+    return String(l.Porteurs || "").split(/[;,]/).some(p => p.trim() && cleTriMotsNom(p) === cle);
+  });
+}
+
+function libelleDemandeCsvContact(ligne) {
+  const titre = String(ligne.Titre || "Sans titre").replace(/\s+/g, " ").trim();
+  return "EMERGENCE-" + String(ligne.id).padStart(4, "0") + "-" + titre;
+}
+
+function quatreDemandesRecentes(acteurId) {
+  const cle = l => { const t = epochDerniereModifDemande(l.id); return typeof t === "number" ? t : (typeof l.Date_de_soumission === "number" ? l.Date_de_soumission : 0); };
+  return demandesDuContact(acteurId).sort((a, b) => cle(b) - cle(a) || b.id - a.id).slice(0, MAX_DEMANDES_CSV_CONTACT).map(libelleDemandeCsvContact);
+}
+
+function telephonesCsvActeur(tel) {
+  const brut = String(tel || "").trim();
+  if (!brut) return { bureau: "", mobile: "" };
+  const parts = brut.split(/\s+\/\s+|\s*;\s*/).map(x => x.trim()).filter(Boolean);
+  if (parts.length >= 2) return { bureau: parts[0], mobile: parts[1] };
+  const chiffres = brut.replace(/[\s.\-]/g, "").replace(/^(\+33|0033)/, "0");
+  return /^0[67]/.test(chiffres) ? { bureau: "", mobile: brut } : { bureau: brut, mobile: "" };
+}
+
+function idsActeursAffichesContacts() {
+  let ids = Object.keys(acteursParId).map(Number);
+  if (filtreGestionActeurNom) { const q = normaliserTexteRecherche(filtreGestionActeurNom); ids = ids.filter(id => normaliserTexteRecherche((acteursParId[id] && acteursParId[id].Nom_et_Prenom) || "").indexOf(q) !== -1); }
+  if (filtreGestionActeurOrg) { const q = normaliserTexteRecherche(filtreGestionActeurOrg); ids = ids.filter(id => normaliserTexteRecherche((acteursParId[id] && acteursParId[id].Organisation) || "").indexOf(q) !== -1); }
+  ids.sort((a, b) => String((acteursParId[a] && acteursParId[a].Nom_et_Prenom) || "").localeCompare(String((acteursParId[b] && acteursParId[b].Nom_et_Prenom) || ""), "fr"));
+  return ids;
+}
+
+function construireCsvContacts() {
+  const ids = idsActeursAffichesContacts();
+  const rows = [ENTETES_CSV_CONTACTS.map(echapperCsv).join(";")];
+  ids.forEach(id => {
+    const a = acteursParId[id] || {};
+    const { nom, prenom } = separerNomPrenomActeur(a.Nom_et_Prenom);
+    const org = a.Organisation_Path || a.Organisation || "";
+    const affiche = [a.Nom_et_Prenom || "", org.replace(/\//g, " ")].filter(Boolean).join(" ");
+    const tel = telephonesCsvActeur(a.Telephone);
+    const dem = quatreDemandesRecentes(id);
+    const cells = [prenom, nom, affiche, a.mail || "", "", tel.bureau, tel.mobile, org, a.Role || "", a.Notes || "", dem[0] || "", dem[1] || "", dem[2] || "", dem[3] || ""];
+    rows.push(cells.map(echapperCsv).join(";"));
+  });
+  return { texte: "﻿" + rows.join("\r\n"), nb: ids.length };
+}
+
+function exporterContactsCsv() {
+  const msg = document.getElementById("modale-acteurs-msg");
+  const { texte, nb } = construireCsvContacts();
+  const d = new Date();
+  const dateTxt = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  telechargerBlob(new Blob([texte], { type: "text/csv;charset=utf-8" }), "contacts_emergence_" + dateTxt + ".csv");
+  if (msg) msg.textContent = nb + " contact(s) exporté(s).";
+}
+
+// Analyse un CSV (séparateur « ; », « , » ou tabulation, détecté sur la 1re ligne ; guillemets doublés gérés).
+function analyserCsvTexte(texte) {
+  let t = String(texte || "").replace(/^﻿/, "");
+  const premiere = t.split(/\r?\n/, 1)[0] || "";
+  const compte = c => (premiere.match(new RegExp(c === "\t" ? "\\t" : "\\" + c, "g")) || []).length;
+  const sep = [";", "\t", ","].map(c => [c, compte(c)]).sort((a, b) => b[1] - a[1])[0][0];
+  const lignes = []; let ligne = [], cell = "", entre = false;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (entre) {
+      if (c === '"') { if (t[i + 1] === '"') { cell += '"'; i++; } else entre = false; } else cell += c;
+    } else if (c === '"') entre = true;
+    else if (c === sep) { ligne.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && t[i + 1] === "\n") i++; ligne.push(cell); cell = ""; lignes.push(ligne); ligne = []; }
+    else cell += c;
+  }
+  if (cell !== "" || ligne.length) { ligne.push(cell); lignes.push(ligne); }
+  return lignes.filter(l => l.some(x => String(x).trim() !== ""));
+}
+
+function lireFichierTexteAvecEncodage(buffer) {
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(buffer); }
+  catch (e) { return new TextDecoder("windows-1252").decode(buffer); }
+}
+
+// Transforme les lignes CSV en contacts { Nom_et_Prenom, Organisation, Organisation_Path, Role, mail, Telephone, Notes }.
+// Une cellule qui répète son propre en-tête (ex. « Fonction » dans la colonne « Fonction ») est un gabarit : ignorée.
+function contactsDepuisCsv(lignes) {
+  if (lignes.length < 2) return [];
+  const norm = x => normaliserTexteRecherche(x).replace(/[^a-z0-9]+/g, " ").trim();
+  const idx = {}; lignes[0].forEach((h, i) => { idx[norm(h)] = i; });
+  const col = (ligne, nom) => { const i = idx[norm(nom)]; if (i === undefined) return ""; const v = String(ligne[i] === undefined ? "" : ligne[i]).trim(); return norm(v) === norm(nom) ? "" : v; };
+  const contacts = [];
+  lignes.slice(1).forEach(ligne => {
+    const nom = col(ligne, "Nom"), prenom = col(ligne, "Prénom"), affiche = col(ligne, "Nom affiché");
+    let nomEtPrenom = [nom, prenom].filter(Boolean).join(" ");
+    if (!nomEtPrenom) nomEtPrenom = affiche;
+    const mail = col(ligne, "Email") || col(ligne, "Email 2");
+    if (!nomEtPrenom && !mail) return;
+    const org = col(ligne, "Organisation");
+    const bureau = col(ligne, "Tél. bureau"), mobile = col(ligne, "Mobile");
+    const c = { Nom_et_Prenom: nomEtPrenom || (nomPrenomDepuisEmail(mail) || {}).nomEtPrenom || mail };
+    if (mail) c.mail = mail;
+    if (org) { c.Organisation_Path = org; c.Organisation = org.split("/").pop().trim(); }
+    if (col(ligne, "Fonction")) c.Role = col(ligne, "Fonction");
+    if (bureau || mobile) c.Telephone = [bureau, mobile].filter(Boolean).join(" / ");
+    if (col(ligne, "Notes")) c.Notes = col(ligne, "Notes");
+    contacts.push(c);
+  });
+  return contacts;
+}
+
+// Rapproche un contact importé d'un contact existant : par e-mail, sinon par nom (ordre des mots indifférent).
+function trouverActeurExistant(c) {
+  const mail = String(c.mail || "").trim().toLowerCase();
+  const ids = Object.keys(acteursParId);
+  if (mail) { const id = ids.find(i => String(acteursParId[i].mail || "").trim().toLowerCase() === mail); if (id) return Number(id); }
+  const cle = cleTriMotsNom(c.Nom_et_Prenom);
+  if (cle) { const id = ids.find(i => cleTriMotsNom(acteursParId[i].Nom_et_Prenom) === cle); if (id) return Number(id); }
+  return null;
+}
+
+// Import non destructif : un contact existant n'est que complété (champs vides), jamais écrasé.
+function planImportContacts(contacts) {
+  const creations = [], completions = []; let inchanges = 0;
+  const dejaVus = new Set();
+  contacts.forEach(c => {
+    const cleDoublon = (String(c.mail || "").toLowerCase()) || cleTriMotsNom(c.Nom_et_Prenom);
+    if (dejaVus.has(cleDoublon)) return; dejaVus.add(cleDoublon);
+    const id = trouverActeurExistant(c);
+    if (id === null) { creations.push(c); return; }
+    const a = acteursParId[id], maj = {};
+    Object.keys(c).forEach(k => { if (k !== "Nom_et_Prenom" && !String(a[k] || "").trim()) maj[k] = c[k]; });
+    if (Object.keys(maj).length) completions.push({ id, maj }); else inchanges++;
+  });
+  return { creations, completions, inchanges };
+}
+
+async function importerContactsCsv(fichier) {
+  const msg = document.getElementById("modale-acteurs-msg");
+  try {
+    const texte = lireFichierTexteAvecEncodage(await fichier.arrayBuffer());
+    const contacts = contactsDepuisCsv(analyserCsvTexte(texte));
+    if (!contacts.length) { if (msg) msg.textContent = "Import : aucun contact exploitable dans ce fichier (en-têtes attendus : Prénom;Nom;…;Email;…)."; return; }
+    const plan = planImportContacts(contacts);
+    const resume = plan.creations.length + " création(s), " + plan.completions.length + " contact(s) complété(s), " + plan.inchanges + " inchangé(s)";
+    if (!plan.creations.length && !plan.completions.length) { if (msg) msg.textContent = "Import : rien à faire (" + resume + ")."; return; }
+    if (!confirm("Importer " + contacts.length + " contact(s) ?\n" + resume + ".\nLes contacts existants sont seulement complétés (champs vides), jamais écrasés.")) return;
+    const actions = plan.creations.map(c => ["AddRecord", TABLE_ACTEURS, null, c]).concat(plan.completions.map(x => ["UpdateRecord", TABLE_ACTEURS, x.id, x.maj]));
+    for (let i = 0; i < actions.length; i += 100) await appliquerActions(actions.slice(i, i + 100));
+    await chargerTablesAnnexes();
+    rafraichirTableauGestionActeurs();
+    if (msg) msg.textContent = "Import terminé : " + resume + ".";
+  } catch (err) {
+    console.error("Import CSV contacts :", err);
+    if (msg) msg.textContent = "Erreur d'import : " + err.message;
+  }
+}
+
+const btnExportContactsCsv = document.getElementById("btn-export-contacts-csv");
+if (btnExportContactsCsv) btnExportContactsCsv.addEventListener("click", exporterContactsCsv);
+const btnImportContactsCsv = document.getElementById("btn-import-contacts-csv");
+const inputImportContactsCsv = document.getElementById("input-import-contacts-csv");
+if (btnImportContactsCsv && inputImportContactsCsv) {
+  btnImportContactsCsv.addEventListener("click", () => inputImportContactsCsv.click());
+  inputImportContactsCsv.addEventListener("change", async () => {
+    const f = inputImportContactsCsv.files && inputImportContactsCsv.files[0];
+    inputImportContactsCsv.value = "";
+    if (f) await importerContactsCsv(f);
+  });
+}
+
 // Un "mot" est considéré entièrement en MAJUSCULES s'il contient au moins une lettre et aucune
 // lettre minuscule (les chiffres/ponctuation comme "21/DIR" ne comptent pas contre lui).
 function motEstMajuscule(mot) {
@@ -5056,7 +5253,7 @@ document.getElementById("tag-planning").addEventListener("click", () => basculer
 document.getElementById("tag-ia").addEventListener("click", () => basculerVue("ia"));
 document.getElementById("tag-messages").addEventListener("click", () => basculerVue("messages"));
 
-// --- Reporting : 3 sous-onglets (v0.157) ---
+// --- Reporting : 3 sous-onglets (v0.158) ---
 // « Cette semaine » = reporting hebdomadaire ; « Aujourd'hui » = situation à date (statuts, porteurs, kanbans) ;
 // « Évolution » = évolution dans le temps (actions par semaine, délais de traitement). L'ancien onglet Activité est absorbé.
 let sousOngletReporting = "aujourdhui";
@@ -5338,7 +5535,7 @@ function construireGraphiqueBarresEmpileesSemaines(categories, semaines, faites,
   return { svg, xAujourdhui, largeurTotale: largeur };
 }
 
-// Parcours d'une demande (v0.157) : plan de métro. Ligne Émergence (statuts + jalons datés, nombre de demandes par statut),
+// Parcours d'une demande (v0.158) : plan de métro. Ligne Émergence (statuts + jalons datés, nombre de demandes par statut),
 // ligne BRM (entrants → Arbitrage → suivi hebdo en Compil, avec un point par semaine) et ligne Autres offres DTNUM.
 // Coordonnées : 1 unité = 1/100 de pouce de la maquette (viewBox 1333 x 740).
 function construireParcoursStatuts(statuts, comptages) {
@@ -5468,7 +5665,7 @@ function ligneCorrespondFiltreKanban(l) {
   }
   return true;
 }
-// Repli des kanban (v0.157) : seul le bandeau des colonnes (titre + compteur) reste visible.
+// Repli des kanban (v0.158) : seul le bandeau des colonnes (titre + compteur) reste visible.
 const kanbansReplies = new Set(["kanban-activite", "kanban-jalons"]);   // repliés par défaut
 function appliquerReplisKanban() {
   document.querySelectorAll(".btn-repli-kanban").forEach(b => {
@@ -5595,7 +5792,7 @@ function construireKanban() {
   }).join("");
 }
 
-// ===== Kanban par jalons (v0.157) =====
+// ===== Kanban par jalons (v0.158) =====
 // Une demande = UNE colonne : celle du jalon le plus avancé atteint (Entrée → Go/NoGo → 1er atelier → MVP réalisée).
 // Mêmes filtres que le kanban par statut. Sous chaque titre : durée moyenne / min / max (jours ouvrés) pour atteindre le
 // jalon depuis le précédent, sur les demandes du périmètre ayant les deux dates (dates incohérentes ignorées).
@@ -6030,7 +6227,7 @@ function telechargerBlob(blob, nomFichier) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ===== Export CSV de la liste des demandes (v0.157) =====
+// ===== Export CSV de la liste des demandes (v0.158) =====
 // Colonnes = colonnes affichées (dans l'ordre courant), lignes = demandes filtrées, dans l'ordre du tri.
 // Séparateur « ; » + BOM UTF-8 pour une ouverture directe dans Excel français. Dates sans heure.
 function echapperCsv(v) {
@@ -8812,7 +9009,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.157) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.158) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -9013,7 +9210,7 @@ function dateMessage(epoch) {
 function inputDateVersEpochDebut(v) { return v ? Math.floor(new Date(v + "T00:00:00").getTime() / 1000) : 0; }
 function inputDateVersEpochFin(v) { return v ? Math.floor(new Date(v + "T23:59:59").getTime() / 1000) : 0; }
 
-// Recherche avancée (v0.157) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
+// Recherche avancée (v0.158) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
 // au moins un interlocuteur non SDID.
 function messageHorsSdid(m) {
   // interlocuteurs = expéditeur (message reçu) ou destinataires (message envoyé) ; un acteur dont l'organisation contient « SDID » est interne
@@ -9121,7 +9318,7 @@ setInterval(() => {
   if (document.getElementById("vue-messages").style.display !== "none" || (ligneSelectionneeId != null && document.getElementById("rida-tbody"))) actualiserMessagesSilencieusement();
 }, INTERVALLE_ACTUALISATION_MESSAGES_MS);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") actualiserMessagesSilencieusement(); });
-// ===================== Recherche avancée des messages (v0.157) =====================
+// ===================== Recherche avancée des messages (v0.158) =====================
 // 1) « Hors SDID » : messages échangés avec des personnes non SDID (organisation de l'acteur ; adresse inconnue = externe).
 // 2) Corrélation IA avec une demande (ou un texte libre) : chaque message de la période est vectorisé UNE SEULE FOIS
 //    (sujet + début du corps nettoyé, ~1000 car.) via /embeddings du fournisseur configuré ; les vecteurs restent en
