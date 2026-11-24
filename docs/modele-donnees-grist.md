@@ -93,7 +93,7 @@ Généré automatiquement le 22/09/2026 09:29:33
 | `ID3` | ID | `Any` | Oui | `if $ID2: return str($ID2.id)` |
 | `A` | A | `Any` | Oui | `if $ID2: return $ID2.Typologie_de_la_demande` |
 
-**Changements d'état (widget, v0.159)** : à chaque changement de `Statut` d'une demande, le widget ajoute une ligne `Emergence_Rida` de type `I` (`Pour_le` = `Fait_le` = date du jour) dont la `Description` est `Changement d'état : <ancien statut> → <nouveau statut>`. Cette ligne est verrouillée dans le widget (lecture seule, non supprimable) ; le Reporting « Cette semaine » s'en sert pour le kanban des mouvements.
+**Changements d'état (widget, v0.159)** : à chaque changement de `Statut` d'une demande, le widget ajoute une ligne `Emergence_Rida` de type `I` (`Pour_le` = `Fait_le` = date du jour) dont la `Description` est `Changement d'état : <ancien statut> → <nouveau statut>`. Cette ligne est verrouillée dans le widget (lecture seule, mais supprimable) ; le Reporting « Cette semaine » s'en sert pour le kanban des mouvements.
 
 ## Table `Emergence_Images`
 

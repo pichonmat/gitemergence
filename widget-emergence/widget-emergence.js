@@ -1,6 +1,6 @@
-// Widget Emergence — v0.159
-// Numéro de release : <majeure>.<build> (0.159 = release majeure 0, build 159).
-const VERSION_WIDGET = "0.159";
+// Widget Emergence — v0.160
+// Numéro de release : <majeure>.<build> (0.160 = release majeure 0, build 160).
+const VERSION_WIDGET = "0.160";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -383,9 +383,9 @@ function appliquerPorteurParDefaut(actions) {
   return actions;
 }
 
-// --- Journal des changements d'état (v0.159) ---
+// --- Journal des changements d'état (v0.160) ---
 // Chaque changement de Statut d'une demande ajoute une ligne RIDA « Changement d'état : XXX → YYY » (type I, datée
-// d'aujourd'hui, NON modifiable et non supprimable depuis le widget). Toujours actif, quel que soit le réglage du
+// d'aujourd'hui, non modifiable mais supprimable depuis le widget). Toujours actif, quel que soit le réglage du
 // journal des modifications. Le Reporting « Cette semaine » s'appuie sur ces lignes pour afficher les mouvements.
 const REGEX_CHANGEMENT_ETAT = /^Changement d'état : (.+) → (.+)$/;
 function estLigneChangementEtat(r) {
@@ -513,7 +513,7 @@ const ANCIENS_LIBELLES_STATUT = {
   "5 - Transférer": "En cours de transfert", "6 - En attente": "Accompagnement", "7 - Clôturer": "Clôturer",
   "1- En cours": "Accompagnement", "2- En attente": "Accompagnement", "3- Clôturé": "Clôturer",
   "4- Transféré": "En cours de transfert", "5- A qualifier": "Qualifier", "9 - A qualifier": "Qualifier",
-  // v0.159 : statuts supprimés (relus comme les nouveaux jusqu'à la migration des données)
+  // v0.160 : statuts supprimés (relus comme les nouveaux jusqu'à la migration des données)
   "Roadmap produit": "Nouveau", "Initialisation projet": "Nouveau", "Recherche cause racine": "Qualifier"
 };
 function normaliserStatut(statut) {
@@ -644,7 +644,7 @@ function sauvegarderOrdreColonnes() {
 // Référence BRM (colonne texte facultative de la table Emergence, libellé « Ref BRM ») : lue sous
 // son identifiant Grist quel qu'il soit (Ref_BRM, RefBRM, ref_brm...) ; chaîne vide si la colonne
 // n'existe pas ou n'est pas renseignée.
-// Référence d'une demande (v0.159) : « EMG- » + id de ligne Grist sur 4 chiffres (ex. EMG-0123). Calculée ici à partir de
+// Référence d'une demande (v0.160) : « EMG- » + id de ligne Grist sur 4 chiffres (ex. EMG-0123). Calculée ici à partir de
 // l'id, comme la colonne formule Emergence.Ref_Emergence créée par l'outil de migration ("EMG-%04d" % $id) : le widget
 // n'a donc pas besoin que cette colonne existe. La référence est réversible (EMG-0123 ↔ ligne 123).
 const PREFIXE_REF_DEMANDE = "EMG-";
@@ -811,7 +811,7 @@ const DELAI_DOUBLE_CLIC_MS = 400;
 let timerEditionListe = null; // édition en place différée : annulée si un double clic suit
 let filtrePrioriteSelection = new Set();      // vide = toutes les priorités (valeur "" = sans priorité)
 let filtreTypologieSelection = new Set();    // vide = toutes les typologies
-let filtreTagSelection = new Set();          // vide = tous les tags (v0.159)
+let filtreTagSelection = new Set();          // vide = tous les tags (v0.160)
 let filtreOrganisationSelection = new Set(); // vide = toutes les organisations
 let filtreSponsorTexte = "";          // recherche libre dans le Sponsor
 let filtrePorteurTexte = "";          // recherche libre dans le(s) Porteur(s)
@@ -845,7 +845,7 @@ grist.onRecords(async function (records) {
   }
 });
 
-// Lien direct (v0.159) : un lien Grist « …#a1.sX.r123 » place le curseur sur la ligne 123 ; on ouvre alors sa fiche.
+// Lien direct (v0.160) : un lien Grist « …#a1.sX.r123 » place le curseur sur la ligne 123 ; on ouvre alors sa fiche.
 // Au tout premier signal, le curseur par défaut (première ligne de la vue) n'est pas considéré comme un lien.
 function ouvrirDepuisCurseurGrist(id) {
   if (!id || id === ligneSelectionneeId) return;
@@ -2886,9 +2886,9 @@ function genererLigneRidaEditable(r) {
     "</tr>";
 }
 
-// Ligne RIDA de changement d'état : lecture seule (ni modification ni suppression depuis le widget).
+// Ligne RIDA de changement d'état : lecture seule, mais supprimable (🗑).
 function genererLigneRidaVerrouillee(r) {
-  return "<tr data-rida-id='" + r.id + "' class='rida-verrouillee' title='Ligne automatique : non modifiable'>" +
+  return "<tr data-rida-id='" + r.id + "' class='rida-verrouillee' title='Ligne automatique : non modifiable (suppression possible)'>" +
     "<td>I</td>" +
     "<td>" + escapeHtml(r.Porteur || "") + "</td>" +
     "<td></td>" +
@@ -2896,7 +2896,7 @@ function genererLigneRidaVerrouillee(r) {
     "<td>" + escapeHtml(formaterDate(r.Pour_le)) + "</td>" +
     "<td class='rida-date-modif'>" + escapeHtml(formaterDateModifRida(r)) + "</td>" +
     "<td><span class='rida-description-verrou'>🔒 " + escapeHtml(r.Description || "") + "</span></td>" +
-    "<td class='rida-actions'></td></tr>";
+    "<td class='rida-actions'><button class='btn-rida-delete' type='button' title='Supprimer cette ligne'>🗑</button></td></tr>";
 }
 
 // Porteur d'une ligne RIDA : puce bleue (comme Sponsor/Porteurs/Parties prenantes) quand
@@ -3831,7 +3831,7 @@ document.getElementById("btn-ajouter-acteur-gestion").addEventListener("click", 
   ouvrirModaleActeur("gestion-acteurs", "");
 });
 
-// ===== Import / export CSV des contacts (v0.159) =====
+// ===== Import / export CSV des contacts (v0.160) =====
 // Format compatible avec le fichier annuaire SDID :
 // « Prénom;Nom;Nom affiché;Email;Email 2;Tél. bureau;Mobile;Organisation;Fonction;Notes;Divers 1;Divers 2;Divers 3;Divers 4 »
 // (séparateur « ; », première ligne = en-têtes). « Divers 1..4 » reçoit à l'export les demandes liées au contact
@@ -5297,7 +5297,7 @@ document.getElementById("tag-planning").addEventListener("click", () => basculer
 document.getElementById("tag-ia").addEventListener("click", () => basculerVue("ia"));
 document.getElementById("tag-messages").addEventListener("click", () => basculerVue("messages"));
 
-// --- Reporting : 3 sous-onglets (v0.159) ---
+// --- Reporting : 3 sous-onglets (v0.160) ---
 // « Cette semaine » = reporting hebdomadaire ; « Aujourd'hui » = situation à date (statuts, porteurs, kanbans) ;
 // « Évolution » = évolution dans le temps (actions par semaine, délais de traitement). L'ancien onglet Activité est absorbé.
 let sousOngletReporting = "aujourdhui";
@@ -5579,7 +5579,7 @@ function construireGraphiqueBarresEmpileesSemaines(categories, semaines, faites,
   return { svg, xAujourdhui, largeurTotale: largeur };
 }
 
-// Parcours d'une demande (v0.159) : plan de métro. Ligne Émergence (statuts + jalons datés, nombre de demandes par statut),
+// Parcours d'une demande (v0.160) : plan de métro. Ligne Émergence (statuts + jalons datés, nombre de demandes par statut),
 // ligne BRM (entrants → Arbitrage → suivi hebdo en Compil, avec un point par semaine) et ligne Autres offres DTNUM.
 // Coordonnées : 1 unité = 1/100 de pouce de la maquette (viewBox 1333 x 740).
 function construireParcoursStatuts(statuts, comptages) {
@@ -5709,7 +5709,7 @@ function ligneCorrespondFiltreKanban(l) {
   }
   return true;
 }
-// Repli des kanban (v0.159) : seul le bandeau des colonnes (titre + compteur) reste visible.
+// Repli des kanban (v0.160) : seul le bandeau des colonnes (titre + compteur) reste visible.
 const kanbansReplies = new Set(["kanban-activite", "kanban-jalons"]);   // repliés par défaut
 function appliquerReplisKanban() {
   document.querySelectorAll(".btn-repli-kanban").forEach(b => {
@@ -5836,7 +5836,7 @@ function construireKanban() {
   }).join("");
 }
 
-// ===== Kanban par jalons (v0.159) =====
+// ===== Kanban par jalons (v0.160) =====
 // Une demande = UNE colonne : celle du jalon le plus avancé atteint (Entrée → Go/NoGo → 1er atelier → MVP réalisée).
 // Mêmes filtres que le kanban par statut. Sous chaque titre : durée moyenne / min / max (jours ouvrés) pour atteindre le
 // jalon depuis le précédent, sur les demandes du périmètre ayant les deux dates (dates incohérentes ignorées).
@@ -6271,7 +6271,7 @@ function telechargerBlob(blob, nomFichier) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ===== Export CSV de la liste des demandes (v0.159) =====
+// ===== Export CSV de la liste des demandes (v0.160) =====
 // Colonnes = colonnes affichées (dans l'ordre courant), lignes = demandes filtrées, dans l'ordre du tri.
 // Séparateur « ; » + BOM UTF-8 pour une ouverture directe dans Excel français. Dates sans heure.
 function echapperCsv(v) {
@@ -6549,7 +6549,7 @@ function htmlGroupesReporting(groupes, cleDate, libelleDate) {
   }).join("");
 }
 
-// --- Mouvements de la semaine (v0.159) : kanban, une demande par ligne ---
+// --- Mouvements de la semaine (v0.160) : kanban, une demande par ligne ---
 // Fenêtre : les 7 derniers jours (aujourd'hui compris) pour la semaine en cours, sinon lundi→dimanche de la semaine affichée.
 // Une demande y figure si elle est nouvelle (date d'entrée dans la fenêtre) ou si son statut a changé (lignes RIDA
 // « Changement d'état »). Elle est placée dans la colonne de son statut actuel ; une flèche part du statut d'origine
@@ -6585,6 +6585,22 @@ function calculerMouvementsSemaine() {
   mouvements.sort((a, b) => (b.date || 0) - (a.date || 0) || b.ligne.id - a.ligne.id);
   return { debut, fin, mouvements };
 }
+function detailsMouvement(m) {
+  const l = m.ligne;
+  const sponsor = nomActeurParId(Number(l.Sponsor)) || "";
+  const parties = refListVersIds(l.Parties_prenantes_concernees).map(Number).map(nomActeurParId).filter(Boolean).join(", ");
+  const rows = [refDemande(l.id) + " — " + (l.Titre || "Sans titre")];
+  if (m.origine) rows.push("Statut : " + m.origine + " → " + m.actuel + " (le " + formaterDate(m.date) + ")"); else rows.push("Statut : " + m.actuel);
+  if (m.nouvelle) rows.push("Nouvelle demande, entrée le " + formaterDate(m.dateEntree));
+  if (l.Organisation) rows.push("Organisation : " + l.Organisation);
+  if (sponsor) rows.push("Sponsor : " + sponsor);
+  if (l.Porteurs) rows.push("Porteur(s) : " + String(l.Porteurs).trim());
+  if (parties) rows.push("Parties prenantes : " + parties);
+  if (l.Priorite) rows.push("Priorité : " + l.Priorite);
+  const syn = String(l.Synthese_de_la_demande || "").replace(/\s+/g, " ").trim();
+  if (syn) rows.push("Synthèse : " + (syn.length > 200 ? syn.slice(0, 197) + "…" : syn));
+  return rows.join("\n");
+}
 function htmlMouvementsSemaine() {
   const { debut, fin, mouvements } = calculerMouvementsSemaine();
   const noms = STATUTS.map(st => st.nom);
@@ -6609,8 +6625,7 @@ function htmlMouvementsSemaine() {
     const infoDate = (m.nouvelle && !fleche) ? "<span class='rk-carte-date'>" + dateCourteMouvement(m.dateEntree) + "</span>" : "";
     const titre = refDemande(m.ligne.id) + " " + (m.ligne.Titre || "Sans titre");
     return "<div class='rk-ligne'>" + fleche +
-      "<div class='rk-carte' data-demande-id='" + m.ligne.id + "' style='grid-column:" + (col + 1) + ";background:" + coul.fond + ";color:" + coul.texte + "' title=\"" +
-      escapeHtml(titre + (m.nouvelle ? " — nouvelle demande du " + formaterDate(m.dateEntree) : "")) + "\">" +
+      "<div class='rk-carte' data-demande-id='" + m.ligne.id + "' style='grid-column:" + (col + 1) + ";background:" + coul.fond + ";color:" + coul.texte + "' title=\"" + escapeHtml(detailsMouvement(m)) + "\">" +
       "<span class='rk-carte-texte'>" + info + "<b>" + escapeHtml(refDemande(m.ligne.id)) + "</b> " + escapeHtml(m.ligne.Titre || "Sans titre") + "</span>" + infoDate + "</div></div>";
   }).join("");
   const nbNouv = mouvements.filter(m => m.nouvelle).length, nbChg = mouvements.filter(m => m.origine).length;
@@ -9123,7 +9138,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.159) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.160) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -9324,7 +9339,7 @@ function dateMessage(epoch) {
 function inputDateVersEpochDebut(v) { return v ? Math.floor(new Date(v + "T00:00:00").getTime() / 1000) : 0; }
 function inputDateVersEpochFin(v) { return v ? Math.floor(new Date(v + "T23:59:59").getTime() / 1000) : 0; }
 
-// Recherche avancée (v0.159) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
+// Recherche avancée (v0.160) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
 // au moins un interlocuteur non SDID.
 function messageHorsSdid(m) {
   // interlocuteurs = expéditeur (message reçu) ou destinataires (message envoyé) ; un acteur dont l'organisation contient « SDID » est interne
@@ -9432,7 +9447,7 @@ setInterval(() => {
   if (document.getElementById("vue-messages").style.display !== "none" || (ligneSelectionneeId != null && document.getElementById("rida-tbody"))) actualiserMessagesSilencieusement();
 }, INTERVALLE_ACTUALISATION_MESSAGES_MS);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") actualiserMessagesSilencieusement(); });
-// ===================== Recherche avancée des messages (v0.159) =====================
+// ===================== Recherche avancée des messages (v0.160) =====================
 // 1) « Hors SDID » : messages échangés avec des personnes non SDID (organisation de l'acteur ; adresse inconnue = externe).
 // 2) Corrélation IA avec une demande (ou un texte libre) : chaque message de la période est vectorisé UNE SEULE FOIS
 //    (sujet + début du corps nettoyé, ~1000 car.) via /embeddings du fournisseur configuré ; les vecteurs restent en
