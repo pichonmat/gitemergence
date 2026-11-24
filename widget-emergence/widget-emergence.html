@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.160 -->
+<!-- Widget Emergence — v0.161 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -669,7 +669,14 @@
   .reporting-total { font-size: calc(12px * var(--echelle-texte)); color: #6b7280; margin: 3px 0 8px; }
   .reporting-vide { color: #9ca3af; font-size: calc(12px * var(--echelle-texte)); padding: 6px 2px; }
   .reporting-groupe { border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 8px; overflow: hidden; background: #fff; }
-  /* Mouvements de la semaine (v0.160) */
+  /* Mouvements de la semaine (v0.161) */
+  .reporting-mouvements { border: 2px solid #1a1a9c; border-radius: 8px; background: #f8f9ff; padding: 8px 12px 10px; margin-bottom: 8px; }
+  .reporting-mouvements h2 { margin: 0; }
+  .rk-bandeau { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .rk-periode { font-size: calc(12px * var(--echelle-texte)); color: #374151; }
+  .rk-periode select { font-size: inherit; padding: 1px 4px; }
+  .rk-dates { font-size: calc(12px * var(--echelle-texte)); color: #6b7280; }
+  .reporting-bloc-titre { margin: 22px 0 6px; padding: 5px 10px; background: #1a1a9c; color: #fff; border-radius: 6px; font-weight: 700; font-size: calc(14px * var(--echelle-texte)); }
   .rk { margin: 6px 0 14px; }
   .rk-ligne { display: grid; grid-template-columns: repeat(var(--rk-n), minmax(0, 1fr)); align-items: center; min-height: 34px; position: relative; border-bottom: 1px dotted #e5e7eb; }
   .rk-entete { min-height: 0; border-bottom: 1px solid #d1d5db; padding-bottom: 4px; margin-bottom: 2px; }
@@ -866,7 +873,7 @@
     border-radius: 8px;
   }
 
-  /* Barres de défilement toujours visibles et grisées (v0.160) — sans elles, les barres « overlay » (macOS, navigateurs
+  /* Barres de défilement toujours visibles et grisées (v0.161) — sans elles, les barres « overlay » (macOS, navigateurs
      récents) restent invisibles tant qu'on ne défile pas et on ne voit pas que le tableau déborde. */
   .conteneur-liste, .conteneur-tableau-actions, .conteneur-tableau-contacts, .msg-tableau-conteneur { scrollbar-gutter: auto; }
   .conteneur-liste::-webkit-scrollbar, .conteneur-tableau-actions::-webkit-scrollbar, .conteneur-tableau-contacts::-webkit-scrollbar, .msg-tableau-conteneur::-webkit-scrollbar { width: 14px; height: 14px; }
