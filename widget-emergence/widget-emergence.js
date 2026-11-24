@@ -1,6 +1,6 @@
-// Widget Emergence — v0.162
-// Numéro de release : <majeure>.<build> (0.162 = release majeure 0, build 162).
-const VERSION_WIDGET = "0.162";
+// Widget Emergence — v0.163
+// Numéro de release : <majeure>.<build> (0.163 = release majeure 0, build 163).
+const VERSION_WIDGET = "0.163";
 // --- Configuration ---
 const GRIST_BASE_URL = "https://grist.numerique.gouv.fr";
 const DOC_ID = "qXWzdtyGgNh2T64Ti1SQfc";
@@ -383,7 +383,7 @@ function appliquerPorteurParDefaut(actions) {
   return actions;
 }
 
-// --- Journal des changements d'état (v0.162) ---
+// --- Journal des changements d'état (v0.163) ---
 // Chaque changement de Statut d'une demande ajoute une ligne RIDA « Changement d'état : XXX → YYY » (type I, datée
 // d'aujourd'hui, non modifiable mais supprimable depuis le widget). Toujours actif, quel que soit le réglage du
 // journal des modifications. Le Reporting « Cette semaine » s'appuie sur ces lignes pour afficher les mouvements.
@@ -513,7 +513,7 @@ const ANCIENS_LIBELLES_STATUT = {
   "5 - Transférer": "En cours de transfert", "6 - En attente": "Accompagnement", "7 - Clôturer": "Clôturer",
   "1- En cours": "Accompagnement", "2- En attente": "Accompagnement", "3- Clôturé": "Clôturer",
   "4- Transféré": "En cours de transfert", "5- A qualifier": "Qualifier", "9 - A qualifier": "Qualifier",
-  // v0.162 : statuts supprimés (relus comme les nouveaux jusqu'à la migration des données)
+  // v0.163 : statuts supprimés (relus comme les nouveaux jusqu'à la migration des données)
   "Roadmap produit": "Nouveau", "Initialisation projet": "Nouveau", "Recherche cause racine": "Qualifier"
 };
 function normaliserStatut(statut) {
@@ -644,7 +644,7 @@ function sauvegarderOrdreColonnes() {
 // Référence BRM (colonne texte facultative de la table Emergence, libellé « Ref BRM ») : lue sous
 // son identifiant Grist quel qu'il soit (Ref_BRM, RefBRM, ref_brm...) ; chaîne vide si la colonne
 // n'existe pas ou n'est pas renseignée.
-// Référence d'une demande (v0.162) : « EMG- » + id de ligne Grist sur 4 chiffres (ex. EMG-0123). Calculée ici à partir de
+// Référence d'une demande (v0.163) : « EMG- » + id de ligne Grist sur 4 chiffres (ex. EMG-0123). Calculée ici à partir de
 // l'id, comme la colonne formule Emergence.Ref_Emergence créée par l'outil de migration ("EMG-%04d" % $id) : le widget
 // n'a donc pas besoin que cette colonne existe. La référence est réversible (EMG-0123 ↔ ligne 123).
 const PREFIXE_REF_DEMANDE = "EMG-";
@@ -802,7 +802,7 @@ let ridaToutes = [];
 let colonneTri = "Date_de_soumission";
 let sensTri = "desc";
 let ligneSelectionneeId = null;
-let triRidaColonne = null;
+let triRidaColonne = "Pour_le"; // v0.163 : tri chronologique par défaut (messages des BAL inclus)
 let triRidaSens = "asc";
 let masquerZoneListe = function () {}; // réassignée par initRedimensionnementListe
 let dernierClicId = null;
@@ -811,7 +811,7 @@ const DELAI_DOUBLE_CLIC_MS = 400;
 let timerEditionListe = null; // édition en place différée : annulée si un double clic suit
 let filtrePrioriteSelection = new Set();      // vide = toutes les priorités (valeur "" = sans priorité)
 let filtreTypologieSelection = new Set();    // vide = toutes les typologies
-let filtreTagSelection = new Set();          // vide = tous les tags (v0.162)
+let filtreTagSelection = new Set();          // vide = tous les tags (v0.163)
 let filtreOrganisationSelection = new Set(); // vide = toutes les organisations
 let filtreSponsorTexte = "";          // recherche libre dans le Sponsor
 let filtrePorteurTexte = "";          // recherche libre dans le(s) Porteur(s)
@@ -845,7 +845,7 @@ grist.onRecords(async function (records) {
   }
 });
 
-// Lien direct (v0.162) : un lien Grist « …#a1.sX.r123 » place le curseur sur la ligne 123 ; on ouvre alors sa fiche.
+// Lien direct (v0.163) : un lien Grist « …#a1.sX.r123 » place le curseur sur la ligne 123 ; on ouvre alors sa fiche.
 // Au tout premier signal, le curseur par défaut (première ligne de la vue) n'est pas considéré comme un lien.
 function ouvrirDepuisCurseurGrist(id) {
   if (!id || id === ligneSelectionneeId) return;
@@ -3840,7 +3840,7 @@ document.getElementById("btn-ajouter-acteur-gestion").addEventListener("click", 
   ouvrirModaleActeur("gestion-acteurs", "");
 });
 
-// ===== Import / export CSV des contacts (v0.162) =====
+// ===== Import / export CSV des contacts (v0.163) =====
 // Format compatible avec le fichier annuaire SDID :
 // « Prénom;Nom;Nom affiché;Email;Email 2;Tél. bureau;Mobile;Organisation;Fonction;Notes;Divers 1;Divers 2;Divers 3;Divers 4 »
 // (séparateur « ; », première ligne = en-têtes). « Divers 1..4 » reçoit à l'export les demandes liées au contact
@@ -5306,7 +5306,7 @@ document.getElementById("tag-planning").addEventListener("click", () => basculer
 document.getElementById("tag-ia").addEventListener("click", () => basculerVue("ia"));
 document.getElementById("tag-messages").addEventListener("click", () => basculerVue("messages"));
 
-// --- Reporting : 3 sous-onglets (v0.162) ---
+// --- Reporting : 3 sous-onglets (v0.163) ---
 // « Cette semaine » = reporting hebdomadaire ; « Aujourd'hui » = situation à date (statuts, porteurs, kanbans) ;
 // « Évolution » = évolution dans le temps (actions par semaine, délais de traitement). L'ancien onglet Activité est absorbé.
 let sousOngletReporting = "aujourdhui";
@@ -5588,7 +5588,7 @@ function construireGraphiqueBarresEmpileesSemaines(categories, semaines, faites,
   return { svg, xAujourdhui, largeurTotale: largeur };
 }
 
-// Parcours d'une demande (v0.162) : plan de métro. Ligne Émergence (statuts + jalons datés, nombre de demandes par statut),
+// Parcours d'une demande (v0.163) : plan de métro. Ligne Émergence (statuts + jalons datés, nombre de demandes par statut),
 // ligne BRM (entrants → Arbitrage → suivi hebdo en Compil, avec un point par semaine) et ligne Autres offres DTNUM.
 // Coordonnées : 1 unité = 1/100 de pouce de la maquette (viewBox 1333 x 740).
 function construireParcoursStatuts(statuts, comptages) {
@@ -5718,7 +5718,7 @@ function ligneCorrespondFiltreKanban(l) {
   }
   return true;
 }
-// Repli des kanban (v0.162) : seul le bandeau des colonnes (titre + compteur) reste visible.
+// Repli des kanban (v0.163) : seul le bandeau des colonnes (titre + compteur) reste visible.
 const kanbansReplies = new Set(["kanban-activite", "kanban-jalons"]);   // repliés par défaut
 function appliquerReplisKanban() {
   document.querySelectorAll(".btn-repli-kanban").forEach(b => {
@@ -5845,7 +5845,7 @@ function construireKanban() {
   }).join("");
 }
 
-// ===== Kanban par jalons (v0.162) =====
+// ===== Kanban par jalons (v0.163) =====
 // Une demande = UNE colonne : celle du jalon le plus avancé atteint (Entrée → Go/NoGo → 1er atelier → MVP réalisée).
 // Mêmes filtres que le kanban par statut. Sous chaque titre : durée moyenne / min / max (jours ouvrés) pour atteindre le
 // jalon depuis le précédent, sur les demandes du périmètre ayant les deux dates (dates incohérentes ignorées).
@@ -6280,7 +6280,7 @@ function telechargerBlob(blob, nomFichier) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ===== Export CSV de la liste des demandes (v0.162) =====
+// ===== Export CSV de la liste des demandes (v0.163) =====
 // Colonnes = colonnes affichées (dans l'ordre courant), lignes = demandes filtrées, dans l'ordre du tri.
 // Séparateur « ; » + BOM UTF-8 pour une ouverture directe dans Excel français. Dates sans heure.
 function echapperCsv(v) {
@@ -6558,7 +6558,7 @@ function htmlGroupesReporting(groupes, cleDate, libelleDate) {
   }).join("");
 }
 
-// --- Mouvements de la semaine (v0.162) : kanban, une demande par ligne ---
+// --- Mouvements de la semaine (v0.163) : kanban, une demande par ligne ---
 // Fenêtre : 1 semaine, 3 semaines ou 1 mois (30 jours) se terminant aujourd'hui (semaine en cours) ou le dimanche de la semaine affichée.
 // Une demande y figure si elle est nouvelle (date d'entrée dans la fenêtre) ou si son statut a changé (lignes RIDA
 // « Changement d'état »). Elle est placée dans la colonne de son statut actuel ; une flèche part du statut d'origine
@@ -9157,7 +9157,7 @@ function genererFriseRidaHtml(ligne, ridaLies) {
 }
 
 
-// ===================== Onglet Messages (v0.162) : table Emergence_BalInno =====================
+// ===================== Onglet Messages (v0.163) : table Emergence_BalInno =====================
 // Colonnes : Recu (DateTime), Expediteur, Destinataires, Sujet, Message, UID. La liste n'affiche pas le contenu ;
 // un clic sur une ligne ouvre le message mis en forme. La date de réception est affichée sans l'heure.
 const TABLE_MESSAGES = "Emergence_BalInno";
@@ -9358,7 +9358,7 @@ function dateMessage(epoch) {
 function inputDateVersEpochDebut(v) { return v ? Math.floor(new Date(v + "T00:00:00").getTime() / 1000) : 0; }
 function inputDateVersEpochFin(v) { return v ? Math.floor(new Date(v + "T23:59:59").getTime() / 1000) : 0; }
 
-// Recherche avancée (v0.162) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
+// Recherche avancée (v0.163) : dans l'onglet Messages d'une fiche demande. horsSdid = ne garder que les messages avec
 // au moins un interlocuteur non SDID.
 function messageHorsSdid(m) {
   // interlocuteurs = expéditeur (message reçu) ou destinataires (message envoyé) ; un acteur dont l'organisation contient « SDID » est interne
@@ -9466,7 +9466,7 @@ setInterval(() => {
   if (document.getElementById("vue-messages").style.display !== "none" || (ligneSelectionneeId != null && document.getElementById("rida-tbody"))) actualiserMessagesSilencieusement();
 }, INTERVALLE_ACTUALISATION_MESSAGES_MS);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") actualiserMessagesSilencieusement(); });
-// ===================== Recherche avancée des messages (v0.162) =====================
+// ===================== Recherche avancée des messages (v0.163) =====================
 // 1) « Hors SDID » : messages échangés avec des personnes non SDID (organisation de l'acteur ; adresse inconnue = externe).
 // 2) Corrélation IA avec une demande (ou un texte libre) : chaque message de la période est vectorisé UNE SEULE FOIS
 //    (sujet + début du corps nettoyé, ~1000 car.) via /embeddings du fournisseur configuré ; les vecteurs restent en
@@ -9934,32 +9934,51 @@ document.getElementById("fiche-container").addEventListener("change", (e) => {
 });
 
 // --- Fiche : messages liés affichés comme lignes d'information (non éditables) dans le tableau RIDA ---
+function nomCourtMessage(texte) {
+  const t = String(texte || "").trim();
+  const sansMail = t.replace(/\s*<[^>]*>/g, "").replace(/^["']|["']$/g, "").trim();
+  return sansMail || t;
+}
 function insererMessagesDansRida(lies) {
   const tbody = document.getElementById("rida-tbody");
   if (!tbody) return;
-  tbody.querySelectorAll("tr.rida-message").forEach(tr => tr.remove());
+  tbody.querySelectorAll("tr.rida-message, tr.rida-separateur-msg").forEach(tr => tr.remove());
   const trie = triRidaColonne === "Pour_le";
   const croissant = !trie || triRidaSens === "asc";
   const dateLigne = (tr) => { const r = ridaToutes.find(x => x.id === Number(tr.getAttribute("data-rida-id"))); return r ? (Number(r.Pour_le) || 0) : 0; };
   const messages = lies.slice().sort((a, b) => croissant ? a.recu - b.recu : b.recu - a.recu);
+  // Les messages sont du « réalisé » : s'il n'y a pas encore de liseré mais des lignes à faire, on le crée avant la 1re d'entre elles.
+  if (messages.length && !tbody.querySelector("tr.rida-separateur")) {
+    const premiereAFaire = [...tbody.querySelectorAll("tr[data-rida-id]")].find(tr => { const r = ridaToutes.find(x => x.id === Number(tr.getAttribute("data-rida-id"))); return r && !(r.Fait_le || r.RIDA === "I"); });
+    if (premiereAFaire) {
+      const sep = document.createElement("tr");
+      sep.className = "rida-separateur rida-separateur-msg"; sep.setAttribute("aria-hidden", "true");
+      sep.innerHTML = "<td colspan='8'><span>▼ à faire</span></td>";
+      tbody.insertBefore(sep, tbody.querySelector("tr[data-rida-id]"));
+    }
+  }
+  const separateur = tbody.querySelector("tr.rida-separateur");
   messages.forEach(m => {
     const tr = document.createElement("tr");
-    tr.className = "rida-message";
+    tr.className = "rida-message " + (m.sens === "sortant" ? "rida-message-sortant" : "rida-message-entrant");
     tr.setAttribute("data-msg-id", m.id);
     tr.title = (m.sens === "sortant" ? "Message envoyé" : "Message reçu") + " — cliquer pour lire le contenu (ligne non modifiable)";
     const d = escapeHtml(dateMessage(m.recu));
-    tr.innerHTML = "<td><span class='rida-message-type'>I</span></td><td class='rida-message-porteur'>✉ " + (m.sens === "sortant" ? "↑" : "↓") + "</td><td></td>" +
-      "<td>" + d + "</td><td>" + d + "</td><td></td>" +
-      "<td class='rida-message-desc'>" + (m.sens === "sortant" ? "Message mail envoyé à " + escapeHtml(m.destinataires || "(destinataire inconnu)") : "Message mail de " + escapeHtml(m.expediteur || "(expéditeur inconnu)")) + (m.sujet ? " : " + escapeHtml(m.sujet) : "") + "</td><td></td>";
-    // position : trié par date avec les lignes RIDA si le tableau est trié par « Pour le », sinon à la fin
+    const correspondant = m.sens === "sortant" ? nomCourtMessage(m.destinataires) || "(destinataire inconnu)" : nomCourtMessage(m.expediteur) || "(expéditeur inconnu)";
+    tr.innerHTML = "<td><span class='rida-message-type'>✉</span></td>" +
+      "<td class='rida-message-porteur'><span class='rida-message-sens'>" + (m.sens === "sortant" ? "↑ envoyé" : "↓ reçu") + "</span></td><td></td>" +
+      "<td>" + d + "</td><td></td><td></td>" +
+      "<td class='rida-message-desc'><div class='rida-message-sujet'>" + escapeHtml(m.sujet || "(sans objet)") + "</div>" +
+      "<div class='rida-message-meta'>" + (m.sens === "sortant" ? "à " : "de ") + escapeHtml(correspondant) + "</div></td>" +
+      "<td class='rida-message-lire'>Lire ›</td>";
+    // position : parmi le réalisé (avant le liseré « à faire »), selon la date « Pour le » (ordre courant du tableau)
     let ref = null;
-    if (trie) {
-      for (const ligne of tbody.querySelectorAll("tr[data-rida-id]")) {
-        const dl = dateLigne(ligne);
-        if (croissant ? dl > m.recu : dl < m.recu) { ref = ligne; break; }
-      }
+    for (let ligne = tbody.firstElementChild; ligne && ligne !== separateur; ligne = ligne.nextElementSibling) {
+      if (!ligne.hasAttribute("data-rida-id")) continue;
+      const dl = dateLigne(ligne);
+      if (trie && (croissant ? dl > m.recu : dl < m.recu)) { ref = ligne; break; }
     }
-    tbody.insertBefore(tr, ref);
+    tbody.insertBefore(tr, ref || separateur);
   });
 }
 document.getElementById("fiche-container").addEventListener("click", (e) => {

@@ -1,4 +1,4 @@
-<!-- Widget Emergence — v0.162 -->
+<!-- Widget Emergence — v0.163 -->
 <div class="barre-mode-vue">
   <button type="button" id="tag-demandes" class="tag-mode tag-mode-demandes active">Demandes</button>
   <button type="button" id="tag-actions" class="tag-mode tag-mode-actions">Rida</button>
@@ -669,7 +669,7 @@
   .reporting-total { font-size: calc(12px * var(--echelle-texte)); color: #6b7280; margin: 3px 0 8px; }
   .reporting-vide { color: #9ca3af; font-size: calc(12px * var(--echelle-texte)); padding: 6px 2px; }
   .reporting-groupe { border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 8px; overflow: hidden; background: #fff; }
-  /* Mouvements de la semaine (v0.162) */
+  /* Mouvements de la semaine (v0.163) */
   .reporting-mouvements { border: 2px solid #1a1a9c; border-radius: 8px; background: #f8f9ff; padding: 8px 12px 10px; margin-bottom: 8px; }
   .reporting-mouvements h2 { margin: 0; }
   .rk-bandeau { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
@@ -690,8 +690,8 @@
   .rk-fleche::after { content: ""; position: absolute; top: 50%; right: var(--rk-d); transform: translateY(-50%); border: 5px solid transparent; border-left: 8px solid currentColor; border-right: 0; opacity: .9; }
   .rk-retour::after { right: auto; left: var(--rk-g); border-left: 0; border-right: 8px solid currentColor; }
   .rk-fleche-date { position: absolute; top: 2px; left: var(--rk-g); right: var(--rk-d); text-align: center; font-size: calc(9px * var(--echelle-texte)); color: #4b5563; line-height: 1; }
-  .rida-separateur td { padding: 0; height: 0; border-top: 1px solid #dc2626; position: relative; }
-  .rida-separateur span { position: absolute; right: 6px; top: -8px; font-size: 9px; line-height: 1; color: #dc2626; background: #fff; padding: 0 4px; }
+  .rida-separateur td { padding: 0; height: 12px; border: 0 !important; background: linear-gradient(#dc2626, #dc2626) center / 100% 1px no-repeat; position: relative; }
+  .rida-separateur span { position: absolute; right: 8px; top: 1px; font-size: 9px; line-height: 10px; color: #dc2626; background: #fff; padding: 0 5px; }
   .rida-verrouillee td { background: #f3f4f6; color: #4b5563; }
   .rida-description-verrou { font-style: italic; }
   .reporting-groupe-entete { background: #f3f4f6; padding: 5px 10px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: calc(13px * var(--echelle-texte)); }
@@ -875,7 +875,7 @@
     border-radius: 8px;
   }
 
-  /* Barres de défilement toujours visibles et grisées (v0.162) — sans elles, les barres « overlay » (macOS, navigateurs
+  /* Barres de défilement toujours visibles et grisées (v0.163) — sans elles, les barres « overlay » (macOS, navigateurs
      récents) restent invisibles tant qu'on ne défile pas et on ne voit pas que le tableau déborde. */
   .conteneur-liste, .conteneur-tableau-actions, .conteneur-tableau-contacts, .msg-tableau-conteneur { scrollbar-gutter: auto; }
   .conteneur-liste::-webkit-scrollbar, .conteneur-tableau-actions::-webkit-scrollbar, .conteneur-tableau-contacts::-webkit-scrollbar, .msg-tableau-conteneur::-webkit-scrollbar { width: 14px; height: 14px; }
@@ -1490,11 +1490,18 @@
   .msg-fiche-table tbody tr:hover td { background: #f3e8ff; }
   .msg-fiche-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .btn-fiche-msg-delier { border: 0; background: transparent; color: #c8472b; cursor: pointer; font-size: 1em; }
-  .tableau-rida-editable tr.rida-message td { background: #f6f0fc; color: #4a3a63; cursor: pointer; font-size: 0.92em; vertical-align: middle; padding: 4px 6px; }
-  .tableau-rida-editable tr.rida-message:hover td { background: #ecdff9; }
-  .rida-message-type { display: inline-block; padding: 0 8px; border-radius: 4px; background: #e3d3f4; color: #5b2a86; font-weight: 700; }
-  .rida-message-porteur { text-align: center; color: #8e44ad; }
-  .rida-message-desc { font-style: italic; }
+  .tableau-rida-editable tr.rida-message td { background: #faf6fd; color: #4a3a63; cursor: pointer; font-size: 0.92em; vertical-align: middle; padding: 4px 6px; border-bottom: 1px solid #efe6f7; }
+  .tableau-rida-editable tr.rida-message td:first-child { border-left: 3px solid #8e44ad; text-align: center; }
+  .tableau-rida-editable tr.rida-message-sortant td:first-child { border-left-color: #1c7a3d; }
+  .tableau-rida-editable tr.rida-message-entrant td:first-child { border-left-color: #26408b; }
+  .tableau-rida-editable tr.rida-message:hover td { background: #f0e4fa; }
+  .rida-message-type { display: inline-block; padding: 0 7px; border-radius: 10px; background: #e3d3f4; color: #5b2a86; font-weight: 700; }
+  .rida-message-porteur { text-align: center; }
+  .rida-message-sens { display: inline-block; padding: 0 6px; border-radius: 10px; font-size: 0.85em; white-space: nowrap; background: #e8edfb; color: #26408b; }
+  .rida-message-sortant .rida-message-sens { background: #e2f3e8; color: #1c7a3d; }
+  .rida-message-sujet { font-weight: 600; color: #2d2340; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .rida-message-meta { font-size: 0.85em; color: #7a6a90; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rida-message-lire { font-size: 0.85em; color: #8e44ad; text-align: center; white-space: nowrap; }
   .msg-sens-entrant { color: #26408b; }
   .msg-sens-sortant { color: #1c7a3d; }
   #table-messages td.msg-corbeille { text-align: center; cursor: pointer; width: 34px; padding: 0; opacity: 0.55; }
